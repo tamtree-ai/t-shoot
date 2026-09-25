@@ -1,0 +1,19 @@
+# Tamshoot's own Postgres. Port 5433: the Tamtree dev stack already holds 5432.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tamshoot
+      POSTGRES_PASSWORD: tamshoot
+      POSTGRES_DB: tamshoot
+    ports:
+      - "5433:5432"
+    volumes:
+      - tamshoot-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tamshoot"]
+      interval: 2s
+      retries: 20
+
+volumes:
+  tamshoot-pg:
