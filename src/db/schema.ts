@@ -219,3 +219,4 @@ export const mediaCache = pgTable("media_cache", {
 
 export type Project = typeof projects.$inferSelect;
 export type Scene = typeof scenes.$inferSelect;
+export type RunRecord = typeof runs.$inferSelect;
