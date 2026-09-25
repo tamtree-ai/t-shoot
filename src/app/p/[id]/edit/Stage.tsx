@@ -88,12 +88,12 @@ export function StageFacts({ scene, voiceName, globalT, total }: { scene: SceneV
   const take = scene.takes.find((t) => t.id === scene.chosenTakeId);
   return (
     <>
-      <div className="flex w-[170px] flex-col gap-3.5 justify-self-end">
+      <div className="flex w-[170px] flex-col gap-3.5 justify-self-end max-[1279px]:hidden">
         <Fact k="CLIP">{take ? <>Take {take.number}</> : "None yet"}</Fact>
         <Fact k="VOICE">{voiceName}{scene.narrationDurationS ? <> · <span className="num">{scene.narrationDurationS.toFixed(1)}s</span></> : null}</Fact>
         <Fact k="FORMAT">9:16 · 1080×1920 · 30 fps</Fact>
       </div>
-      <div className="flex w-[170px] flex-col gap-3.5 justify-self-start">
+      <div className="flex w-[170px] flex-col gap-3.5 justify-self-start max-[1279px]:hidden">
         <Fact k="PREVIEW">Free, and matches the export frame for frame</Fact>
         <Fact k="TIME"><span className="num">{clock(globalT)} <span className="text-fg-muted">/ {clock(total)}</span></span></Fact>
         <div className="flex items-center gap-1 text-[11px] text-fg-muted">

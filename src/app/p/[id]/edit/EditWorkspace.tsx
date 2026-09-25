@@ -132,8 +132,9 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
 
   return (
     <>
+      <div role="note" className="hidden shrink-0 items-center gap-2 border-b border-attention-line bg-attention-soft px-4 py-2 text-xs text-attention max-[1023px]:flex">Studio’s editor works best on a wider screen. Reviewing and exporting work anywhere.</div>
       <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
-        <div className="flex w-[440px] items-center gap-2.5">
+        <div className="flex w-[440px] items-center gap-2.5 max-[1279px]:w-auto">
           <span aria-hidden className="size-4 rounded bg-accent" />
           <span className="text-sm font-semibold tracking-tight">Studio</span>
           <span className="text-[#3a3a42]">/</span>
@@ -141,7 +142,7 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
           <span className="ml-1 flex items-center gap-1.5 text-xs text-fg-muted"><span className="size-1.5 rounded-full bg-ready" />{pending ? "Saving…" : "Saved"}</span>
         </div>
         <StepNav current="edit" reachable={["brief", "script", "edit", "review", "export"]} projectId={pid} />
-        <div className="flex w-[440px] items-center justify-end gap-2.5">
+        <div className="flex w-[440px] items-center justify-end gap-2.5 max-[1279px]:w-auto">
           <div title={`This video: ${usd(spent)} spent, about ${usd(onWay)} on the way, of a ${usd(limit)} limit`} className="flex h-[30px] items-center gap-2 rounded-lg border border-rule bg-raised px-3 text-xs">
             <span className="text-fg-muted">Spent</span>
             <span className="num font-medium">{usd(spent)}</span>
@@ -185,9 +186,9 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
             onAsk={() => setChange({})}
             onRaise={() => flash("Only the owner can raise the limit — that lives in project settings, coming later.")}
           />
-          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-7 px-7" style={{ background: "radial-gradient(circle at 50% 42%, #15151a 0%, #0a0a0c 70%)" }}>
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-7 px-7 max-[1279px]:grid-cols-[1fr] max-[1279px]:justify-items-center" style={{ background: "radial-gradient(circle at 50% 42%, #15151a 0%, #0a0a0c 70%)" }}>
             <StageFacts scene={scene} voiceName={voiceName} globalT={globalT} total={model.totalLengthS} />
-            <div className="order-2 col-start-2 row-start-1">
+            <div className="order-2 col-start-2 row-start-1 max-[1279px]:col-start-1">
               <PhonePreview scene={scene} localT={localT} playing={playing} progress={scene.lengthS ? localT / scene.lengthS : 0} onToggle={() => setPlaying((p) => !p)} onPrev={() => step(-1)} onNext={() => step(1)} />
             </div>
           </div>

@@ -35,7 +35,7 @@ export function Inspector(p: {
   const filming = scene.clip.word === "Filming" ? elapsed(scene.clip.startedAt) : null;
 
   return (
-    <aside aria-label={`Scene ${scene.position} details`} className="flex w-[352px] shrink-0 flex-col overflow-y-auto border-l border-rule bg-panel">
+    <aside aria-label={`Scene ${scene.position} details`} className="flex w-[352px] shrink-0 flex-col overflow-y-auto border-l border-rule bg-panel max-[1279px]:w-[300px]">
       <section className="flex flex-col gap-2.5 border-b border-rule px-4 py-3.5">
         <div className="flex items-center justify-between">
           <label htmlFor="hear" className={label}>What we hear</label>

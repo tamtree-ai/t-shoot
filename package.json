@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "tamtree:vendor": "bash scripts/vendor-tamtree-types.sh",
-    "worker": "tsx --conditions=react-server --env-file=.env.local src/worker/index.ts"
+    "worker": "tsx --conditions=react-server --env-file=.env.local src/worker/index.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.3",
@@ -28,6 +29,8 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",

@@ -13,7 +13,7 @@ export function Rail({ scene, model, onChooseTake, onNewTake, onPickVoice }: {
 }) {
   const heading = "text-[11px] font-semibold tracking-[0.08em] text-fg-muted uppercase";
   return (
-    <aside aria-label={`Assets for scene ${scene.position}`} className="flex w-[264px] shrink-0 flex-col border-r border-rule bg-panel">
+    <aside aria-label={`Assets for scene ${scene.position}`} className="flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-rule bg-panel max-[1279px]:w-[220px]">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-rule px-4">
         <span className={heading}>Scene assets</span>
         <span className="flex h-5 items-center rounded-full bg-accent-soft px-2 text-[11px] font-medium text-accent">Scene {scene.position} / {model.scenes.length}</span>
