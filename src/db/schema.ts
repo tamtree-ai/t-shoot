@@ -93,6 +93,13 @@ export const scenes = pgTable(
     phrases: jsonb("phrases").$type<{ text: string; start_s: number; end_s: number }[]>(),
     /** The words changed after the last narrate: blocks export (03 §2, 06 §4.1). */
     voiceOutOfDate: boolean("voice_out_of_date").notNull().default(false),
+    /**
+     * Set by the last "Ask for a script change" that touched this scene; cleared by
+     * Keep or Undo (03 §1.2, Script.dc.html's "Changed by your note" pill).
+     */
+    revisionNote: text("revision_note"),
+    previousNarration: text("previous_narration"),
+    previousVisualPrompt: text("previous_visual_prompt"),
     chosenTakeId: uuid("chosen_take_id"),
     /** Trim in seconds within the chosen clip; never below the narration (06 §4.2). */
     trimStartS: real("trim_start_s").notNull().default(0),
@@ -209,3 +216,6 @@ export const mediaCache = pgTable("media_cache", {
   sizeBytes: integer("size_bytes").notNull(),
   createdAt: createdAt(),
 });
+
+export type Project = typeof projects.$inferSelect;
+export type Scene = typeof scenes.$inferSelect;

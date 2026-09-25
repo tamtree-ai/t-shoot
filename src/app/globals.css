@@ -7,13 +7,22 @@
  */
 @theme {
   --color-canvas: #0a0a0c;
+  /* Script.dc.html's slightly lighter ground (its own screen, not a token typo). */
+  --color-canvas-script: #0e0e10;
   --color-panel: #111114;
+  --color-panel-2: #121215;
   --color-raised: #16161a;
   --color-raised-2: #18181c;
   --color-hover: #1b1b1f;
   --color-rule: #1f1f24;
+  --color-rule-2: #222227;
   --color-line: #2e2e34;
   --color-line-strong: #34343b;
+
+  /* The "changed by your note" pill and its row highlight (Script.dc.html). */
+  --color-changed-bg: #17130f;
+  --color-changed-pill-bg: #3a2219;
+  --color-changed-pill-fg: #ffd2c2;
 
   --color-fg: #ededef;
   --color-fg-2: #c9c9d0;

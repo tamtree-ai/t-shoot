@@ -1,6 +1,8 @@
+import Link from "next/link";
+
 /**
- * F0 app shell: the projects home in its empty state (03 §1.1 — one call to action).
- * The Brief screen behind "New short" is F1.
+ * The projects home in its empty state (03 §1.1 — one call to action). A project list
+ * for a returning org is F5 (03 §1's later steps); every org is single-project until then.
  */
 export default function Home() {
   return (
@@ -19,13 +21,12 @@ export default function Home() {
             Write what it&rsquo;s about, approve the script, and watch each scene arrive. You&rsquo;ll see
             what filming costs before anything is spent.
           </p>
-          <a
+          <Link
             href="/projects/new"
-            aria-disabled="true"
             className="flex h-11 items-center rounded-md bg-accent px-5 text-[15px] font-semibold text-accent-ink"
           >
             New short
-          </a>
+          </Link>
         </div>
       </main>
     </>
