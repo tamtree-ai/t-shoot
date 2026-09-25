@@ -12,8 +12,9 @@
 import { notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { DRIVE_RUN_QUEUE, enqueueDrive, getBoss } from "@/lib/queue";
+import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, getBoss } from "@/lib/queue";
 import { getTamtreeAdapter } from "@/lib/tamtree";
+import { applyRunResult } from "@/services/apply-result";
 import { driveRun } from "./drive-run";
 import { dbRunStore } from "./db-run-store";
 
@@ -23,6 +24,16 @@ async function main() {
 
   await boss.work<{ runId: string }>(DRIVE_RUN_QUEUE, { localConcurrency: 8 }, async ([job]) => {
     await driveRun(job.data.runId, { store: dbRunStore, adapter, signal: job.signal });
+    if (!job.signal.aborted) await applyRunResult(job.data.runId);
+  });
+
+  await boss.work<{ runId: string }>(CANCEL_RUN_QUEUE, async ([job]) => {
+    const row = await dbRunStore.get(job.data.runId);
+    if (!row || ["completed", "failed", "cancelled"].includes(row.status)) return;
+    // Not triggered yet: nothing exists in Tamtree to cancel, so just stop the row.
+    if (!row.tamtreeRunId) return dbRunStore.patch(row.id, { status: "cancelled" });
+    // The driver following the stream sees the terminal event and finalises the row.
+    await adapter.cancelRun(row.tamtreeRunId).catch(() => undefined);
   });
 
   const unfinished = await db

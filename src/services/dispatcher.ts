@@ -69,3 +69,12 @@ export async function requestRun<F extends StageFlow>(p: RequestRunParams<F>): P
   await enqueueDrive(runId);
   return { runId };
 }
+
+/** Checks a whole batch against the guard up front, so a project is never half-started. */
+export async function assertFits(projectId: string, totalUsd: string): Promise<void> {
+  const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, projectId));
+  if (!project) throw new Error(`Project ${projectId} not found.`);
+  const { spentUsd, inflightUsd } = await projectSpend(projectId);
+  const verdict = checkSpend({ estimateUsd: totalUsd, limitUsd: project.limitUsd, spentUsd, inflightUsd });
+  if (!verdict.ok) throw new SpendGuardError(verdict.reason, REFUSALS[verdict.reason]);
+}

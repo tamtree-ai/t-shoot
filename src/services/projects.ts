@@ -5,6 +5,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { Brief, type Brief as BriefT } from "@/lib/tamtree/stage-flows";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { startFilming } from "./filming";
 import { runAndRecordStage } from "./runs";
 
 export type NewBrief = BriefT & { limitUsd: string };
@@ -63,7 +64,9 @@ export async function getProjectWithScenes(projectId: string) {
   return { project, scenes };
 }
 
-export async function approveScript(projectId: string): Promise<void> {
+export async function approveScript(projectId: string, memberId: string): Promise<void> {
+  // Start filming first: if the spend guard refuses, the script stays unapproved.
+  await startFilming(projectId, memberId);
   await db
     .update(schema.projects)
     .set({ scriptApprovedAt: new Date(), step: "edit", updatedAt: new Date() })

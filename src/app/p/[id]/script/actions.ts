@@ -66,5 +66,6 @@ export async function reviseScriptAction(projectId: string, note: string): Promi
 }
 
 export async function approveScriptAction(projectId: string): Promise<ActionResult> {
-  return guarded(projectId, () => approveScript(projectId));
+  const member = await getCurrentMember();
+  return guarded(projectId, () => approveScript(projectId, member.memberId));
 }

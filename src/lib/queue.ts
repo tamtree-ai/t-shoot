@@ -7,6 +7,7 @@ import "server-only";
 import { PgBoss } from "pg-boss";
 
 export const DRIVE_RUN_QUEUE = "run.drive";
+export const CANCEL_RUN_QUEUE = "run.cancel";
 
 const g = globalThis as unknown as { __tamshootBoss?: Promise<PgBoss> };
 
@@ -18,6 +19,7 @@ export function getBoss(): Promise<PgBoss> {
     boss.on("error", (e) => console.error("[pg-boss]", e));
     await boss.start();
     await boss.createQueue(DRIVE_RUN_QUEUE);
+    await boss.createQueue(CANCEL_RUN_QUEUE);
     return boss;
   })();
   return g.__tamshootBoss;
@@ -27,4 +29,10 @@ export function getBoss(): Promise<PgBoss> {
 export async function enqueueDrive(runId: string): Promise<void> {
   const boss = await getBoss();
   await boss.send(DRIVE_RUN_QUEUE, { runId }, { singletonKey: runId, retryLimit: 5, retryDelay: 5, retryBackoff: true });
+}
+
+/** Cancel goes through the worker: it owns the adapter (and, on the mock, the runs). */
+export async function enqueueCancel(runId: string): Promise<void> {
+  const boss = await getBoss();
+  await boss.send(CANCEL_RUN_QUEUE, { runId }, { singletonKey: `cancel:${runId}` });
 }
