@@ -10,7 +10,7 @@ import { gradientFor, Spinner, usd } from "./shared";
 const CHIPS = ["Darker", "Slower", "Closer shot", "Shorter line", "Different wording"];
 
 /** "Ask for a change" (Direct.dc.html): a note → a priced plan → one confirmation. */
-export function ChangeDrawer({ projectId, scene, preset, onClose, onDone }: { projectId: string; scene: SceneVM; preset?: string; onClose: () => void; onDone: () => void }) {
+export function ChangeDrawer({ projectId, scene, preset, commentId, onClose, onDone }: { projectId: string; scene: SceneVM; preset?: string; commentId?: string; onClose: () => void; onDone: () => void }) {
   const [note, setNote] = useState(preset ?? "");
   const [plan, setPlan] = useState<ChangePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +28,7 @@ export function ChangeDrawer({ projectId, scene, preset, onClose, onDone }: { pr
   function work() {
     setError(null);
     startWork(async () => {
-      const r = await planChangeAction(projectId, scene.id, note);
+      const r = await planChangeAction(projectId, scene.id, note, commentId);
       if (r.ok) setPlan(r.data);
       else setError(r.error);
     });

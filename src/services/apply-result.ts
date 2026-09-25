@@ -6,10 +6,11 @@
  */
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { ClipOut, NarrateOut } from "@/lib/tamtree/stage-flows";
+import { ClipOut, NarrateOut, RenderOut } from "@/lib/tamtree/stage-flows";
+import { timelineDigest } from "@/lib/timeline";
 
 export async function applyRunResult(runId: string): Promise<void> {
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
@@ -39,5 +40,13 @@ export async function applyRunResult(runId: string): Promise<void> {
         .set({ chosenTakeId: run.takeId, updatedAt: new Date() })
         .where(eq(schema.scenes.id, run.sceneId));
     }
+  } else if (run.stage === "studio-render") {
+    const out = RenderOut.parse(run.output);
+    // Runs carry no version id; the timeline they were asked to render identifies it.
+    const digest = timelineDigest((run.input as { timeline: unknown }).timeline);
+    await db
+      .update(schema.projectVersions)
+      .set({ renderAssetId: out.asset_id, costUsd: run.costUsd })
+      .where(and(eq(schema.projectVersions.projectId, run.projectId), eq(schema.projectVersions.digest, digest)));
   }
 }

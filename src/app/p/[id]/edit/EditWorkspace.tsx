@@ -32,15 +32,15 @@ import { Timeline } from "./Timeline";
 
 type ActionResult = { ok: true } | { ok: false; error: string; guard?: string };
 
-export function EditWorkspace({ model }: { model: EditModel }) {
+export function EditWorkspace({ model, initialChange }: { model: EditModel; initialChange?: { sceneId: string; note: string; commentId: string } }) {
   const router = useRouter();
   const pid = model.project.id;
-  const [selectedId, setSelectedId] = useState(model.scenes[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(initialChange && model.scenes.some((s) => s.id === initialChange.sceneId) ? initialChange.sceneId : (model.scenes[0]?.id ?? ""));
   const [globalT, setGlobalT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
-  const [change, setChange] = useState<{ preset?: string } | null>(null);
+  const [change, setChange] = useState<{ preset?: string; commentId?: string } | null>(initialChange ? { preset: initialChange.note, commentId: initialChange.commentId } : null);
   const [activity, setActivity] = useState(false);
   const [trimError, setTrimError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -215,7 +215,7 @@ export function EditWorkspace({ model }: { model: EditModel }) {
       <Timeline model={model} selectedId={scene.id} globalT={globalT} onSelect={select} />
 
       {confirm && <ConfirmDialog confirm={confirm} busy={pending} error={confirmError} onClose={() => setConfirm(null)} />}
-      {change && <ChangeDrawer projectId={pid} scene={scene} preset={change.preset} onClose={() => setChange(null)} onDone={() => { setChange(null); router.refresh(); }} />}
+      {change && <ChangeDrawer projectId={pid} scene={scene} preset={change.preset} commentId={change.commentId} onClose={() => setChange(null)} onDone={() => { setChange(null); router.refresh(); }} />}
       {activity && <ActivityDrawer model={model} onClose={() => setActivity(false)} onSelect={select} />}
       {toast && <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-line bg-panel px-4 py-2.5 text-[13px] shadow-xl">{toast}</div>}
     </>

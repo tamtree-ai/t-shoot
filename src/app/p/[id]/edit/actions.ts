@@ -53,6 +53,6 @@ export const changeVoiceAction = (p: string, voice: string) => guarded(p, (m) =>
 export const cancelRunAction = (p: string, runId: string) => guarded(p, () => cancelRun(runId));
 
 // Ask for a change
-export const planChangeAction = (p: string, sceneId: string, note: string): Promise<Result<ChangePlan>> =>
-  guarded(p, (m) => planChange(sceneId, note.trim(), m));
+export const planChangeAction = (p: string, sceneId: string, note: string, commentId?: string): Promise<Result<ChangePlan>> =>
+  guarded(p, (m) => planChange(sceneId, note.trim(), m, commentId));
 export const confirmChangeAction = (p: string, changeId: string) => guarded(p, (m) => confirmChange(changeId, m));

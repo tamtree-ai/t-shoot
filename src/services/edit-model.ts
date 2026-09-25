@@ -9,6 +9,7 @@ import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { estimateNarrationSeconds } from "@/lib/narration";
+import { sceneLength } from "@/lib/timeline";
 import { failureNotice, studioState, type FailureNotice, type StudioState } from "@/lib/run-state";
 import type { StageFlow } from "@/lib/tamtree/stage-flows";
 import { estimateStageUsd, projectSpend } from "./ledger";
@@ -105,8 +106,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
     const chosen = takes.find((t) => t.id === scene.chosenTakeId);
     const narrationS = scene.narrationDurationS ?? estimateNarrationSeconds(scene.narration);
     const clipLen = chosen?.durationS ?? takes.at(-1)?.durationS ?? narrationS;
-    const end = scene.trimEndS ?? clipLen;
-    const lengthS = round1(Math.max(narrationS, end - scene.trimStartS));
+    const lengthS = sceneLength(scene, chosen?.durationS ?? takes.at(-1)?.durationS ?? null);
 
     let state: StudioState = { word: "Ready", dot: "green" };
     if (clip.failure) state = clip;
