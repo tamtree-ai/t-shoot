@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentMember } from "@/lib/auth";
 import { createProjectFromBrief, createStickSkitProject, type NewBrief, type NewStickBrief } from "@/services/projects";
+import { writeSkit } from "@/services/skit";
 
 export type CreateProjectResult = { ok: false; error: string };
 
@@ -23,7 +24,10 @@ export async function createProjectAction(input: NewBrief): Promise<CreateProjec
   redirect(`/p/${projectId}/script`);
 }
 
-/** A stick-skit brief: saved with its catalog pinned, no paid call; the skit is written next. */
+/**
+ * A stick-skit brief: saved with its catalog pinned, then the skit is written (`stick-script`,
+ * ~$0.01). A failed write still lands on the Script step, which offers to write it again.
+ */
 export async function createStickProjectAction(input: NewStickBrief): Promise<CreateProjectResult | void> {
   const member = await getCurrentMember();
   let projectId: string;
@@ -33,5 +37,6 @@ export async function createStickProjectAction(input: NewStickBrief): Promise<Cr
     const issues = (err as { issues?: { message: string }[] }).issues;
     return { ok: false, error: issues?.[0]?.message ?? (err instanceof Error ? err.message : "Something went wrong saving the brief.") };
   }
+  await writeSkit(projectId, member.memberId).catch(() => undefined);
   redirect(`/p/${projectId}/script`);
 }

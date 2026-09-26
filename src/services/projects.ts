@@ -66,7 +66,7 @@ export type NewStickBrief = StickBrief & { limitUsd: string };
 /**
  * A stick-skit brief (09 §6.2). Saves the project with the catalog pinned (so a later
  * StickStage release cannot break its draft) and makes no paid call: writing the skit
- * (`stick-script`) is the Script step's, after this.
+ * (`stick-script`, `services/skit.ts`) is a separate step, so a failed write keeps the brief.
  */
 export async function createStickSkitProject(memberId: string, orgId: string, input: NewStickBrief): Promise<string> {
   const brief = stickSkit.configSchema.parse(input);

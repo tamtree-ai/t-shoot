@@ -226,7 +226,7 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
           onClick={submit}
           className="flex h-[46px] items-center gap-2.5 rounded-[10px] bg-accent px-[22px] text-[15px] font-semibold text-accent-ink disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Write the skit"}
+          {pending ? "Writing the skit…" : "Write the skit"}
           <span className="font-mono text-xs font-medium">~${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
         </button>
         <span className="text-xs leading-relaxed text-fg-muted">

@@ -13,6 +13,7 @@ import {
   undoSceneChange,
   updateSceneText,
 } from "@/services/script";
+import { approveSkit, keepSkitRevision, reviseSkit, saveSkitBeats, undoSkitRevision, writeSkit } from "@/services/skit";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -68,4 +69,43 @@ export async function reviseScriptAction(projectId: string, note: string): Promi
 export async function approveScriptAction(projectId: string): Promise<ActionResult> {
   const member = await getCurrentMember();
   return guarded(projectId, () => approveScript(projectId, member.memberId));
+}
+
+// stick_skit (09 §6 steps 3–4) ─────────────────────────────────────────────────
+
+export async function writeSkitAction(projectId: string): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  return guarded(projectId, () => writeSkit(projectId, member.memberId));
+}
+
+/**
+ * Saves a beats edit. No revalidate: the browser already shows the re-checked skit, and a
+ * re-render mid-typing would reset the editor. Returns the server's own verdict.
+ */
+export async function saveSkitBeatsAction(projectId: string, beats: unknown): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
+  try {
+    const verdict = await saveSkitBeats(projectId, beats);
+    return { ok: true, errors: verdict.check.errors };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong saving the skit." };
+  }
+}
+
+export async function reviseSkitAction(projectId: string, note: string): Promise<ActionResult> {
+  if (!note.trim()) return { ok: false, error: "Say what to change." };
+  const member = await getCurrentMember();
+  return guarded(projectId, () => reviseSkit(projectId, note.trim(), member.memberId));
+}
+
+export async function keepSkitRevisionAction(projectId: string): Promise<ActionResult> {
+  return guarded(projectId, () => keepSkitRevision(projectId));
+}
+
+export async function undoSkitRevisionAction(projectId: string): Promise<ActionResult> {
+  return guarded(projectId, () => undoSkitRevision(projectId));
+}
+
+export async function approveSkitAction(projectId: string): Promise<ActionResult> {
+  const member = await getCurrentMember();
+  return guarded(projectId, () => approveSkit(projectId, member.memberId));
 }
