@@ -56,6 +56,7 @@ export const aiClips = {
     render: "studio-render",
   },
   draftSchema: AiClipsDraft,
+  versionSource: "snapshot",
   // No scene is known to be a reuse hit before filming, so every one is priced.
   estimate: (draft) => estimateFilming(draft.map(() => ({ reused: false }))),
 } as const satisfies ProductionType<Brief, AiClipsDraft, AiClipsDefaults, typeof CATALOG, FilmingEstimate>;

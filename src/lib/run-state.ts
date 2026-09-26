@@ -87,6 +87,13 @@ export function failureNotice(
         message: `This would take the video past its $${Number(limitUsd ?? 0).toFixed(2)} limit.`,
         action: "raise-limit",
       };
+    case "catalog_mismatch":
+      return {
+        message: "The characters and sets changed since this skit was written. Write it again to use the new ones.",
+        action: "ask-for-change",
+      };
+    case "invalid_skit":
+      return { message: `The video service refused this skit. Fix what the check found, then approve again.${charged}`, action: "ask-for-change" };
     default:
       return { message: `Something went wrong on our side.${charged}`, action: "try-again" };
   }

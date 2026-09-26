@@ -5,14 +5,16 @@
  */
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
-import { Skit, type StickScriptOut } from "@/lib/tamtree/stage-flows";
+import { Skit, type StickProduceIn, type StickScriptOut } from "@/lib/tamtree/stage-flows";
 import { timelineDigest } from "@/lib/timeline";
-import { stickSkit } from "@/types/stick-skit";
-import { canApprove, judgeSkit, withBeats, type SkitVerdict } from "@/types/stick-skit/draft";
+import { estimateProduce, stickSkit } from "@/types/stick-skit";
+import { characterName } from "@/types/stick-skit/catalog";
+import { canApprove, castOf, judgeSkit, withBeats, type SkitVerdict } from "@/types/stick-skit/draft";
+import { requestRun } from "./dispatcher";
 import { getProject } from "./projects";
 import { runAndRecordStage } from "./runs";
 import { getTypeDefaults } from "./type-settings";
@@ -163,8 +165,84 @@ export async function approvableSkit(projectId: string): Promise<{ draft: SkitDr
   return { draft, verdict };
 }
 
-/** "Approve and make the video". K3 stops at the gate; K4 starts `stick-produce` from here. */
-export async function approveSkit(projectId: string, _memberId: string): Promise<void> {
-  await approvableSkit(projectId);
-  throw new Error("The skit passes. Making the video isn't wired up yet.");
+/** What `stick-produce` is asked for: the approved skit, each character's voice, the pinned catalog. */
+export async function produceInput(projectId: string): Promise<{ input: StickProduceIn; verdict: SkitVerdict }> {
+  const { project, catalogVersion } = await stickProject(projectId);
+  const { draft, verdict } = await approvableSkit(projectId);
+  const skit = Skit.parse(draft.skit);
+  const { voice_map } = await getTypeDefaults(project.orgId, stickSkit.kind);
+  const voices: Record<string, string> = {};
+  for (const { character } of castOf(skit)) {
+    const voice = voice_map[character];
+    if (!voice) throw new Error(`Give ${characterName(character)} a voice in Settings first.`);
+    voices[character] = voice;
+  }
+  return { input: { catalog_version: catalogVersion, skit, voices }, verdict };
+}
+
+/** The idempotency digest of a produce request: the same skit, voices and catalog make one run. */
+export const produceDigest = (input: StickProduceIn) => timelineDigest(input);
+
+/**
+ * "Approve and make the video": one `stick-produce` run through the spend guard. Its key is
+ * `(skit, voices, catalog_version)` plus the failed attempts so far, so a double Approve
+ * collapses into one run and approving an unchanged skit again never re-renders it, while
+ * a failed run can still be tried again.
+ */
+export async function approveSkit(projectId: string, memberId: string): Promise<void> {
+  const { input, verdict } = await produceInput(projectId);
+  const digest = produceDigest(input);
+  const prefix = `stick-produce:${projectId}:${digest}:`;
+  const failed = await db
+    .select({ id: schema.runs.id })
+    .from(schema.runs)
+    .where(and(like(schema.runs.idempotencyKey, `${prefix}%`), eq(schema.runs.status, "failed")));
+
+  await requestRun({
+    projectId,
+    flow: stickSkit.flows.produce,
+    input,
+    estimateUsd: estimateProduce(verdict.lines.length).totalUsd.toFixed(6),
+    confirmedBy: memberId,
+    idempotencyKey: `${prefix}${failed.length}`,
+  });
+  await db.update(schema.projects).set({ scriptApprovedAt: new Date(), updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
+}
+
+export type ProduceState = {
+  runId: string;
+  status: string;
+  /** Whether this run was for the skit as it stands now. */
+  current: boolean;
+  error: { code: string; message: string } | null;
+  costUsd: string | null;
+  meteredSteps: number | null;
+  versionNumber: number | null;
+};
+
+/** The latest `stick-produce` run, for the script step's "Making the video" panel. */
+export async function getProduceState(projectId: string, draft: SkitDraft | null): Promise<ProduceState | null> {
+  const [run] = await db
+    .select()
+    .from(schema.runs)
+    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.flow, stickSkit.flows.produce)))
+    .orderBy(desc(schema.runs.createdAt))
+    .limit(1);
+  if (!run) return null;
+  const input = run.input as StickProduceIn;
+  const digest = produceDigest(input);
+  const [version] = await db
+    .select({ number: schema.projectVersions.number })
+    .from(schema.projectVersions)
+    .where(and(eq(schema.projectVersions.projectId, projectId), eq(schema.projectVersions.digest, digest)))
+    .limit(1);
+  return {
+    runId: run.id,
+    status: run.status,
+    current: !!draft && timelineDigest(input.skit) === draft.digest,
+    error: run.error,
+    costUsd: run.costUsd,
+    meteredSteps: run.meteredSteps,
+    versionNumber: version?.number ?? null,
+  };
 }

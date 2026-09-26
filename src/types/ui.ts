@@ -5,6 +5,8 @@
  */
 import type { ComponentType } from "react";
 
+import { AiClipsExport } from "@/app/p/[id]/export/AiClipsExport";
+import { StickSkitExport } from "@/app/p/[id]/export/StickSkitExport";
 import { AiClipsScript } from "@/app/p/[id]/script/AiClipsScript";
 import { StickSkitScript } from "@/app/p/[id]/script/StickSkitScript";
 import { BriefForm as AiClipsBriefForm } from "@/app/projects/new/BriefForm";
@@ -18,15 +20,20 @@ import type { ProductionKind } from "./types";
 export type ProductionTypeUi<K extends ProductionKind = ProductionKind> = {
   /** The Brief screen's form, preset and bounded by the org's defaults for this type. */
   BriefForm: ComponentType<{ defaults: TypeDefaults<K> }>;
-  /** The `script` step: the draft, its free edits and the human gate before paid work. */
-  DraftScreen: ComponentType<{ project: Project }>;
+  /**
+   * The `script` step: the draft, its free edits and the human gate before paid work.
+   * `changeFromComment` is a review comment the owner is turning into a change, if any.
+   */
+  DraftScreen: ComponentType<{ project: Project; changeFromComment?: string }>;
+  /** The `export` step: downloading versions. */
+  ExportScreen: ComponentType<{ project: Project }>;
   /** This type's section of Settings; read-only unless the viewer is the owner. */
   SettingsForm: ComponentType<{ defaults: TypeDefaults<K>; canEdit: boolean }>;
 };
 
 const UI: { [K in ProductionKind]: ProductionTypeUi<K> } = {
-  ai_clips: { BriefForm: AiClipsBriefForm, DraftScreen: AiClipsScript, SettingsForm: AiClipsSettings },
-  stick_skit: { BriefForm: StickBriefForm, DraftScreen: StickSkitScript, SettingsForm: StickSkitSettings },
+  ai_clips: { BriefForm: AiClipsBriefForm, DraftScreen: AiClipsScript, ExportScreen: AiClipsExport, SettingsForm: AiClipsSettings },
+  stick_skit: { BriefForm: StickBriefForm, DraftScreen: StickSkitScript, ExportScreen: StickSkitExport, SettingsForm: StickSkitSettings },
 };
 
 export function typeUi<K extends ProductionKind>(kind: K): ProductionTypeUi<K> {

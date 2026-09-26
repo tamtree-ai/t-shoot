@@ -3,10 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
+import Link from "next/link";
+
 import { SkitPreview } from "@/components/stick-skit/SkitPreview";
 import { stickCatalog } from "@/lib/stick/registry";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { failureNotice, studioState } from "@/lib/run-state";
+import { isTerminal } from "@/lib/tamtree/types";
 import type { Skit } from "@/lib/tamtree/stage-flows";
+import type { ProduceState } from "@/services/skit";
 import { estimateProduce } from "@/types/stick-skit";
 import { characterName } from "@/types/stick-skit/catalog";
 import { beatsOf, canApprove, castOf, editBeat, judgeSkit, type BeatPatch, type EditableBeat } from "@/types/stick-skit/draft";
@@ -44,6 +49,8 @@ export function SkitReview({
   limitUsd,
   catalogVersion,
   revisionNote,
+  produce,
+  initialNote,
 }: {
   projectId: string;
   topic: string;
@@ -51,12 +58,15 @@ export function SkitReview({
   limitUsd: string;
   catalogVersion: string;
   revisionNote: string | null;
+  produce: ProduceState | null;
+  /** A review comment being turned into a change (09 §6.6): it starts the Ask-for-a-change note. */
+  initialNote: string;
 }) {
   const router = useRouter();
   const [skit, setSkit] = useState(initial);
   const [save, setSave] = useState<SaveState>("saved");
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initialNote);
   const [busy, startBusy] = useTransition();
   const [approving, startApprove] = useTransition();
 
@@ -64,7 +74,8 @@ export function SkitReview({
   const beats = useMemo(() => beatsOf(skit), [skit]);
   const cast = castOf(skit);
   const estimate = estimateProduce(verdict.lines.length);
-  const approvable = canApprove(verdict);
+  const making = !!produce && !isTerminal(produce.status);
+  const approvable = canApprove(verdict) && !making;
   const findings = (verdict.check.findings as Finding[]).filter((f) => f.level === "error" || f.level === "warning");
 
   // Debounced save of the owner's edits. `latest` is what the next save sends.
@@ -114,7 +125,7 @@ export function SkitReview({
     startApprove(async () => {
       if (!(await flush())) return;
       const result = await approveSkitAction(projectId);
-      if (result.ok) router.push(`/p/${projectId}/review`);
+      if (result.ok) router.refresh();
       else setError(result.error);
     });
   }
@@ -177,6 +188,8 @@ export function SkitReview({
           )}
         </section>
 
+        {produce && <ProducePanel projectId={projectId} produce={produce} limitUsd={limitUsd} />}
+
         <div className="flex flex-col gap-4 rounded-[14px] border border-raised-2 bg-raised-2 p-5">
           <span className="text-[13px] text-fg-3">Making this video</span>
           <div className="flex items-baseline gap-3">
@@ -212,7 +225,9 @@ export function SkitReview({
             {approving ? "Starting…" : "Approve and make the video"}
             <span className="font-mono text-[13px] font-medium">~${estimate.totalUsd.toFixed(2)}</span>
           </button>
-          {approvable ? (
+          {making ? (
+            <span className="text-xs leading-relaxed text-fg-muted">The video is being made from the skit you approved.</span>
+          ) : approvable ? (
             <span className="text-xs leading-relaxed text-fg-muted">Nothing is spent until you approve.</span>
           ) : (
             <span id="approve-blocked" className="text-xs leading-relaxed text-attention">
@@ -255,6 +270,56 @@ export function SkitReview({
         )}
       </aside>
     </div>
+  );
+}
+
+const POLL_MS = 1500;
+
+/** The latest `stick-produce` run: live while it runs, then the version it made, or why it failed. */
+function ProducePanel({ projectId, produce, limitUsd }: { projectId: string; produce: ProduceState; limitUsd: string }) {
+  const router = useRouter();
+  const live = !isTerminal(produce.status);
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => router.refresh(), POLL_MS);
+    return () => clearInterval(id);
+  }, [live, router]);
+
+  const facts = { stage: "stick-produce" as const, status: produce.status, error: produce.error, costUsd: produce.costUsd, meteredSteps: produce.meteredSteps, hasOutput: produce.versionNumber !== null };
+  const state = studioState(facts);
+
+  if (produce.status === "failed") {
+    return (
+      <div role="alert" className="flex flex-col gap-1.5 rounded-[12px] border border-attention-line bg-attention-soft px-4 py-3 text-[13px]">
+        <span className="font-medium text-attention">The video wasn&rsquo;t made</span>
+        <span className="text-fg-2">{failureNotice(facts, limitUsd).message}</span>
+      </div>
+    );
+  }
+  if (produce.status === "completed" && produce.versionNumber !== null) {
+    return (
+      <div className="flex flex-col gap-2 rounded-[12px] border border-rule bg-panel px-4 py-3 text-[13px]">
+        <span className="flex items-center gap-2 font-medium">
+          <span className="size-1.5 rounded-full bg-ready" />
+          Version {produce.versionNumber} is ready
+        </span>
+        {!produce.current && <span className="text-fg-3">You&rsquo;ve changed the skit since. Approve again to make a new version.</span>}
+        <div className="flex gap-2">
+          <Link href={`/p/${projectId}/review`} className="flex h-8 items-center rounded-lg bg-hover px-3 font-medium">
+            Review and share
+          </Link>
+          <Link href={`/p/${projectId}/export`} className="flex h-8 items-center rounded-lg border border-line-strong px-3 font-medium">
+            Download
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <p role="status" aria-live="polite" className="flex items-center gap-2 rounded-[12px] border border-rule bg-panel px-4 py-3 text-[13px]">
+      <span className={`size-1.5 rounded-full ${state.dot === "accent" ? "animate-pulse bg-accent" : "bg-fg-muted"}`} />
+      {state.word === "Queued" ? "Waiting to start…" : "Voicing the lines and drawing the video…"}
+    </p>
   );
 }
 

@@ -63,6 +63,19 @@ export function stickBriefOutsideDefaults(brief: StickBrief, limitUsd: string, d
 const StickSkitDraft = z.object({ skit: Skit, lines: z.array(StickLine).min(1) });
 type StickSkitDraft = z.infer<typeof StickSkitDraft>;
 
+/** `project_versions.payload` for a made skit (09 §3). */
+export type StickVersionPayload = {
+  skit: Skit;
+  voices: Record<string, string>;
+  catalog_version: string;
+  /** Asset ids of the render's four files. */
+  render: { mp4: string; srt: string; txt: string; manifest: string };
+  duration_s: number;
+  /** SHA-256 of the MP4, as the flow reported it. */
+  mp4_digest: string;
+  reminder?: string;
+};
+
 export type StickEstimate = { lineCount: number; totalUsd: number; renderIncluded: true };
 
 /** Making the video: TTS per spoken line. The render is StickStage CPU, "render included". */
@@ -86,5 +99,6 @@ export const stickSkit = {
   catalogVersion: () => stickCatalog.version,
   flows: { script: "stick-script", produce: "stick-produce" },
   draftSchema: StickSkitDraft,
+  versionSource: "produce",
   estimate: (draft) => estimateProduce(draft.lines.length),
 } as const satisfies ProductionType<StickBrief, StickSkitDraft, StickSkitDefaults, typeof stickCatalog, StickEstimate>;

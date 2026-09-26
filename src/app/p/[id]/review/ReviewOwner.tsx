@@ -11,7 +11,20 @@ type Version = { id: string; number: number; createdAt: string; approvedBy: stri
 type LinkRow = { id: string; token: string; versionId: string };
 type Comment = { id: string; authorName: string; timecodeS: number; body: string; versionNumber: number; scenePosition: number | null; resolved: boolean };
 
-export function ReviewOwner({ projectId, versions, links, comments }: { projectId: string; versions: Version[]; links: LinkRow[]; comments: Comment[] }) {
+export function ReviewOwner({
+  projectId,
+  versions,
+  links,
+  comments,
+  changeStep = "edit",
+}: {
+  projectId: string;
+  versions: Version[];
+  links: LinkRow[];
+  comments: Comment[];
+  /** Where a comment becomes a change: the timeline (`edit`), or a revise of the skit (`script`). */
+  changeStep?: "edit" | "script";
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +75,7 @@ export function ReviewOwner({ projectId, versions, links, comments }: { projectI
             <li key={c.id} className="flex flex-col gap-2 rounded-xl border border-attention-line bg-attention-soft p-3.5">
               <div className="flex items-center gap-2 text-[13px]"><span className="font-medium">{c.authorName}</span><span className="num rounded bg-[#2a2414] px-2 py-0.5 text-[11px] text-attention">{clock(c.timecodeS)}</span>{c.scenePosition && <span className="text-xs text-fg-muted">scene {c.scenePosition}</span>}<span className="ml-auto text-xs text-fg-muted">v{c.versionNumber}</span></div>
               <p className="text-sm leading-normal text-fg">{c.body}</p>
-              <Link href={`/p/${projectId}/edit?change=${c.id}`} className="self-start rounded-lg border border-line-strong bg-[#222227] px-3 py-1.5 text-[13px] font-medium">Turn into a change</Link>
+              <Link href={`/p/${projectId}/${changeStep}?change=${c.id}`} className="self-start rounded-lg border border-line-strong bg-[#222227] px-3 py-1.5 text-[13px] font-medium">Turn into a change</Link>
             </li>
           ))}
         </ul>

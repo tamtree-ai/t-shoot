@@ -3,14 +3,14 @@
 import { revalidatePath } from "next/cache";
 
 import { getCurrentMember } from "@/lib/auth";
-import { createReviewLink, revokeReviewLink, snapshot } from "@/services/versions";
+import { createReviewLink, revokeReviewLink, versionToShare } from "@/services/versions";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
 
 export async function shareAction(projectId: string): Promise<Result<{ token: string }>> {
   try {
     await getCurrentMember();
-    const version = await snapshot(projectId);
+    const version = await versionToShare(projectId);
     const link = await createReviewLink(version.id);
     revalidatePath(`/p/${projectId}/review`);
     return { ok: true, data: { token: link.token } };

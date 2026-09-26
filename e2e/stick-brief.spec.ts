@@ -61,3 +61,28 @@ test("K3: Ask for a change rewrites the skit and can be undone", async ({ page }
   await expect(page.getByText("Changed by your note")).toBeHidden();
   await expect(lines.last()).toHaveValue(before);
 });
+
+test("K4: a double Approve makes one video, and it downloads without a re-render", async ({ page }) => {
+  await briefToSkit(page);
+  const approve = page.getByRole("button", { name: /approve and make the video/i });
+  // Two clicks before the first lands: the same (skit, voices, catalog) key collapses them.
+  await Promise.all([approve.click(), approve.click({ force: true }).catch(() => undefined)]);
+  await expect(page.getByText("Version 1 is ready")).toBeVisible({ timeout: 30_000 });
+
+  // Approving the unchanged skit again finds the same run: still one version.
+  await approve.click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("Version 1 is ready")).toBeVisible();
+
+  await page.getByRole("link", { name: "Download", exact: true }).click();
+  await expect(page).toHaveURL(/\/export$/);
+  const versions = page.getByRole("listitem").filter({ hasText: /^Version \d/ });
+  await expect(versions).toHaveCount(1);
+
+  const href = await page.getByRole("link", { name: "Download MP4" }).getAttribute("href");
+  const res = await page.request.get(href!);
+  expect(res.headers()["content-type"]).toBe("video/mp4");
+  expect((await res.body()).byteLength).toBeGreaterThan(10_000);
+  const srt = await page.request.get((await page.getByRole("link", { name: "Captions (.srt)" }).getAttribute("href"))!);
+  expect(await srt.text()).toMatch(/^1\n00:00:00,000 --> /);
+});

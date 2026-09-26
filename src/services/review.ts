@@ -9,6 +9,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import type { TimelineV1 } from "@/lib/timeline";
+import { versionMedia } from "@/types/versions";
 
 export type ReviewView = {
   linkId: string;
@@ -16,7 +17,11 @@ export type ReviewView = {
   projectTitle: string;
   sharedBy: string;
   versionNumber: number;
-  timeline: TimelineV1;
+  /** `ai_clips`: the timeline the player walks. Null for a rendered video (`stick_skit`). */
+  timeline: TimelineV1 | null;
+  /** A rendered video plays from `/r/<token>/video`. */
+  video: boolean;
+  durationS: number;
   approvedBy: string | null;
   comments: { id: string; authorName: string; timecodeS: number; body: string; createdAt: string }[];
 };
@@ -28,13 +33,16 @@ export async function getReview(token: string): Promise<ReviewView | null> {
   const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, version.projectId));
   const [owner] = project.createdBy ? await db.select().from(schema.members).where(eq(schema.members.id, project.createdBy)) : [];
   const comments = await db.select().from(schema.comments).where(eq(schema.comments.versionId, version.id)).orderBy(asc(schema.comments.createdAt));
+  const media = versionMedia(version);
   return {
     linkId: link.id,
     versionId: version.id,
     projectTitle: project.title,
     sharedBy: owner?.name ?? owner?.email.split("@")[0] ?? "the team",
     versionNumber: version.number,
-    timeline: version.payload as unknown as TimelineV1,
+    timeline: media.kind === "timeline" ? media.timeline : null,
+    video: media.kind === "video",
+    durationS: media.durationS,
     approvedBy: version.approvedBy,
     comments: comments.map((c) => ({ id: c.id, authorName: c.authorName, timecodeS: c.timecodeS, body: c.body, createdAt: c.createdAt.toISOString() })),
   };
@@ -52,7 +60,7 @@ export async function addComment(token: string, input: { authorName: string; tim
   const body = input.body.trim().slice(0, 2000);
   if (!name) throw new Error("Add your name so the team knows who wrote this.");
   if (!body) throw new Error("Write a comment first.");
-  const t = Math.min(Math.max(0, input.timecodeS), review.timeline.duration_s);
+  const t = Math.min(Math.max(0, input.timecodeS), review.durationS);
   await db.insert(schema.comments).values({ versionId: review.versionId, authorName: name, timecodeS: t, body });
 }
 
@@ -75,6 +83,26 @@ export async function projectComments(projectId: string) {
     .map((c) => ({
       ...c,
       versionNumber: versions.find((v) => v.id === c.versionId)!.number,
-      timeline: versions.find((v) => v.id === c.versionId)!.payload as unknown as TimelineV1,
+      media: versionMedia(versions.find((v) => v.id === c.versionId)!),
     }));
+}
+
+/** The rendered video a review link may play, and nothing else. */
+export async function reviewVideoAsset(token: string): Promise<string | null> {
+  const [link] = await db.select().from(schema.reviewLinks).where(and(eq(schema.reviewLinks.token, token), isNull(schema.reviewLinks.revokedAt)));
+  if (!link) return null;
+  const [version] = await db.select().from(schema.projectVersions).where(eq(schema.projectVersions.id, link.versionId));
+  const media = version && versionMedia(version);
+  return media?.kind === "video" ? media.mp4AssetId : null;
+}
+
+/** One comment on any of a project's versions (the owner turning it into a change). */
+export async function getProjectComment(projectId: string, commentId: string) {
+  const [row] = await db
+    .select({ authorName: schema.comments.authorName, body: schema.comments.body })
+    .from(schema.comments)
+    .innerJoin(schema.projectVersions, eq(schema.projectVersions.id, schema.comments.versionId))
+    .where(and(eq(schema.comments.id, commentId), eq(schema.projectVersions.projectId, projectId)))
+    .limit(1);
+  return row ?? null;
 }

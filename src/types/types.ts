@@ -50,6 +50,11 @@ export type ProductionType<Config, Draft, Defaults extends BaseDefaults, Catalog
   /** Registry stage key → Tamtree flow key. Flow keys never change once published. */
   flows: Readonly<Record<string, StageFlow>>;
   draftSchema: ZodType<Draft>;
+  /**
+   * Where a version comes from: a `snapshot` of the editable timeline, taken when it is shared
+   * or exported (`ai_clips`), or a `produce` run, which records one as it finishes (`stick_skit`).
+   */
+  versionSource: "snapshot" | "produce";
   /** The pre-flight price of making the draft, shown before the paid click. */
   estimate(draft: Draft, defaults: Defaults): Estimate;
 };
