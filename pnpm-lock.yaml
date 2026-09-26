@@ -46,7 +46,7 @@ importers:
         version: 0.0.1
       stickstage:
         specifier: file:vendor/stickstage-0.1.0.tgz
-        version: file:vendor/stickstage-0.1.0.tgz(@remotion/captions@4.0.529)(@remotion/noise@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@remotion/transitions@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(remotion@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(zod@4.6.5)
+        version: file:vendor/stickstage-0.1.0.tgz(@remotion/captions@4.0.529)(@remotion/transitions@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(remotion@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(zod@4.6.5)
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -2844,13 +2844,12 @@ packages:
     resolution: {integrity: sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==}
 
   stickstage@file:vendor/stickstage-0.1.0.tgz:
-    resolution: {integrity: sha512-iOX7+Otc4NzMI4ELzZem+DfQprg9YyKHNgUvyEt/0RTsItgd8aYRVR1mIomPlQkhBH7IjHp+RwfTnHxnMZreQQ==, tarball: file:vendor/stickstage-0.1.0.tgz}
+    resolution: {integrity: sha512-H8+ABbSj/lOkpJ/RMuVDHP7EflD1R/+9JL17WCP+SaO+ewpRMwa4jqJ8f+ZqsgS17XRL1jRlDT9lf94Q9xC27Q==, tarball: file:vendor/stickstage-0.1.0.tgz}
     version: 0.1.0
     engines: {node: '>=22'}
     peerDependencies:
       '@remotion/bundler': 4.0.529
       '@remotion/captions': 4.0.529
-      '@remotion/noise': 4.0.529
       '@remotion/renderer': 4.0.529
       '@remotion/transitions': 4.0.529
       react: '>=18.0.0'
@@ -5725,13 +5724,13 @@ snapshots:
 
   std-env@4.2.0: {}
 
-  stickstage@file:vendor/stickstage-0.1.0.tgz(@remotion/captions@4.0.529)(@remotion/noise@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@remotion/transitions@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(remotion@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(zod@4.6.5):
+  stickstage@file:vendor/stickstage-0.1.0.tgz(@remotion/captions@4.0.529)(@remotion/transitions@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(remotion@4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(zod@4.6.5):
     dependencies:
       '@remotion/captions': 4.0.529
-      '@remotion/noise': 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@remotion/transitions': 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       remotion: 4.0.529(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      simplex-noise: 4.0.1
       zod: 4.6.5
 
   stop-iteration-iterator@1.1.0:
