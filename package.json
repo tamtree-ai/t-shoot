@@ -16,16 +16,23 @@
     "db:seed": "tsx scripts/seed.ts",
     "tamtree:vendor": "bash scripts/vendor-tamtree-types.sh",
     "worker": "tsx --conditions=react-server --env-file=.env.local src/worker/index.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "stickstage:vendor": "bash scripts/vendor-stickstage.sh"
   },
   "dependencies": {
+    "@remotion/captions": "4.0.529",
+    "@remotion/noise": "4.0.529",
+    "@remotion/player": "4.0.529",
+    "@remotion/transitions": "4.0.529",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
     "pg": "^8.23.0",
     "pg-boss": "^12.34.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "remotion": "4.0.529",
     "server-only": "^0.0.1",
+    "stickstage": "file:vendor/stickstage-0.1.0.tgz",
     "zod": "^4.6.5"
   },
   "devDependencies": {
