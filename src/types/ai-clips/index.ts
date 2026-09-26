@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { estimateFilming, type FilmingEstimate } from "@/lib/estimate";
 import { Beat, Brief } from "@/lib/tamtree/stage-flows";
-import type { ProductionType } from "../types";
+import { spendCap, type ProductionType } from "../types";
 import { BRIEF_LENGTHS, BRIEF_LOOKS, BRIEF_TONES, BRIEF_VOICES } from "./catalog";
 
 const VOICE_IDS = BRIEF_VOICES.map((v) => v.id) as [string, ...string[]];
@@ -22,11 +22,7 @@ export const AiClipsDefaults = z.object({
   default_voice: z.enum(VOICE_IDS).default(VOICE_IDS[0]),
   default_look: z.enum(LOOK_IDS).default(LOOK_IDS[0]),
   max_length_s: z.union([z.literal(30), z.literal(45), z.literal(60)]).default(60),
-  limit_usd: z
-    .string()
-    .regex(/^\d{1,4}(\.\d{1,2})?$/, "A spend cap is dollars and cents, like 5.00.")
-    .refine((v) => Number(v) > 0, "A spend cap must be more than $0.")
-    .default("5.00"),
+  limit_usd: spendCap("5.00"),
 });
 export type AiClipsDefaults = z.infer<typeof AiClipsDefaults>;
 

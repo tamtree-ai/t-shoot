@@ -2,8 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 test("Brief → Script → filming → Edit → review → export, on the mock", async ({ page, browser }) => {
-  // Brief
+  // Type picker → Brief
   await page.goto("/projects/new");
+  await page.getByRole("link", { name: "AI clips" }).click();
   await page.getByLabel(/what.*about|topic/i).first().fill("Why an octopus has three hearts");
   await page.getByRole("button", { name: /write the script/i }).click();
 

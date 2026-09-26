@@ -11,12 +11,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * New project: pick a type (09 §6.1), then its Brief (03 §1.1, `Brief.dc.html`) — a single
- * column, one CTA, no paid call. With one type registered there is nothing to pick, so the
- * picker is skipped; it appears when `stick_skit` joins (K2).
+ * column, one CTA, no paid call.
  */
 export default async function NewProjectPage({ searchParams }: PageProps<"/projects/new">) {
   const { type } = await searchParams;
-  const kind = PRODUCTION_KINDS.find((k) => k === type) ?? (PRODUCTION_KINDS.length === 1 ? PRODUCTION_KINDS[0] : null);
+  const kind = PRODUCTION_KINDS.find((k) => k === type);
   if (!kind) return <TypePicker />;
 
   const member = await getCurrentMember();

@@ -4,10 +4,11 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import type { CurrentMember } from "@/lib/auth";
-import type { Brief } from "@/lib/tamtree/stage-flows";
+import type { Brief, StickBrief } from "@/lib/tamtree/stage-flows";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
 import { aiClips, briefOutsideDefaults } from "@/types/ai-clips";
 import { typeOf } from "@/types/registry";
+import { stickBriefOutsideDefaults, stickSkit } from "@/types/stick-skit";
 import { getTypeDefaults } from "./type-settings";
 import { startFilming } from "./filming";
 import { runAndRecordStage } from "./runs";
@@ -57,6 +58,34 @@ export async function createProjectFromBrief(memberId: string, orgId: string, in
     })),
   );
 
+  return project.id;
+}
+
+export type NewStickBrief = StickBrief & { limitUsd: string };
+
+/**
+ * A stick-skit brief (09 §6.2). Saves the project with the catalog pinned (so a later
+ * StickStage release cannot break its draft) and makes no paid call: writing the skit
+ * (`stick-script`) is the Script step's, after this.
+ */
+export async function createStickSkitProject(memberId: string, orgId: string, input: NewStickBrief): Promise<string> {
+  const brief = stickSkit.configSchema.parse(input);
+  const refusal = stickBriefOutsideDefaults(brief, input.limitUsd, await getTypeDefaults(orgId, stickSkit.kind));
+  if (refusal) throw new Error(refusal);
+
+  const [project] = await db
+    .insert(schema.projects)
+    .values({
+      orgId,
+      title: titleFromTopic(brief.topic),
+      kind: stickSkit.kind,
+      catalogVersion: stickSkit.catalogVersion(),
+      step: "script",
+      brief,
+      limitUsd: input.limitUsd,
+      createdBy: memberId,
+    })
+    .returning();
   return project.id;
 }
 

@@ -4,9 +4,10 @@
  * `if (kind === …)` outside `src/types/`.
  */
 import { aiClips } from "./ai-clips";
+import { stickSkit } from "./stick-skit";
 import type { ProductionKind } from "./types";
 
-const REGISTRY = { ai_clips: aiClips } as const satisfies Record<ProductionKind, unknown>;
+const REGISTRY = { ai_clips: aiClips, stick_skit: stickSkit } as const satisfies Record<ProductionKind, unknown>;
 
 export type Registry = typeof REGISTRY;
 

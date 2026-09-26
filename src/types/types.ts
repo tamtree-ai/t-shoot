@@ -8,12 +8,12 @@
  * nothing here may pull in React components or server actions. The UI half of a type
  * lives in `src/types/ui.ts`.
  */
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 
 import type { StageFlow } from "@/lib/tamtree/stage-flows";
 
-/** Every type's kind. `stick_skit` joins in K2. */
-export const PRODUCTION_KINDS = ["ai_clips"] as const;
+/** Every type's kind; the order is the type picker's. */
+export const PRODUCTION_KINDS = ["ai_clips", "stick_skit"] as const;
 export type ProductionKind = (typeof PRODUCTION_KINDS)[number];
 
 /** The five project steps; a type uses a subset, in this order. */
@@ -25,6 +25,14 @@ export type ProjectStep = (typeof PROJECT_STEPS)[number];
  * limit may never be set above its type's `limit_usd` (a decimal string, like "5.00").
  */
 export type BaseDefaults = { limit_usd: string };
+
+/** A type's `limit_usd`: dollars and cents, above zero. */
+export const spendCap = (fallback: string) =>
+  z
+    .string()
+    .regex(/^\d{1,4}(\.\d{1,2})?$/, "A spend cap is dollars and cents, like 5.00.")
+    .refine((v) => Number(v) > 0, "A spend cap must be more than $0.")
+    .default(fallback);
 
 export type ProductionType<Config, Draft, Defaults extends BaseDefaults, Catalog, Estimate> = {
   kind: ProductionKind;

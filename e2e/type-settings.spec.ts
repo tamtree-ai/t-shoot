@@ -32,7 +32,7 @@ test("workspace defaults preset and bound a new AI clips brief", async ({ page }
   try {
     await writeSettings(page, { voice: "kore", look: before.look, length: "30s", cap: "3.00" });
 
-    await page.goto("/projects/new");
+    await page.goto("/projects/new?type=ai_clips");
     const lengths = page.getByRole("group", { name: "Length" }).getByRole("button");
     await expect(lengths).toHaveCount(1);
     await expect(lengths).toHaveText("30s");

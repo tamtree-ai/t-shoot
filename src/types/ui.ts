@@ -6,8 +6,11 @@
 import type { ComponentType } from "react";
 
 import { AiClipsScript } from "@/app/p/[id]/script/AiClipsScript";
+import { StickSkitScript } from "@/app/p/[id]/script/StickSkitScript";
 import { BriefForm as AiClipsBriefForm } from "@/app/projects/new/BriefForm";
+import { StickBriefForm } from "@/app/projects/new/StickBriefForm";
 import { AiClipsSettings } from "@/app/settings/AiClipsSettings";
+import { StickSkitSettings } from "@/app/settings/StickSkitSettings";
 import type { Project } from "@/db/schema";
 import { kindOf, type TypeDefaults } from "./registry";
 import type { ProductionKind } from "./types";
@@ -23,6 +26,7 @@ export type ProductionTypeUi<K extends ProductionKind = ProductionKind> = {
 
 const UI: { [K in ProductionKind]: ProductionTypeUi<K> } = {
   ai_clips: { BriefForm: AiClipsBriefForm, DraftScreen: AiClipsScript, SettingsForm: AiClipsSettings },
+  stick_skit: { BriefForm: StickBriefForm, DraftScreen: StickSkitScript, SettingsForm: StickSkitSettings },
 };
 
 export function typeUi<K extends ProductionKind>(kind: K): ProductionTypeUi<K> {
