@@ -1,0 +1,245 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "title": "Left on read",
+    "description": "Every group chat has rules nobody wrote down.",
+    "hashtags": [
+      "stickfigure",
+      "relatable",
+      "groupchat"
+    ]
+  },
+  "set": "living-1",
+  "cast": [
+    {
+      "id": "milo",
+      "character": "milo",
+      "mark": "left"
+    },
+    {
+      "id": "june",
+      "character": "june",
+      "mark": "right"
+    }
+  ],
+  "overlay": {
+    "pov": "POV: you asked the group chat a question",
+    "subtitles": true
+  },
+  "beats": [
+    {
+      "id": "l1",
+      "speaker": "milo",
+      "line": "Why did nobody answer my message in the group chat?",
+      "expression": "confused",
+      "actions": [
+        {
+          "who": "milo",
+          "do": "hold",
+          "prop": "phone"
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "speaker": "june",
+      "line": "We saw it.",
+      "expression": "deadpan",
+      "actions": [],
+      "holdAfterMs": 300
+    },
+    {
+      "id": "l3",
+      "speaker": "milo",
+      "line": "All six of you saw it?",
+      "expression": "confused",
+      "actions": [
+        {
+          "who": "milo",
+          "do": "pose",
+          "pose": "point",
+          "at": {
+            "word": "six"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l4",
+      "speaker": "june",
+      "line": "Seven. Your mom's in there now.",
+      "expression": "deadpan",
+      "actions": [
+        {
+          "who": "june",
+          "do": "pose",
+          "pose": "arms-crossed",
+          "at": {
+            "word": "Seven"
+          }
+        }
+      ],
+      "delivery": "flat",
+      "pauseBeforeMs": 400,
+      "holdAfterMs": 200
+    },
+    {
+      "id": "r1",
+      "silent": true,
+      "durationMs": 1100,
+      "actions": [
+        {
+          "who": "milo",
+          "do": "expression",
+          "expression": "cringe",
+          "at": {
+            "ms": 0
+          }
+        },
+        {
+          "who": "milo",
+          "do": "symbol",
+          "symbol": "sweat",
+          "at": {
+            "ms": 80
+          }
+        }
+      ],
+      "sfx": [
+        {
+          "id": "record-scratch",
+          "at": {
+            "ms": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "l5",
+      "speaker": "milo",
+      "line": "Then why did nobody say anything?",
+      "expression": "sad",
+      "actions": [
+        {
+          "who": "milo",
+          "do": "pose",
+          "pose": "slump",
+          "at": {
+            "word": "anything"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l6",
+      "speaker": "june",
+      "line": "Someone reacted with a thumbs up.",
+      "expression": "neutral",
+      "actions": [],
+      "pauseBeforeMs": 300
+    },
+    {
+      "id": "l7",
+      "speaker": "milo",
+      "line": "I asked if anyone could help me move.",
+      "expression": "annoyed",
+      "actions": [
+        {
+          "who": "milo",
+          "do": "pose",
+          "pose": "facepalm",
+          "at": {
+            "word": "move"
+          }
+        }
+      ],
+      "holdAfterMs": 300
+    },
+    {
+      "id": "l8",
+      "speaker": "june",
+      "line": "Exactly. The thumbs up means good luck.",
+      "expression": "smug",
+      "actions": [
+        {
+          "who": "june",
+          "do": "pose",
+          "pose": "hands-on-hips",
+          "at": {
+            "word": "luck"
+          }
+        }
+      ],
+      "holdAfterMs": 400
+    },
+    {
+      "id": "l9",
+      "speaker": "milo",
+      "line": "Good luck is not help!",
+      "expression": "angry",
+      "actions": [
+        {
+          "who": "milo",
+          "do": "pose",
+          "pose": "arms-up",
+          "at": {
+            "word": "help"
+          }
+        }
+      ]
+    },
+    {
+      "id": "l10",
+      "speaker": "june",
+      "line": "It was a very supportive thumbs up.",
+      "expression": "deadpan",
+      "actions": [
+        {
+          "who": "june",
+          "do": "pose",
+          "pose": "arms-crossed",
+          "at": {
+            "word": "supportive"
+          }
+        }
+      ],
+      "pauseBeforeMs": 300,
+      "holdAfterMs": 300
+    },
+    {
+      "id": "l11",
+      "speaker": "milo",
+      "line": "Who even sent the thumbs up?",
+      "expression": "confused",
+      "actions": []
+    },
+    {
+      "id": "l12",
+      "speaker": "june",
+      "line": "Your mom.",
+      "expression": "deadpan",
+      "actions": [],
+      "punchline": true,
+      "pauseBeforeMs": 700,
+      "holdAfterMs": 500,
+      "text": [
+        {
+          "type": "slam",
+          "value": "MOM.",
+          "at": {
+            "word": "mom",
+            "occurrence": 1
+          }
+        }
+      ],
+      "sfx": [
+        {
+          "id": "boom",
+          "at": {
+            "word": "mom"
+          }
+        }
+      ]
+    }
+  ]
+}
