@@ -25,7 +25,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
       <ProjectBar projectId={id} title={project.title} current="review" />
       <ReviewOwner
         projectId={id}
-        versions={versions.map((v) => ({ id: v.id, number: v.number, createdAt: v.createdAt.toISOString(), approvedBy: v.approvedBy, durationS: (v.timeline as { duration_s?: number }).duration_s ?? 0 }))}
+        versions={versions.map((v) => ({ id: v.id, number: v.number, createdAt: v.createdAt.toISOString(), approvedBy: v.approvedBy, durationS: (v.payload as { duration_s?: number }).duration_s ?? 0 }))}
         links={links.map((l) => ({ id: l.id, token: l.token, versionId: l.versionId }))}
         comments={comments.map((c) => ({
           id: c.id,

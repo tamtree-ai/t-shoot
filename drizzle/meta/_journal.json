@@ -15,6 +15,20 @@
       "when": 1790331765943,
       "tag": "0001_yielding_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790427409604,
+      "tag": "0002_production_types_expand",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790427433095,
+      "tag": "0003_production_types_contract",
+      "breakpoints": true
     }
   ]
 }

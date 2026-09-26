@@ -13,7 +13,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
 import type { ClipIn, NarrateIn } from "@/lib/tamtree/stage-flows";
-import { aiClips } from "@/types/ai-clips";
+import { aiClips, aiClipsVoice } from "@/types/ai-clips";
 import { assertFits, requestRun } from "./dispatcher";
 import { estimateStageUsd } from "./ledger";
 
@@ -39,7 +39,7 @@ async function attemptsFor(sceneId: string, stage: typeof aiClips.flows.clip | t
   const rows = await db
     .select({ id: schema.runs.id })
     .from(schema.runs)
-    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.stage, stage)));
+    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.flow, stage)));
   return rows.length;
 }
 
@@ -50,7 +50,7 @@ export async function requestNarration(project: ProjectRow, scene: SceneRow, voi
   return requestRun({
     projectId: project.id,
     sceneId: scene.id,
-    stage: aiClips.flows.narrate,
+    flow: aiClips.flows.narrate,
     input,
     estimateUsd,
     confirmedBy: memberId,
@@ -74,7 +74,7 @@ export async function requestClip(
     projectId: project.id,
     sceneId: scene.id,
     takeId: take.id,
-    stage: aiClips.flows.clip,
+    flow: aiClips.flows.clip,
     input,
     estimateUsd,
     confirmedBy: memberId,
@@ -108,7 +108,7 @@ export async function startFilming(projectId: string, memberId: string): Promise
         where: and(eq(schema.takes.sceneId, scene.id), eq(schema.takes.number, FIRST_TAKE)),
       }))!;
     // Approve twice → the same keys → the same runs (attempt 0 replays).
-    await requestNarration(project, scene, project.voice, memberId, narrateUsd, 0);
+    await requestNarration(project, scene, aiClipsVoice(project), memberId, narrateUsd, 0);
     await requestClip(project, scene, takeRow, seconds, memberId, clipUsd, 0);
     runs += 2;
   }

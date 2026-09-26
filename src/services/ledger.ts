@@ -41,7 +41,7 @@ export async function estimateStageUsd(stage: StageFlow): Promise<string> {
   const rows = await db
     .select({ cost: schema.runs.costUsd })
     .from(schema.runs)
-    .where(and(eq(schema.runs.stage, stage), eq(schema.runs.status, "completed"), gt(schema.runs.costUsd, "0")))
+    .where(and(eq(schema.runs.flow, stage), eq(schema.runs.status, "completed"), gt(schema.runs.costUsd, "0")))
     .orderBy(desc(schema.runs.createdAt))
     .limit(HISTORY);
   if (rows.length === 0) return FALLBACK_USD[stage].toFixed(6);

@@ -48,7 +48,7 @@ export async function driveRun(
 
   // 1. Trigger. The key was persisted with the row, so replaying it returns the same run.
   if (!row.tamtreeRunId) {
-    const { run } = await adapter.triggerRun(row.stage, row.input as StageInput[typeof row.stage], {
+    const { run } = await adapter.triggerRun(row.flow, row.input as StageInput[typeof row.flow], {
       idempotencyKey: row.idempotencyKey,
       metadata: { tamshoot_run_id: row.id, project_id: row.projectId },
     });
@@ -110,7 +110,7 @@ async function finalise(
     unpricedSteps: run.unpriced_steps,
   };
   if (run.status === "completed") {
-    const output = readStageOutput(row.stage, await adapter.getRunOutput(tamtreeRunId));
+    const output = readStageOutput(row.flow, await adapter.getRunOutput(tamtreeRunId));
     await store.patch(row.id, { ...base, output: output as Record<string, unknown>, error: null });
   } else if (isTerminal(run.status)) {
     const e = run.error as { code?: unknown; message?: unknown } | null;
@@ -118,7 +118,7 @@ async function finalise(
       ...base,
       error: {
         code: typeof e?.code === "string" ? e.code : "unknown",
-        message: typeof e?.message === "string" ? e.message : `${row.stage} ${run.status}.`,
+        message: typeof e?.message === "string" ? e.message : `${row.flow} ${run.status}.`,
       },
     });
   }

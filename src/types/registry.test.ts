@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { estimateFilming } from "@/lib/estimate";
 import { STAGE_FLOWS } from "@/lib/tamtree/stage-flows";
-import { kindOf, productionType, typeOf } from "./registry";
+import { kindOf, productionType, stageOf, typeOf } from "./registry";
 
 describe("production-type registry", () => {
   it("treats a project with no kind as ai_clips (before migration 0002)", () => {
@@ -29,5 +29,11 @@ describe("production-type registry", () => {
     const brief = { topic: "Octopus hearts", length_s: 45, tone: "curious", look: "moody-macro", voice: "kore" };
     expect(productionType("ai_clips").configSchema.parse(brief)).toEqual(brief);
     expect(() => productionType("ai_clips").configSchema.parse({ ...brief, length_s: 50 })).toThrow();
+  });
+
+  it("files a run under its type's stage key and refuses a foreign flow", () => {
+    expect(stageOf({ kind: "ai_clips" }, "studio-clip")).toBe("clip");
+    expect(stageOf({}, "studio-script")).toBe("script");
+    expect(() => stageOf({ kind: "ai_clips" }, "stick-produce")).toThrow(/not a stage flow/);
   });
 });

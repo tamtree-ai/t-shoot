@@ -10,6 +10,7 @@ import { and, asc, desc, eq, isNull, max } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { buildTimeline, sceneLength, timelineDigest, type TimelineV1 } from "@/lib/timeline";
+import { aiClips } from "@/types/ai-clips";
 
 export async function currentTimeline(projectId: string): Promise<TimelineV1> {
   const scenes = await db
@@ -45,7 +46,7 @@ export async function snapshot(projectId: string) {
   const [{ n }] = await db.select({ n: max(schema.projectVersions.number) }).from(schema.projectVersions).where(eq(schema.projectVersions.projectId, projectId));
   const [row] = await db
     .insert(schema.projectVersions)
-    .values({ projectId, number: (n ?? 0) + 1, timeline: timeline as unknown as Record<string, unknown>, digest })
+    .values({ projectId, kind: aiClips.kind, number: (n ?? 0) + 1, payload: timeline as unknown as Record<string, unknown>, digest })
     .returning();
   return row;
 }

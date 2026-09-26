@@ -12,7 +12,7 @@ import { estimateNarrationSeconds } from "@/lib/narration";
 import { sceneLength } from "@/lib/timeline";
 import { failureNotice, studioState, type FailureNotice, type StudioState } from "@/lib/run-state";
 import type { StageFlow } from "@/lib/tamtree/stage-flows";
-import { aiClips } from "@/types/ai-clips";
+import { aiClips, aiClipsVoice } from "@/types/ai-clips";
 import { estimateStageUsd, projectSpend } from "./ledger";
 
 export type TakeVM = { id: string; number: number; prompt: string; durationS: number | null; ready: boolean };
@@ -79,7 +79,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
   const vms: SceneVM[] = scenes.map((scene) => {
     const takes = allTakes.filter((t) => t.sceneId === scene.id);
     const sceneRuns = runs.filter((r) => r.sceneId === scene.id);
-    const latest = (stage: StageFlow) => sceneRuns.find((r) => r.stage === stage);
+    const latest = (stage: StageFlow) => sceneRuns.find((r) => r.flow === stage);
 
     const facts = (r: (typeof runs)[number] | undefined, stage: StageFlow): StudioState & { failure?: FailureNotice; runId?: string; reused?: boolean; startedAt?: string } => {
       if (!r) return { word: "Not started", dot: "grey" };
@@ -144,10 +144,10 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
         id: r.id,
         runId: r.id,
         tamtreeRunId: r.tamtreeRunId,
-        stage: r.stage,
+        stage: r.flow,
         costUsd: r.costUsd,
         at: r.createdAt.toISOString(),
-        text: activityText(r.stage, r.status, r.input, r.output),
+        text: activityText(r.flow, r.status, r.input, r.output),
       })),
       busy: sceneRuns.some((r) => !TERMINAL.includes(r.status)),
     };
@@ -167,7 +167,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
     project: {
       id: project.id,
       title: project.title,
-      voice: project.voice,
+      voice: aiClipsVoice(project),
       limitUsd: project.limitUsd,
       step: project.step,
       scriptApproved: !!project.scriptApprovedAt,

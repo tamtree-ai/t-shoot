@@ -39,3 +39,8 @@ export const aiClips = {
   // No scene is known to be a reuse hit before filming, so every one is priced.
   estimate: (draft) => estimateFilming(draft.map(() => ({ reused: false }))),
 } as const satisfies ProductionType<Brief, AiClipsDraft, AiClipsDefaults, typeof CATALOG, FilmingEstimate>;
+
+/** The project's narration voice. It lives in the brief (migration 0003 dropped `projects.voice`). */
+export function aiClipsVoice(project: { brief: Record<string, unknown> }): string {
+  return String(project.brief.voice ?? "");
+}

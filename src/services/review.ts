@@ -34,7 +34,7 @@ export async function getReview(token: string): Promise<ReviewView | null> {
     projectTitle: project.title,
     sharedBy: owner?.name ?? owner?.email.split("@")[0] ?? "the team",
     versionNumber: version.number,
-    timeline: version.timeline as unknown as TimelineV1,
+    timeline: version.payload as unknown as TimelineV1,
     approvedBy: version.approvedBy,
     comments: comments.map((c) => ({ id: c.id, authorName: c.authorName, timecodeS: c.timecodeS, body: c.body, createdAt: c.createdAt.toISOString() })),
   };
@@ -75,6 +75,6 @@ export async function projectComments(projectId: string) {
     .map((c) => ({
       ...c,
       versionNumber: versions.find((v) => v.id === c.versionId)!.number,
-      timeline: versions.find((v) => v.id === c.versionId)!.timeline as unknown as TimelineV1,
+      timeline: versions.find((v) => v.id === c.versionId)!.payload as unknown as TimelineV1,
     }));
 }

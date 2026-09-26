@@ -6,8 +6,11 @@
  */
 import "server-only";
 
+import { eq } from "drizzle-orm";
+
 import { db, schema } from "@/db";
 import type { StageFlow, StageInput } from "@/lib/tamtree/stage-flows";
+import { stageOf } from "@/types/registry";
 import { runStageSync, type StageRunResult } from "./tamtree-run";
 
 export async function runAndRecordStage<F extends StageFlow>(params: {
@@ -18,11 +21,15 @@ export async function runAndRecordStage<F extends StageFlow>(params: {
   estimateUsd: string;
   confirmedBy: string;
 }): Promise<StageRunResult<F>> {
+  const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, params.projectId));
+  if (!project) throw new Error(`Project ${params.projectId} not found.`);
+  const stage = stageOf(project, params.flow);
   const result = await runStageSync(params.flow, params.input);
   await db.insert(schema.runs).values({
     projectId: params.projectId,
     sceneId: params.sceneId,
-    stage: params.flow,
+    flow: params.flow,
+    stage,
     tamtreeRunId: result.runId,
     idempotencyKey: result.idempotencyKey,
     status: "completed",

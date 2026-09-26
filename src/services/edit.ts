@@ -11,7 +11,7 @@ import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
 import { enqueueCancel } from "@/lib/queue";
-import { aiClips } from "@/types/ai-clips";
+import { aiClips, aiClipsVoice } from "@/types/ai-clips";
 import { assertFits } from "./dispatcher";
 import { clipSeconds, requestClip, requestNarration } from "./filming";
 import { estimateStageUsd } from "./ledger";
@@ -89,7 +89,7 @@ export async function rerecordVoice(sceneId: string, memberId: string): Promise<
   const { scene, project } = await sceneAndProject(sceneId);
   const usd = await estimateStageUsd(aiClips.flows.narrate);
   await assertFits(project.id, usd);
-  await requestNarration(project, scene, project.voice, memberId, usd);
+  await requestNarration(project, scene, aiClipsVoice(project), memberId, usd);
 }
 
 /** "Refilm" with new words for what we see, or "New take" with the same ones. */
@@ -116,7 +116,7 @@ export async function retryClip(sceneId: string, memberId: string): Promise<void
   const [last] = await db
     .select()
     .from(schema.runs)
-    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.stage, aiClips.flows.clip)))
+    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.flow, aiClips.flows.clip)))
     .orderBy(desc(schema.runs.createdAt))
     .limit(1);
   if (!last?.takeId) throw new Error("Nothing to try again.");
@@ -138,8 +138,8 @@ export async function changeVoice(projectId: string, voice: string, memberId: st
   const active = scenes.filter((s) => !s.droppedAt);
   const usd = await estimateStageUsd(aiClips.flows.narrate);
   await assertFits(projectId, fromMicros(active.length * toMicros(usd)));
-  const updated = { ...project, voice };
-  await db.update(schema.projects).set({ voice, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
+  const updated = { ...project, brief: { ...project.brief, voice } };
+  await db.update(schema.projects).set({ brief: updated.brief, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
   for (const scene of active) await requestNarration(updated, scene, voice, memberId, usd);
 }
 

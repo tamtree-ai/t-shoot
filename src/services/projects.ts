@@ -24,9 +24,10 @@ export async function createProjectFromBrief(memberId: string, orgId: string, in
     .values({
       orgId,
       title: titleFromTopic(brief.topic),
+      kind: aiClips.kind,
+      catalogVersion: aiClips.catalogVersion(),
       step: "script",
       brief,
-      voice: brief.voice,
       limitUsd: input.limitUsd,
       createdBy: memberId,
     })

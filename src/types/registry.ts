@@ -10,6 +10,9 @@ const REGISTRY = { ai_clips: aiClips } as const satisfies Record<ProductionKind,
 
 export type Registry = typeof REGISTRY;
 
+/** Every registry stage key across types (`script`, `clip`, …): what `runs.stage` holds. */
+export type StageKey = { [K in ProductionKind]: keyof Registry[K]["flows"] & string }[ProductionKind];
+
 export function productionType<K extends ProductionKind>(kind: K): Registry[K] {
   return REGISTRY[kind];
 }
@@ -26,4 +29,15 @@ export function kindOf(project: object): ProductionKind {
 
 export function typeOf(project: object) {
   return productionType(kindOf(project));
+}
+
+/**
+ * The registry stage key a project's type uses for `flow` — what `runs.stage` records.
+ * Refuses a flow the type does not own, so a run can never be filed under another type.
+ */
+export function stageOf(project: object, flow: string): StageKey {
+  const type = typeOf(project);
+  const hit = Object.entries(type.flows).find(([, f]) => f === flow);
+  if (!hit) throw new Error(`"${flow}" is not a stage flow of ${type.label}.`);
+  return hit[0] as StageKey;
 }

@@ -17,7 +17,7 @@ export async function applyRunResult(runId: string): Promise<void> {
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
   if (!run || run.status !== "completed" || !run.output) return;
 
-  if (run.stage === aiClips.flows.narrate && run.sceneId) {
+  if (run.flow === aiClips.flows.narrate && run.sceneId) {
     const out = NarrateOut.parse(run.output);
     await db
       .update(schema.scenes)
@@ -29,7 +29,7 @@ export async function applyRunResult(runId: string): Promise<void> {
         updatedAt: new Date(),
       })
       .where(eq(schema.scenes.id, run.sceneId));
-  } else if (run.stage === aiClips.flows.clip && run.takeId) {
+  } else if (run.flow === aiClips.flows.clip && run.takeId) {
     const out = ClipOut.parse(run.output);
     await db
       .update(schema.takes)
@@ -41,7 +41,7 @@ export async function applyRunResult(runId: string): Promise<void> {
         .set({ chosenTakeId: run.takeId, updatedAt: new Date() })
         .where(eq(schema.scenes.id, run.sceneId));
     }
-  } else if (run.stage === aiClips.flows.render) {
+  } else if (run.flow === aiClips.flows.render) {
     const out = RenderOut.parse(run.output);
     // Runs carry no version id; the timeline they were asked to render identifies it.
     const digest = timelineDigest((run.input as { timeline: unknown }).timeline);

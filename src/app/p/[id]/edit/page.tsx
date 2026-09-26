@@ -21,7 +21,7 @@ export default async function EditPage({ params, searchParams }: { params: Promi
     const [comment] = await db.select().from(schema.comments).where(eq(schema.comments.id, change));
     if (comment) {
       const [version] = await db.select().from(schema.projectVersions).where(eq(schema.projectVersions.id, comment.versionId));
-      const hit = version && version.projectId === id ? locate(version.timeline as never, comment.timecodeS) : null;
+      const hit = version && version.projectId === id ? locate(version.payload as never, comment.timecodeS) : null;
       if (hit && model.scenes.some((s) => s.id === hit.sceneId)) initialChange = { sceneId: hit.sceneId, note: comment.body, commentId: comment.id };
     }
   }

@@ -14,13 +14,14 @@ import { db, schema } from "@/db";
 import { checkSpend, SpendGuardError } from "@/lib/spend-guard";
 import type { StageFlow, StageInput } from "@/lib/tamtree/stage-flows";
 import { enqueueDrive } from "@/lib/queue";
+import { stageOf } from "@/types/registry";
 import { projectSpend } from "./ledger";
 
 export type RequestRunParams<F extends StageFlow> = {
   projectId: string;
   sceneId?: string;
   takeId?: string;
-  stage: F;
+  flow: F;
   input: StageInput[F];
   /** Decimal-string USD the user was shown before confirming. Required. */
   estimateUsd: string | null | undefined;
@@ -53,7 +54,8 @@ export async function requestRun<F extends StageFlow>(p: RequestRunParams<F>): P
       projectId: p.projectId,
       sceneId: p.sceneId,
       takeId: p.takeId,
-      stage: p.stage,
+      flow: p.flow,
+      stage: stageOf(project, p.flow),
       idempotencyKey: key,
       estimateUsd: p.estimateUsd!,
       input: p.input as Record<string, unknown>,

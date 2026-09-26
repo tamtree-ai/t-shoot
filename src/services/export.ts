@@ -24,11 +24,11 @@ export async function requestFinalRender(projectId: string, memberId: string): P
   const previous = await db
     .select({ id: schema.runs.id })
     .from(schema.runs)
-    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, aiClips.flows.render)));
+    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.flow, aiClips.flows.render)));
   await requestRun({
     projectId,
-    stage: aiClips.flows.render,
-    input: { timeline: version.timeline, mode: "final" },
+    flow: aiClips.flows.render,
+    input: { timeline: version.payload, mode: "final" },
     estimateUsd: "0.000000",
     confirmedBy: memberId,
     idempotencyKey: `render:${projectId}:${version.digest}:${previous.length}`,
@@ -44,7 +44,7 @@ export async function getExportModel(projectId: string) {
   const [render] = await db
     .select()
     .from(schema.runs)
-    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, aiClips.flows.render)))
+    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.flow, aiClips.flows.render)))
     .orderBy(desc(schema.runs.createdAt))
     .limit(1);
   const rendering = !!render && !["completed", "failed", "cancelled"].includes(render.status);
@@ -61,7 +61,7 @@ export async function getExportModel(projectId: string) {
       createdAt: v.createdAt.toISOString(),
       renderAssetId: v.renderAssetId,
       approvedBy: v.approvedBy,
-      durationS: (v.timeline as { duration_s?: number }).duration_s ?? 0,
+      durationS: (v.payload as { duration_s?: number }).duration_s ?? 0,
     })),
   };
 }

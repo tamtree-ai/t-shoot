@@ -13,12 +13,16 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+
+import type { StageFlow } from "@/lib/tamtree/stage-flows";
+import type { StageKey } from "@/types/registry";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -60,16 +64,21 @@ export const tamtreeConnections = pgTable("tamtree_connections", {
 });
 
 // ── the document ───────────────────────────────────────────────────────────
+/** A project's production type (08-adr-production-types); the registry is `src/types/`. */
+export const productionKind = pgEnum("production_kind", ["ai_clips", "stick_skit"]);
+
 export const projectStep = pgEnum("project_step", ["brief", "script", "edit", "review", "export"]);
 
 export const projects = pgTable("projects", {
   id: id(),
   orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
+  kind: productionKind("kind").notNull().default("ai_clips"),
+  /** The type's catalog version when the project was created; its brief and draft are read against it. */
+  catalogVersion: text("catalog_version"),
   step: projectStep("step").notNull().default("brief"),
-  /** Brief: topic/prompt, length, tone, voice, look (stage-flows Brief). */
+  /** The type's config (its `configSchema`); for `ai_clips`: topic, length, tone, voice, look. */
   brief: jsonb("brief").$type<Record<string, unknown>>().notNull(),
-  voice: text("voice").notNull(),
   limitUsd: usd("limit_usd").notNull().default("5"),
   scriptApprovedAt: timestamp("script_approved_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => members.id),
@@ -129,8 +138,6 @@ export const takes = pgTable(
 );
 
 // ── work references (Tamtree owns the work) ────────────────────────────────
-export const stage = pgEnum("stage", ["studio-script", "studio-narrate", "studio-clip", "studio-render"]);
-
 export const runs = pgTable(
   "runs",
   {
@@ -138,7 +145,10 @@ export const runs = pgTable(
     projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
     sceneId: uuid("scene_id").references(() => scenes.id, { onDelete: "set null" }),
     takeId: uuid("take_id").references(() => takes.id, { onDelete: "set null" }),
-    stage: stage("stage").notNull(),
+    /** The Tamtree flow key this run triggered (`studio-clip`, …): the driver's and the price history's key. */
+    flow: text("flow").$type<StageFlow>().notNull(),
+    /** The registry stage key (`clip`, `produce`, …). Validated by the registry, not the database. */
+    stage: text("stage").$type<StageKey>().notNull(),
     tamtreeRunId: text("tamtree_run_id").unique(),
     idempotencyKey: text("idempotency_key").notNull().unique(),
     /** Raw Tamtree status string; mapped for display by the state machine. */
@@ -178,7 +188,9 @@ export const projectVersions = pgTable(
     id: id(),
     projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
     number: integer("number").notNull(),
-    timeline: jsonb("timeline").$type<Record<string, unknown>>().notNull(),
+    kind: productionKind("kind").notNull().default("ai_clips"),
+    /** TimelineV1 for `ai_clips`; `{ skit, render: { mp4, srt, txt, manifest } }` for `stick_skit`. */
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
     digest: text("digest").notNull(),
     renderAssetId: text("render_asset_id"),
     costUsd: usd("cost_usd"),
@@ -215,6 +227,40 @@ export const mediaCache = pgTable("media_cache", {
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
   createdAt: createdAt(),
+});
+
+// ── production types ───────────────────────────────────────────────────────
+/** An org's defaults for one production type, validated by its `tenantDefaultsSchema`. */
+export const typeSettings = pgTable(
+  "type_settings",
+  {
+    orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
+    kind: productionKind("kind").notNull(),
+    settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+    updatedBy: uuid("updated_by").references(() => members.id),
+    updatedAt: updatedAt(),
+  },
+  (t) => [primaryKey({ columns: [t.orgId, t.kind] })],
+);
+
+export const skitSource = pgEnum("skit_source", ["llm", "edited"]);
+
+/** The `stick_skit` draft: one row per project, the document the human gate approves (09 §3). */
+export const skitDrafts = pgTable("skit_drafts", {
+  projectId: uuid("project_id").primaryKey().references(() => projects.id, { onDelete: "cascade" }),
+  skit: jsonb("skit").$type<Record<string, unknown>>().notNull(),
+  premise: jsonb("premise").$type<Record<string, unknown> | null>(),
+  lines: jsonb("lines").$type<Record<string, unknown>[]>().notNull().default([]),
+  check: jsonb("check").$type<Record<string, unknown> | null>(),
+  estimatedDurationS: real("estimated_duration_s"),
+  catalogVersion: text("catalog_version").notNull(),
+  digest: text("digest").notNull(),
+  source: skitSource("source").notNull().default("llm"),
+  /** One step of undo for "Ask for a change". */
+  previousSkit: jsonb("previous_skit").$type<Record<string, unknown> | null>(),
+  revisionNote: text("revision_note"),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 export type Project = typeof projects.$inferSelect;

@@ -11,7 +11,7 @@ import { eq, max } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
-import { aiClips } from "@/types/ai-clips";
+import { aiClips, aiClipsVoice } from "@/types/ai-clips";
 import { assertFits } from "./dispatcher";
 import { clipSeconds, requestClip, requestNarration } from "./filming";
 import { estimateStageUsd, projectSpend } from "./ledger";
@@ -110,7 +110,7 @@ export async function confirmChange(changeId: string, memberId: string): Promise
     .where(eq(schema.scenes.id, scene.id))
     .returning();
 
-  if (narrationChanged) await requestNarration(project, updated, project.voice, memberId, await estimateStageUsd(aiClips.flows.narrate));
+  if (narrationChanged) await requestNarration(project, updated, aiClipsVoice(project), memberId, await estimateStageUsd(aiClips.flows.narrate));
   if (visualChanged) {
     const [{ n }] = await db.select({ n: max(schema.takes.number) }).from(schema.takes).where(eq(schema.takes.sceneId, scene.id));
     const [take] = await db
