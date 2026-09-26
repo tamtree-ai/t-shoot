@@ -12,6 +12,9 @@ export default function Home() {
         <span className="text-sm font-semibold tracking-tight">Studio</span>
         <span className="text-[#3a3a42]">/</span>
         <span className="text-[13px] text-fg-3">Projects</span>
+        <Link href="/settings" className="ml-auto text-[13px] text-fg-3 hover:text-fg">
+          Settings
+        </Link>
       </header>
 
       <main className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_0%,#15151a_0%,var(--color-canvas)_60%)] px-4">

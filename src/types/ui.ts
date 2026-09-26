@@ -7,22 +7,25 @@ import type { ComponentType } from "react";
 
 import { AiClipsScript } from "@/app/p/[id]/script/AiClipsScript";
 import { BriefForm as AiClipsBriefForm } from "@/app/projects/new/BriefForm";
+import { AiClipsSettings } from "@/app/settings/AiClipsSettings";
 import type { Project } from "@/db/schema";
-import { kindOf } from "./registry";
+import { kindOf, type TypeDefaults } from "./registry";
 import type { ProductionKind } from "./types";
 
-export type ProductionTypeUi = {
-  /** The Brief screen's form: galleries and fields for this type's `configSchema`. */
-  BriefForm: ComponentType;
+export type ProductionTypeUi<K extends ProductionKind = ProductionKind> = {
+  /** The Brief screen's form, preset and bounded by the org's defaults for this type. */
+  BriefForm: ComponentType<{ defaults: TypeDefaults<K> }>;
   /** The `script` step: the draft, its free edits and the human gate before paid work. */
   DraftScreen: ComponentType<{ project: Project }>;
+  /** This type's section of Settings; read-only unless the viewer is the owner. */
+  SettingsForm: ComponentType<{ defaults: TypeDefaults<K>; canEdit: boolean }>;
 };
 
-const UI = {
-  ai_clips: { BriefForm: AiClipsBriefForm, DraftScreen: AiClipsScript },
-} as const satisfies Record<ProductionKind, ProductionTypeUi>;
+const UI: { [K in ProductionKind]: ProductionTypeUi<K> } = {
+  ai_clips: { BriefForm: AiClipsBriefForm, DraftScreen: AiClipsScript, SettingsForm: AiClipsSettings },
+};
 
-export function typeUi(kind: ProductionKind): ProductionTypeUi {
+export function typeUi<K extends ProductionKind>(kind: K): ProductionTypeUi<K> {
   return UI[kind];
 }
 

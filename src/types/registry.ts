@@ -10,6 +10,9 @@ const REGISTRY = { ai_clips: aiClips } as const satisfies Record<ProductionKind,
 
 export type Registry = typeof REGISTRY;
 
+/** An org's parsed defaults for one type (`type_settings`). */
+export type TypeDefaults<K extends ProductionKind> = ReturnType<Registry[K]["tenantDefaultsSchema"]["parse"]>;
+
 /** Every registry stage key across types (`script`, `clip`, …): what `runs.stage` holds. */
 export type StageKey = { [K in ProductionKind]: keyof Registry[K]["flows"] & string }[ProductionKind];
 

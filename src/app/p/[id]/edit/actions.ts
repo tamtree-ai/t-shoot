@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getCurrentMember } from "@/lib/auth";
 import { SpendGuardError } from "@/lib/spend-guard";
+import { raiseProjectLimit } from "@/services/projects";
 import { confirmChange, planChange, type ChangePlan } from "@/services/change";
 import {
   cancelRun,
@@ -51,6 +52,17 @@ export const filmNewTakeAction = (p: string, sceneId: string, prompt?: string) =
 export const retryClipAction = (p: string, sceneId: string) => guarded(p, (m) => retryClip(sceneId, m));
 export const changeVoiceAction = (p: string, voice: string) => guarded(p, (m) => changeVoice(p, voice, m));
 export const cancelRunAction = (p: string, runId: string) => guarded(p, () => cancelRun(runId));
+
+// owner only, free
+export async function raiseLimitAction(p: string): Promise<{ ok: true; limitUsd: string } | { ok: false; error: string }> {
+  try {
+    const limitUsd = await raiseProjectLimit(await getCurrentMember(), p);
+    revalidatePath(`/p/${p}/edit`);
+    return { ok: true, limitUsd };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong." };
+  }
+}
 
 // Ask for a change
 export const planChangeAction = (p: string, sceneId: string, note: string, commentId?: string): Promise<Result<ChangePlan>> =>

@@ -15,6 +15,7 @@ import {
   filmNewTakeAction,
   fixCaptionAction,
   moveSceneAction,
+  raiseLimitAction,
   rerecordVoiceAction,
   retryClipAction,
   setTrimAction,
@@ -184,7 +185,13 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
             scene={scene}
             onRetry={() => ask({ title: "Try filming again", body: "The same shot, sent again.", priceUsd: model.prices.clip, confirmLabel: "Try again", after: after(Number(model.prices.clip)), action: () => retryClipAction(pid, scene.id) })}
             onAsk={() => setChange({})}
-            onRaise={() => flash("Only the owner can raise the limit — that lives in project settings, coming later.")}
+            onRaise={() =>
+              startTransition(async () => {
+                const r = await raiseLimitAction(pid);
+                if (r.ok) { flash(`Limit raised to ${usd(r.limitUsd)}. Try again when you’re ready.`); router.refresh(); }
+                else flash(r.error);
+              })
+            }
           />
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-7 px-7 max-[1279px]:grid-cols-[1fr] max-[1279px]:justify-items-center" style={{ background: "radial-gradient(circle at 50% 42%, #15151a 0%, #0a0a0c 70%)" }}>
             <StageFacts scene={scene} voiceName={voiceName} globalT={globalT} total={model.totalLengthS} />

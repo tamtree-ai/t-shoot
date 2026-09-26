@@ -3,9 +3,12 @@ import "server-only";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import type { CurrentMember } from "@/lib/auth";
 import type { Brief } from "@/lib/tamtree/stage-flows";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
-import { aiClips } from "@/types/ai-clips";
+import { aiClips, briefOutsideDefaults } from "@/types/ai-clips";
+import { typeOf } from "@/types/registry";
+import { getTypeDefaults } from "./type-settings";
 import { startFilming } from "./filming";
 import { runAndRecordStage } from "./runs";
 
@@ -18,6 +21,8 @@ export type NewBrief = Brief & { limitUsd: string };
  */
 export async function createProjectFromBrief(memberId: string, orgId: string, input: NewBrief): Promise<string> {
   const brief = aiClips.configSchema.parse(input);
+  const refusal = briefOutsideDefaults(brief, input.limitUsd, await getTypeDefaults(orgId, aiClips.kind));
+  if (refusal) throw new Error(refusal);
 
   const [project] = await db
     .insert(schema.projects)
@@ -75,6 +80,22 @@ export async function approveScript(projectId: string, memberId: string): Promis
     .update(schema.projects)
     .set({ scriptApprovedAt: new Date(), step: "edit", updatedAt: new Date() })
     .where(eq(schema.projects.id, projectId));
+}
+
+/**
+ * "Raise limit" (a failure's `raise-limit` action): an owner lifts this video's limit to its
+ * type's spend cap. Past the cap is a workspace decision, made in Settings.
+ */
+export async function raiseProjectLimit(member: CurrentMember, projectId: string): Promise<string> {
+  if (member.role !== "owner") throw new Error("Only the workspace owner can raise a video's limit.");
+  const project = await getProject(projectId);
+  if (!project || project.orgId !== member.orgId) throw new Error("Project not found.");
+  const cap = (await getTypeDefaults(member.orgId, typeOf(project).kind)).limit_usd;
+  if (Number(project.limitUsd) >= Number(cap)) {
+    throw new Error(`This video is already at the workspace cap of $${cap}. Change the cap in Settings.`);
+  }
+  await db.update(schema.projects).set({ limitUsd: cap, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
+  return cap;
 }
 
 function titleFromTopic(topic: string): string {

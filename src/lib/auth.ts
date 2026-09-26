@@ -14,6 +14,7 @@ export type CurrentMember = {
   orgId: string;
   name: string | null;
   email: string;
+  role: "owner" | "editor";
 };
 
 let cached: CurrentMember | null = null;
@@ -25,6 +26,6 @@ export async function getCurrentMember(): Promise<CurrentMember> {
   if (!member) {
     throw new Error("No seeded member found. Run `pnpm db:seed` before starting the app.");
   }
-  cached = { memberId: member.id, orgId: member.orgId, name: member.name, email: member.email };
+  cached = { memberId: member.id, orgId: member.orgId, name: member.name, email: member.email, role: member.role };
   return cached;
 }

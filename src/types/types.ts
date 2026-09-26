@@ -20,7 +20,13 @@ export type ProductionKind = (typeof PRODUCTION_KINDS)[number];
 export const PROJECT_STEPS = ["brief", "script", "edit", "review", "export"] as const;
 export type ProjectStep = (typeof PROJECT_STEPS)[number];
 
-export type ProductionType<Config, Draft, Defaults, Catalog, Estimate> = {
+/**
+ * Every type's defaults carry a spend cap, because the spend guard is shared: a video's
+ * limit may never be set above its type's `limit_usd` (a decimal string, like "5.00").
+ */
+export type BaseDefaults = { limit_usd: string };
+
+export type ProductionType<Config, Draft, Defaults extends BaseDefaults, Catalog, Estimate> = {
   kind: ProductionKind;
   /** Shown on the type picker (T3): "AI clips", "Stick-figure skit". */
   label: string;

@@ -2,20 +2,23 @@
 
 import { useState, useTransition } from "react";
 
-import { BRIEF_LENGTHS as LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/types/ai-clips/catalog";
+import { briefOutsideDefaults, type AiClipsDefaults } from "@/types/ai-clips";
+import { BRIEF_LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/types/ai-clips/catalog";
 import { createProjectAction } from "./actions";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px]";
 const toggleOff = "border-line bg-transparent text-fg-2";
 const toggleOn = "border-accent bg-accent-soft text-fg";
 
-export function BriefForm() {
+/** The `ai_clips` brief. The org's defaults preselect the voice and look and bound the length and limit. */
+export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
+  const LENGTHS = BRIEF_LENGTHS.filter((s) => s <= defaults.max_length_s);
   const [topic, setTopic] = useState("");
-  const [lengthS, setLengthS] = useState<(typeof LENGTHS)[number]>(45);
+  const [lengthS, setLengthS] = useState<(typeof BRIEF_LENGTHS)[number]>(Math.min(45, defaults.max_length_s) as 30 | 45 | 60);
   const [tone, setTone] = useState(TONES[0]);
-  const [voice, setVoice] = useState<string>(VOICES[0].id);
-  const [look, setLook] = useState<string>(LOOKS[0].id);
-  const [limit, setLimit] = useState("5.00");
+  const [voice, setVoice] = useState<string>(defaults.default_voice);
+  const [look, setLook] = useState<string>(defaults.default_look);
+  const [limit, setLimit] = useState(Number(defaults.limit_usd).toFixed(2));
   const [editingLimit, setEditingLimit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -25,16 +28,16 @@ export function BriefForm() {
       setError("Say what the video is about.");
       return;
     }
+    const brief = { topic: topic.trim(), length_s: lengthS, tone: tone.toLowerCase(), look, voice };
+    const limitUsd = Number(limit || defaults.limit_usd).toFixed(2);
+    const refusal = briefOutsideDefaults(brief, limitUsd, defaults);
+    if (refusal) {
+      setError(refusal);
+      return;
+    }
     setError(null);
     startTransition(async () => {
-      const result = await createProjectAction({
-        topic: topic.trim(),
-        length_s: lengthS,
-        tone: tone.toLowerCase(),
-        look,
-        voice,
-        limitUsd: Number(limit || "5").toFixed(2),
-      });
+      const result = await createProjectAction({ ...brief, limitUsd });
       if (result && !result.ok) setError(result.error);
     });
   }
@@ -166,6 +169,7 @@ export function BriefForm() {
           {editingLimit ? (
             <input
               autoFocus
+              aria-label={`Limit for this video, up to $${defaults.limit_usd}`}
               value={limit}
               onChange={(e) => setLimit(e.target.value)}
               onBlur={() => setEditingLimit(false)}
