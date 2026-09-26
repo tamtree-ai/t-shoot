@@ -1,25 +1,41 @@
 import Link from "next/link";
 
+import type { ProjectStep } from "@/types/types";
+
 /** The five-step project nav shared by Brief, Script and the later screens (03 §1). */
 const STEPS = [
-  { key: "brief", code: "01", label: "Brief" },
-  { key: "script", code: "02", label: "Script" },
-  { key: "edit", code: "03", label: "Edit" },
-  { key: "review", code: "04", label: "Review" },
-  { key: "export", code: "05", label: "Export" },
+  { key: "brief", label: "Brief" },
+  { key: "script", label: "Script" },
+  { key: "edit", label: "Edit" },
+  { key: "review", label: "Review" },
+  { key: "export", label: "Export" },
 ] as const;
 
-export type StepKey = (typeof STEPS)[number]["key"];
+export type StepKey = ProjectStep;
 
-/** A step is reachable once its project has gone at least that far. */
-export function StepNav({ current, reachable, projectId }: { current: StepKey; reachable: StepKey[]; projectId?: string }) {
-  const currentIndex = STEPS.findIndex((s) => s.key === current);
+/**
+ * A step is reachable once its project has gone at least that far. `steps` is the
+ * project type's own subset (all five until a type is chosen).
+ */
+export function StepNav({
+  current,
+  reachable,
+  projectId,
+  steps,
+}: {
+  current: StepKey;
+  reachable: StepKey[];
+  projectId?: string;
+  steps?: readonly StepKey[];
+}) {
+  const shown = steps ? STEPS.filter((s) => steps.includes(s.key)) : STEPS;
+  const currentIndex = shown.findIndex((s) => s.key === current);
   return (
     <nav
       aria-label="Project steps"
       className="flex h-full flex-grow items-center justify-center gap-1"
     >
-      {STEPS.map((step, i) => {
+      {shown.map((step, i) => {
         const isCurrent = step.key === current;
         const isDone = i < currentIndex && reachable.includes(step.key);
         const href = projectId && reachable.includes(step.key) ? `/p/${projectId}/${step.key}` : undefined;
@@ -30,7 +46,7 @@ export function StepNav({ current, reachable, projectId }: { current: StepKey; r
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
             ) : (
-              <span className={`font-mono text-[11px] ${isCurrent ? "text-accent" : "text-fg-muted"}`}>{step.code}</span>
+              <span className={`font-mono text-[11px] ${isCurrent ? "text-accent" : "text-fg-muted"}`}>{String(i + 1).padStart(2, "0")}</span>
             )}
             {step.label}
           </>

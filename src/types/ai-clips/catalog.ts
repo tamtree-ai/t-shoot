@@ -1,4 +1,4 @@
-/** The Brief screen's fixed choices (03 §1.1, `Brief.dc.html`), shared with Script's voice line. */
+/** The `ai_clips` catalog: the Brief screen's fixed choices (03 §1.1, `Brief.dc.html`), shared with Script's voice line. */
 export const BRIEF_LENGTHS = [30, 45, 60] as const;
 export const BRIEF_TONES = ["Curious", "Playful", "Calm", "Urgent"];
 

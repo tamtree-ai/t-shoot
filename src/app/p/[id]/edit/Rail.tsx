@@ -1,6 +1,6 @@
 "use client";
 
-import { BRIEF_VOICES } from "@/lib/brief-options";
+import { BRIEF_VOICES } from "@/types/ai-clips/catalog";
 import type { EditModel, SceneVM } from "@/services/edit-model";
 import { gradientFor, usd } from "./shared";
 

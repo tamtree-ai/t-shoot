@@ -4,6 +4,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { aiClips } from "@/types/ai-clips";
 import { runAndRecordStage } from "./runs";
 
 /**
@@ -17,7 +18,7 @@ export async function reviseScript(projectId: string, note: string, memberId: st
 
   const { output } = await runAndRecordStage({
     projectId,
-    flow: "studio-script",
+    flow: aiClips.flows.script,
     input: {
       mode: "revise",
       beats: scenes.map((s) => ({ narration: s.narration, visual_prompt: s.visualPrompt })),

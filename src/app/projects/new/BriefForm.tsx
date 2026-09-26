@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { BRIEF_LENGTHS as LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/lib/brief-options";
+import { BRIEF_LENGTHS as LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/types/ai-clips/catalog";
 import { createProjectAction } from "./actions";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px]";

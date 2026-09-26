@@ -11,6 +11,7 @@ import { and, asc, desc, eq, max } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
 import { enqueueCancel } from "@/lib/queue";
+import { aiClips } from "@/types/ai-clips";
 import { assertFits } from "./dispatcher";
 import { clipSeconds, requestClip, requestNarration } from "./filming";
 import { estimateStageUsd } from "./ledger";
@@ -86,7 +87,7 @@ function recordedText(scene: { phrases: { text: string }[] | null; narration: st
 // ── paid (each needs the estimate + confirming member) ─────────────────────
 export async function rerecordVoice(sceneId: string, memberId: string): Promise<void> {
   const { scene, project } = await sceneAndProject(sceneId);
-  const usd = await estimateStageUsd("studio-narrate");
+  const usd = await estimateStageUsd(aiClips.flows.narrate);
   await assertFits(project.id, usd);
   await requestNarration(project, scene, project.voice, memberId, usd);
 }
@@ -95,7 +96,7 @@ export async function rerecordVoice(sceneId: string, memberId: string): Promise<
 export async function filmNewTake(sceneId: string, memberId: string, visualPrompt?: string): Promise<void> {
   const { scene, project } = await sceneAndProject(sceneId);
   const prompt = visualPrompt?.trim() || scene.visualPrompt;
-  const usd = await estimateStageUsd("studio-clip");
+  const usd = await estimateStageUsd(aiClips.flows.clip);
   await assertFits(project.id, usd);
 
   const [{ n }] = await db.select({ n: max(schema.takes.number) }).from(schema.takes).where(eq(schema.takes.sceneId, sceneId));
@@ -115,12 +116,12 @@ export async function retryClip(sceneId: string, memberId: string): Promise<void
   const [last] = await db
     .select()
     .from(schema.runs)
-    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.stage, "studio-clip")))
+    .where(and(eq(schema.runs.sceneId, sceneId), eq(schema.runs.stage, aiClips.flows.clip)))
     .orderBy(desc(schema.runs.createdAt))
     .limit(1);
   if (!last?.takeId) throw new Error("Nothing to try again.");
   const [take] = await db.select().from(schema.takes).where(eq(schema.takes.id, last.takeId));
-  const usd = await estimateStageUsd("studio-clip");
+  const usd = await estimateStageUsd(aiClips.flows.clip);
   await assertFits(project.id, usd);
   await requestClip(project, scene, take, clipSeconds(project, await sceneCount(project.id)), memberId, usd);
 }
@@ -135,7 +136,7 @@ export async function changeVoice(projectId: string, voice: string, memberId: st
   if (!project) throw new Error("Project not found.");
   const scenes = await db.select().from(schema.scenes).where(eq(schema.scenes.projectId, projectId)).orderBy(asc(schema.scenes.position));
   const active = scenes.filter((s) => !s.droppedAt);
-  const usd = await estimateStageUsd("studio-narrate");
+  const usd = await estimateStageUsd(aiClips.flows.narrate);
   await assertFits(projectId, fromMicros(active.length * toMicros(usd)));
   const updated = { ...project, voice };
   await db.update(schema.projects).set({ voice, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));

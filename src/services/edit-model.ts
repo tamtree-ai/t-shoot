@@ -12,6 +12,7 @@ import { estimateNarrationSeconds } from "@/lib/narration";
 import { sceneLength } from "@/lib/timeline";
 import { failureNotice, studioState, type FailureNotice, type StudioState } from "@/lib/run-state";
 import type { StageFlow } from "@/lib/tamtree/stage-flows";
+import { aiClips } from "@/types/ai-clips";
 import { estimateStageUsd, projectSpend } from "./ledger";
 
 export type TakeVM = { id: string; number: number; prompt: string; durationS: number | null; ready: boolean };
@@ -100,8 +101,8 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
         failure: r.status === "failed" ? failureNotice({ error: r.error, costUsd: r.costUsd, meteredSteps: r.meteredSteps }, project.limitUsd) : undefined,
       };
     };
-    const clip = facts(latest("studio-clip"), "studio-clip");
-    const voice = facts(latest("studio-narrate"), "studio-narrate");
+    const clip = facts(latest(aiClips.flows.clip), aiClips.flows.clip);
+    const voice = facts(latest(aiClips.flows.narrate), aiClips.flows.narrate);
 
     const chosen = takes.find((t) => t.id === scene.chosenTakeId);
     const narrationS = scene.narrationDurationS ?? estimateNarrationSeconds(scene.narration);
@@ -111,10 +112,10 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
     let state: StudioState = { word: "Ready", dot: "green" };
     if (clip.failure) state = clip;
     else if (voice.failure) state = voice;
-    else if (!TERMINAL.includes(latest("studio-clip")?.status ?? "completed") || clip.word === "Working") state = clip;
-    else if (!TERMINAL.includes(latest("studio-narrate")?.status ?? "completed") || voice.word === "Working") state = voice;
+    else if (!TERMINAL.includes(latest(aiClips.flows.clip)?.status ?? "completed") || clip.word === "Working") state = clip;
+    else if (!TERMINAL.includes(latest(aiClips.flows.narrate)?.status ?? "completed") || voice.word === "Working") state = voice;
     else if (scene.voiceOutOfDate) state = { word: "Voice out of date", dot: "amber", triangle: true };
-    else if (!latest("studio-clip") && !chosen?.clipAssetId) state = { word: "Not filmed", dot: "grey" };
+    else if (!latest(aiClips.flows.clip) && !chosen?.clipAssetId) state = { word: "Not filmed", dot: "grey" };
     else if (clip.reused) state = { word: "Reused · no charge", dot: "green" };
 
     const cost = sceneRuns.reduce((sum, r) => sum + Math.round(Number(r.costUsd ?? 0) * 1e6), 0);
@@ -179,7 +180,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
     canExport: exportBlockedReason === null,
     exportBlockedReason,
     anyBusy: vms.some((s) => s.busy),
-    prices: { clip: await estimateStageUsd("studio-clip"), narrate: await estimateStageUsd("studio-narrate") },
+    prices: { clip: await estimateStageUsd(aiClips.flows.clip), narrate: await estimateStageUsd(aiClips.flows.narrate) },
   };
 }
 
@@ -188,13 +189,13 @@ function activityText(stage: StageFlow, status: string, input: unknown, output: 
   const out = output as { reused?: boolean; duration_s?: number } | null;
   const inp = input as { take?: number; voice?: string };
   switch (stage) {
-    case "studio-clip":
+    case aiClips.flows.clip:
       if (failed) return `Couldn’t film take ${inp.take ?? 1}`;
       return out ? `${out.reused ? "Reused" : "Filmed"} take ${inp.take ?? 1}` : `Filming take ${inp.take ?? 1}`;
-    case "studio-narrate":
+    case aiClips.flows.narrate:
       if (failed) return "Couldn’t record the voice";
       return out ? `Recorded ${inp.voice ?? "voice"} · ${out.duration_s?.toFixed(1)}s` : `Recording ${inp.voice ?? "voice"}`;
-    case "studio-render":
+    case aiClips.flows.render:
       return failed ? "Couldn’t render" : out ? "Rendered" : "Rendering";
     default:
       return "Wrote the script";

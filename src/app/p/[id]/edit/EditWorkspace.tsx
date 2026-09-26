@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { StepNav } from "@/components/StepNav";
-import { BRIEF_VOICES } from "@/lib/brief-options";
+import { BRIEF_VOICES } from "@/types/ai-clips/catalog";
 import type { EditModel } from "@/services/edit-model";
 import {
   cancelRunAction,

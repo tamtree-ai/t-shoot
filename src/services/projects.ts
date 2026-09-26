@@ -3,12 +3,13 @@ import "server-only";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { Brief, type Brief as BriefT } from "@/lib/tamtree/stage-flows";
+import type { Brief } from "@/lib/tamtree/stage-flows";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { aiClips } from "@/types/ai-clips";
 import { startFilming } from "./filming";
 import { runAndRecordStage } from "./runs";
 
-export type NewBrief = BriefT & { limitUsd: string };
+export type NewBrief = Brief & { limitUsd: string };
 
 /**
  * Brief → Script (03 §1.1–1.2). Creates the project, runs `studio-script` in `draft`
@@ -16,7 +17,7 @@ export type NewBrief = BriefT & { limitUsd: string };
  * no "brief" step to land on afterwards — the draft is the point of writing a brief.
  */
 export async function createProjectFromBrief(memberId: string, orgId: string, input: NewBrief): Promise<string> {
-  const brief = Brief.parse(input);
+  const brief = aiClips.configSchema.parse(input);
 
   const [project] = await db
     .insert(schema.projects)
@@ -33,7 +34,7 @@ export async function createProjectFromBrief(memberId: string, orgId: string, in
 
   const { output } = await runAndRecordStage({
     projectId: project.id,
-    flow: "studio-script",
+    flow: aiClips.flows.script,
     input: { mode: "draft", brief },
     estimateUsd: SCRIPT_PRICE_USD.toString(),
     confirmedBy: memberId,
@@ -53,15 +54,17 @@ export async function createProjectFromBrief(memberId: string, orgId: string, in
   return project.id;
 }
 
-export async function getProjectWithScenes(projectId: string) {
-  const project = await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) });
-  if (!project) return null;
-  const scenes = await db
+export async function getProject(projectId: string) {
+  return (await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) })) ?? null;
+}
+
+/** The `ai_clips` draft: the scenes still in the film, in order. */
+export async function getActiveScenes(projectId: string) {
+  return db
     .select()
     .from(schema.scenes)
     .where(and(eq(schema.scenes.projectId, projectId), isNull(schema.scenes.droppedAt)))
     .orderBy(asc(schema.scenes.position));
-  return { project, scenes };
 }
 
 export async function approveScript(projectId: string, memberId: string): Promise<void> {

@@ -1,10 +1,14 @@
 import Link from "next/link";
 
 import { StepNav } from "@/components/StepNav";
-import { BriefForm } from "./BriefForm";
+import { typeUi } from "@/types/ui";
 
-/** Brief (03 §1.1, `Brief.dc.html`): a single column, one CTA, no paid call. */
+/**
+ * Brief (03 §1.1, `Brief.dc.html`): a single column, one CTA, no paid call. Every new
+ * project is `ai_clips` until the type picker lands (T3).
+ */
 export default function NewProjectPage() {
+  const { BriefForm } = typeUi("ai_clips");
   return (
     <>
       <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">

@@ -11,6 +11,7 @@ import { eq, max } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { SCRIPT_PRICE_USD } from "@/lib/estimate";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
+import { aiClips } from "@/types/ai-clips";
 import { assertFits } from "./dispatcher";
 import { clipSeconds, requestClip, requestNarration } from "./filming";
 import { estimateStageUsd, projectSpend } from "./ledger";
@@ -40,7 +41,7 @@ export async function planChange(sceneId: string, note: string, memberId: string
   const { output } = await runAndRecordStage({
     projectId: project.id,
     sceneId,
-    flow: "studio-script",
+    flow: aiClips.flows.script,
     input: {
       mode: "revise-scene",
       beat: { narration: scene.narration, visual_prompt: scene.visualPrompt },
@@ -53,7 +54,7 @@ export async function planChange(sceneId: string, note: string, memberId: string
   });
   if (!("beat" in output)) throw new Error("The script step returned an unexpected answer.");
 
-  const [clipUsd, voiceUsd] = await Promise.all([estimateStageUsd("studio-clip"), estimateStageUsd("studio-narrate")]);
+  const [clipUsd, voiceUsd] = await Promise.all([estimateStageUsd(aiClips.flows.clip), estimateStageUsd(aiClips.flows.narrate)]);
   const actions: ChangePlan["actions"] = [];
   let total = 0;
   if (output.changed.visual_prompt) {
@@ -109,7 +110,7 @@ export async function confirmChange(changeId: string, memberId: string): Promise
     .where(eq(schema.scenes.id, scene.id))
     .returning();
 
-  if (narrationChanged) await requestNarration(project, updated, project.voice, memberId, await estimateStageUsd("studio-narrate"));
+  if (narrationChanged) await requestNarration(project, updated, project.voice, memberId, await estimateStageUsd(aiClips.flows.narrate));
   if (visualChanged) {
     const [{ n }] = await db.select({ n: max(schema.takes.number) }).from(schema.takes).where(eq(schema.takes.sceneId, scene.id));
     const [take] = await db
@@ -117,7 +118,7 @@ export async function confirmChange(changeId: string, memberId: string): Promise
       .values({ sceneId: scene.id, number: (n ?? 0) + 1, visualPrompt: updated.visualPrompt })
       .returning();
     const count = (await db.select({ id: schema.scenes.id }).from(schema.scenes).where(eq(schema.scenes.projectId, project.id))).length;
-    await requestClip(project, updated, take, clipSeconds(project, count), memberId, await estimateStageUsd("studio-clip"));
+    await requestClip(project, updated, take, clipSeconds(project, count), memberId, await estimateStageUsd(aiClips.flows.clip));
   }
   await db.update(schema.changeRequests).set({ confirmedBy: memberId, confirmedAt: new Date() }).where(eq(schema.changeRequests.id, changeId));
   if (change.sourceCommentId) {

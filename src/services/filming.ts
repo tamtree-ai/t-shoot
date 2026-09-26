@@ -13,6 +13,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fromMicros, toMicros } from "@/lib/spend-guard";
 import type { ClipIn, NarrateIn } from "@/lib/tamtree/stage-flows";
+import { aiClips } from "@/types/ai-clips";
 import { assertFits, requestRun } from "./dispatcher";
 import { estimateStageUsd } from "./ledger";
 
@@ -34,7 +35,7 @@ export function clipSeconds(project: ProjectRow, sceneCount: number): number {
   return Math.max(2, Math.round(((brief.length_s ?? 45) / Math.max(1, sceneCount)) * 10) / 10);
 }
 
-async function attemptsFor(sceneId: string, stage: "studio-clip" | "studio-narrate"): Promise<number> {
+async function attemptsFor(sceneId: string, stage: typeof aiClips.flows.clip | typeof aiClips.flows.narrate): Promise<number> {
   const rows = await db
     .select({ id: schema.runs.id })
     .from(schema.runs)
@@ -45,11 +46,11 @@ async function attemptsFor(sceneId: string, stage: "studio-clip" | "studio-narra
 /** One narrate run for a scene. `attempt` is part of the key so a retry is a new run. */
 export async function requestNarration(project: ProjectRow, scene: SceneRow, voice: string, memberId: string, estimateUsd: string, attemptOverride?: number) {
   const input: NarrateIn = { scene_key: scene.id, phrases: splitPhrases(scene.narration), voice };
-  const attempt = attemptOverride ?? (await attemptsFor(scene.id, "studio-narrate"));
+  const attempt = attemptOverride ?? (await attemptsFor(scene.id, aiClips.flows.narrate));
   return requestRun({
     projectId: project.id,
     sceneId: scene.id,
-    stage: "studio-narrate",
+    stage: aiClips.flows.narrate,
     input,
     estimateUsd,
     confirmedBy: memberId,
@@ -68,12 +69,12 @@ export async function requestClip(
   attemptOverride?: number,
 ) {
   const input: ClipIn = { scene_key: scene.id, visual_prompt: take.visualPrompt, seconds, take: take.number };
-  const attempt = attemptOverride ?? (await attemptsFor(scene.id, "studio-clip"));
+  const attempt = attemptOverride ?? (await attemptsFor(scene.id, aiClips.flows.clip));
   return requestRun({
     projectId: project.id,
     sceneId: scene.id,
     takeId: take.id,
-    stage: "studio-clip",
+    stage: aiClips.flows.clip,
     input,
     estimateUsd,
     confirmedBy: memberId,
@@ -90,7 +91,7 @@ export async function startFilming(projectId: string, memberId: string): Promise
     .where(and(eq(schema.scenes.projectId, projectId), isNull(schema.scenes.droppedAt)))
     .orderBy(asc(schema.scenes.position));
 
-  const [clipUsd, narrateUsd] = await Promise.all([estimateStageUsd("studio-clip"), estimateStageUsd("studio-narrate")]);
+  const [clipUsd, narrateUsd] = await Promise.all([estimateStageUsd(aiClips.flows.clip), estimateStageUsd(aiClips.flows.narrate)]);
   await assertFits(projectId, fromMicros(scenes.length * (toMicros(clipUsd) + toMicros(narrateUsd))));
 
   const seconds = clipSeconds(project, scenes.length);

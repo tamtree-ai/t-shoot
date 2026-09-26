@@ -8,6 +8,7 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { aiClips } from "@/types/ai-clips";
 import { requestRun } from "./dispatcher";
 import { getEditModel } from "./edit-model";
 import { snapshot } from "./versions";
@@ -23,10 +24,10 @@ export async function requestFinalRender(projectId: string, memberId: string): P
   const previous = await db
     .select({ id: schema.runs.id })
     .from(schema.runs)
-    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, "studio-render")));
+    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, aiClips.flows.render)));
   await requestRun({
     projectId,
-    stage: "studio-render",
+    stage: aiClips.flows.render,
     input: { timeline: version.timeline, mode: "final" },
     estimateUsd: "0.000000",
     confirmedBy: memberId,
@@ -43,7 +44,7 @@ export async function getExportModel(projectId: string) {
   const [render] = await db
     .select()
     .from(schema.runs)
-    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, "studio-render")))
+    .where(and(eq(schema.runs.projectId, projectId), eq(schema.runs.stage, aiClips.flows.render)))
     .orderBy(desc(schema.runs.createdAt))
     .limit(1);
   const rendering = !!render && !["completed", "failed", "cancelled"].includes(render.status);
