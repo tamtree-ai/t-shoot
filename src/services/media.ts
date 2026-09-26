@@ -40,6 +40,15 @@ async function mockStickAsset(assetId: string): Promise<Bytes | null> {
   return null;
 }
 
+/**
+ * `content-disposition` for a download. Headers are Latin-1, and a title can hold anything
+ * (curly quotes, emoji), so the name goes as RFC 5987 UTF-8 with an ASCII fallback.
+ */
+export function attachment(name: string): string {
+  const ascii = name.normalize("NFKD").replace(/[^\x20-\x7e]/g, "").replace(/["\\]/g, "").trim() || "download";
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
 /** `bytes=START-[END]` → the range, or null for none or one this doesn't handle. */
 function parseRange(header: string | null): { start: number; end?: number } | null {
   const m = header?.match(/^bytes=(\d+)-(\d*)$/);
@@ -53,7 +62,7 @@ function parseRange(header: string | null): { start: number; end?: number } | nu
  */
 export async function assetResponse(req: Request, assetId: string, download?: string): Promise<Response | null> {
   const range = parseRange(req.headers.get("range"));
-  const disposition: Record<string, string> = download ? { "content-disposition": `attachment; filename="${download.replace(/"/g, "")}"` } : {};
+  const disposition: Record<string, string> = download ? { "content-disposition": attachment(download) } : {};
   const adapter = getTamtreeAdapter();
   try {
     const asset = await adapter.getAssetContent(assetId, range ?? undefined);
