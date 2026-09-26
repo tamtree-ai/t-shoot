@@ -3,7 +3,7 @@
 import { evalActor } from "stickstage";
 import { Stage } from "stickstage/remotion";
 
-import { stickRegistry } from "./registry";
+import { stickRegistry } from "@/lib/stick/registry";
 
 const W = 1080;
 const H = 1920;

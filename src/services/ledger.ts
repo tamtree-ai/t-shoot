@@ -8,7 +8,7 @@ import "server-only";
 import { and, desc, eq, gt, inArray, notInArray, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { CLIP_PRICE_USD, NARRATE_PRICE_USD, SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { CLIP_PRICE_USD, NARRATE_PRICE_USD, SCRIPT_PRICE_USD, STICK_LINE_PRICE_USD, STICK_MAX_LINES, STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
 import type { StageFlow } from "@/lib/tamtree/stage-flows";
 
 const TERMINAL = ["completed", "failed", "cancelled"];
@@ -30,6 +30,9 @@ const FALLBACK_USD: Record<StageFlow, number> = {
   "studio-narrate": NARRATE_PRICE_USD,
   "studio-clip": CLIP_PRICE_USD,
   "studio-render": 0,
+  "stick-script": STICK_SCRIPT_PRICE_USD,
+  // TTS only, at the prompt's line ceiling; the render is StickStage CPU and never metered.
+  "stick-produce": STICK_LINE_PRICE_USD * STICK_MAX_LINES,
 };
 
 /**

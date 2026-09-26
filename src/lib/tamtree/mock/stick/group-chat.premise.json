@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "template": "exchange",
+  "title": "Left on read",
+  "logline": "Milo wants to know why nobody answered his message; June explains the group chat's unwritten rules.",
+  "pov": "POV: you asked the group chat a question",
+  "description": "Every group chat has rules nobody wrote down.",
+  "hashtags": [
+    "stickfigure",
+    "relatable",
+    "groupchat"
+  ],
+  "set": "living-1",
+  "cast": [
+    {
+      "id": "milo",
+      "character": "milo"
+    },
+    {
+      "id": "june",
+      "character": "june"
+    }
+  ],
+  "lines": [
+    {
+      "who": "milo",
+      "text": "Why did nobody answer my message in the group chat?",
+      "role": "setup",
+      "expression": "confused"
+    },
+    {
+      "who": "june",
+      "text": "We saw it.",
+      "role": "setup",
+      "expression": "deadpan"
+    },
+    {
+      "who": "milo",
+      "text": "All six of you saw it?",
+      "role": "escalation",
+      "expression": "shocked"
+    },
+    {
+      "who": "june",
+      "text": "Seven. Your mom's in there now.",
+      "role": "escalation",
+      "expression": "deadpan",
+      "delivery": "flat"
+    },
+    {
+      "who": "milo",
+      "text": "Then why did nobody say anything?",
+      "role": "escalation",
+      "expression": "sad"
+    },
+    {
+      "who": "june",
+      "text": "Someone reacted with a thumbs up.",
+      "role": "escalation",
+      "expression": "neutral"
+    },
+    {
+      "who": "milo",
+      "text": "I asked if anyone could help me move.",
+      "role": "escalation",
+      "expression": "annoyed"
+    },
+    {
+      "who": "june",
+      "text": "Exactly. The thumbs up means good luck.",
+      "role": "escalation",
+      "expression": "smug"
+    },
+    {
+      "who": "milo",
+      "text": "Good luck is not help!",
+      "role": "escalation",
+      "expression": "angry"
+    },
+    {
+      "who": "june",
+      "text": "It was a very supportive thumbs up.",
+      "role": "escalation",
+      "expression": "deadpan"
+    },
+    {
+      "who": "milo",
+      "text": "Who even sent the thumbs up?",
+      "role": "escalation",
+      "expression": "annoyed"
+    },
+    {
+      "who": "june",
+      "text": "Your mom.",
+      "role": "punchline",
+      "expression": "deadpan",
+      "slam": "MOM."
+    }
+  ]
+}

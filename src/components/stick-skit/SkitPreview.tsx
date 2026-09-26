@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { checkDraft, SkitError, type Diagnostic } from "stickstage";
 import { StickStageComposition } from "stickstage/remotion";
 
-import { stickRegistry } from "./registry";
+import { stickRegistry } from "@/lib/stick/registry";
 
 type Compiled = { ok: true; program: ReturnType<typeof checkDraft>["result"]["program"] } | { ok: false; diagnostics: Diagnostic[] };
 

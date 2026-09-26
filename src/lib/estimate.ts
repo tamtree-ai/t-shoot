@@ -10,6 +10,12 @@ export const CLIP_PRICE_USD = 0.48;
 export const NARRATE_PRICE_USD = 0.004;
 export const SCRIPT_PRICE_USD = 0.003;
 
+/** stick_skit (09 §5): one script call; TTS per spoken line, the render is not metered. */
+export const STICK_SCRIPT_PRICE_USD = 0.01;
+export const STICK_LINE_PRICE_USD = 0.0015;
+/** The script prompt's hard ceiling on lines, so the declared maximum for a produce run. */
+export const STICK_MAX_LINES = 13;
+
 /** Nominal mock timings (07 §3), used only to give a rough "about N minutes" figure. */
 const CLIP_SECONDS = 12;
 const NARRATE_SECONDS = 1;

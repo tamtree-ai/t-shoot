@@ -34,6 +34,8 @@ const RUNNING_WORD: Record<StageFlow, string> = {
   "studio-narrate": "Recording voice",
   "studio-clip": "Filming",
   "studio-render": "Rendering",
+  "stick-script": "Writing",
+  "stick-produce": "Making the video",
 };
 
 export function studioState(f: RunFacts): StudioState {

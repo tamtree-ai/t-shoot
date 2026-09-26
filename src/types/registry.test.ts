@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { estimateFilming } from "@/lib/estimate";
-import { STAGE_FLOWS } from "@/lib/tamtree/stage-flows";
+import { STUDIO_FLOWS } from "@/lib/tamtree/stage-flows";
 import { kindOf, productionType, stageOf, typeOf } from "./registry";
 
 describe("production-type registry", () => {
@@ -17,7 +17,7 @@ describe("production-type registry", () => {
   it("keeps ai_clips on the already-published studio-* flows", () => {
     const { flows } = productionType("ai_clips");
     expect(flows).toEqual({ script: "studio-script", narrate: "studio-narrate", clip: "studio-clip", render: "studio-render" });
-    expect(Object.values(flows).sort()).toEqual([...STAGE_FLOWS].sort());
+    expect(Object.values(flows).sort()).toEqual([...STUDIO_FLOWS].sort());
   });
 
   it("prices an ai_clips draft exactly as the Script screen did before T1", () => {

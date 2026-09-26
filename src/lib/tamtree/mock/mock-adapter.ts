@@ -18,6 +18,9 @@ import {
   type StageFlow,
   type StageInput,
   type StageOutput,
+  type StickProduceIn,
+  type StickScriptIn,
+  type StickScriptOut,
 } from "../stage-flows";
 import type {
   AssetContent,
@@ -31,11 +34,12 @@ import type {
   UsageSummaryOut,
 } from "../types";
 import { MOCK_DURATIONS_MS, MOCK_PRICES_USD, THREE_HEARTS_BEATS } from "./fixtures";
+import { stickProduceFiles, stickScriptOutput, type StickRenderFiles } from "./stick";
 
 export const MOCK_SCENARIOS = ["happy", "three-hearts", "slow", "refusal", "over-limit"] as const;
 export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 
-export type FailureCode = "provider_timeout" | "content_refused" | "budget_exceeded" | "internal_error";
+export type FailureCode = "provider_timeout" | "content_refused" | "budget_exceeded" | "internal_error" | "catalog_mismatch" | "invalid_skit";
 
 export type MockOptions = {
   scenario?: MockScenario;
@@ -64,6 +68,8 @@ const FAILURE_MESSAGES: Record<FailureCode, string> = {
   content_refused: "The video provider refused to generate this shot.",
   budget_exceeded: "The workspace budget for this month is exhausted.",
   internal_error: "The run failed.",
+  catalog_mismatch: "The skit was written against another StickStage catalog; nothing was paid for.",
+  invalid_skit: "StickStage refused the skit before any audio was paid for.",
 };
 
 export class MockTamtreeAdapter implements TamtreeAdapter {
@@ -292,6 +298,16 @@ export class MockTamtreeAdapter implements TamtreeAdapter {
       return "budget_exceeded";
     }
 
+    // The stick flows stop where the real ones do: a catalog mismatch, or a skit StickStage refuses.
+    if (flow === "stick-script") {
+      const out = stickScriptOutput(input as StickScriptIn);
+      return typeof out === "string" ? out : null;
+    }
+    if (flow === "stick-produce") {
+      const out = stickProduceFiles(input as StickProduceIn);
+      return typeof out === "string" ? out : null;
+    }
+
     // Scenario failures hit a given scene's first attempt only, so "Try again" succeeds.
     const tries = this.attempts.get(digest) ?? 0;
     this.attempts.set(digest, tries + 1);
@@ -333,6 +349,24 @@ export class MockTamtreeAdapter implements TamtreeAdapter {
         const duration = typeof r.timeline.duration_s === "number" ? r.timeline.duration_s : 45;
         return { asset_id: asset, digest: sha256(JSON.stringify(r.timeline)), duration_s: duration } as StageOutput[F];
       }
+      case "stick-script":
+        return stickScriptOutput(input as StickScriptIn) as StickScriptOut as StageOutput[F];
+      case "stick-produce": {
+        const p = input as StickProduceIn;
+        const files = stickProduceFiles(p) as StickRenderFiles;
+        const title = String((p.skit.meta as { title?: string } | undefined)?.title ?? "skit");
+        const text = (t: string) => new TextEncoder().encode(t);
+        return {
+          mp4_asset_id: this.addAsset(mock, `${title}.mp4`, "video/mp4", files.mp4),
+          srt_asset_id: this.addAsset(mock, `${title}.srt`, "application/x-subrip", text(files.srt)),
+          txt_asset_id: this.addAsset(mock, `${title}.txt`, "text/plain", text(files.txt)),
+          manifest_asset_id: this.addAsset(mock, `${title}.manifest.json`, "application/json", text(files.manifest)),
+          duration_s: files.durationS,
+          // The real digest is the MP4's SHA-256; the mock's MP4 is canned, so it digests the input.
+          digest: sha256(`stick-produce:${canonicalJson(p)}`),
+          reminder: files.reminder,
+        } as StageOutput[F];
+      }
     }
     throw new Error(`unknown flow ${String(flow)}`);
   }
@@ -342,10 +376,10 @@ export class MockTamtreeAdapter implements TamtreeAdapter {
     return ("reused" in json ? { ...json, reused: true } : { ...json }) as StageOutput[F];
   }
 
-  /** Placeholder bytes until the F3 media script generates real 1080×1920 clips. */
-  private addAsset(mock: MockRun, name: string, mimeType: string): string {
+  /** Placeholder bytes (until the F3 media script generates real clips) unless `content` is given. */
+  private addAsset(mock: MockRun, name: string, mimeType: string, content?: Uint8Array): string {
     const id = randomUUID();
-    const bytes = new TextEncoder().encode(`tamshoot mock asset ${id} ${name}`);
+    const bytes = content ?? new TextEncoder().encode(`tamshoot mock asset ${id} ${name}`);
     this.assets.set(id, {
       meta: { id, name, mime_type: mimeType, size_bytes: bytes.byteLength, created_at: this.iso() },
       bytes,

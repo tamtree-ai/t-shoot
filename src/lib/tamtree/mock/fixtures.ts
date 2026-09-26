@@ -34,6 +34,8 @@ export const MOCK_PRICES_USD = {
   "studio-narrate": 0.004,
   "studio-clip": 0.48,
   "studio-render": 0,
+  "stick-script": 0.004,
+  "stick-produce": 0.018,
 } as const;
 
 /** Nominal durations in ms at speed 1 (07 §3). */
@@ -42,4 +44,6 @@ export const MOCK_DURATIONS_MS = {
   "studio-narrate": 1_000,
   "studio-clip": 12_000,
   "studio-render": 8_000,
+  "stick-script": 2_000,
+  "stick-produce": 15_000,
 } as const;
