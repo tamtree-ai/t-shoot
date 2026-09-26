@@ -33,7 +33,7 @@ export function ReviewOwner({ projectId, versions, links, comments }: { projectI
         {latestLink ? (
           <div className="flex flex-col gap-2 rounded-xl border border-rule-2 bg-raised-2 p-4">
             <span className="text-xs text-fg-muted">Version {latest.number} · {clock(latest.durationS)}</span>
-            <code className="truncate rounded-md bg-canvas px-2.5 py-2 font-mono text-xs text-fg-2">…/r/{latestLink.token.slice(0, 10)}…</code>
+            <code title={`/r/${latestLink.token}`} className="truncate rounded-md bg-canvas px-2.5 py-2 font-mono text-xs text-fg-2">…/r/{latestLink.token.slice(0, 10)}…</code>
             <div className="flex gap-2">
               <button type="button" onClick={() => copy(latestLink.token)} className="h-9 flex-1 rounded-lg bg-accent text-[13px] font-semibold text-accent-ink">{copied === latestLink.token ? "Copied" : "Copy link"}</button>
               <button type="button" onClick={() => start(async () => { await revokeAction(projectId, latestLink.id); router.refresh(); })} className="h-9 rounded-lg border border-line px-3 text-[13px] text-fg-2">Stop sharing</button>

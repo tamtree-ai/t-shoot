@@ -15,7 +15,7 @@ test("Brief → Script → filming → Edit → review → export, on the mock",
   // Edit: scenes film and record (the worker drives them), then everything is Ready
   await expect(page).toHaveURL(/\/p\/.+\/edit/);
   const started = Date.now();
-  await expect(page.getByRole("link", { name: "Export" })).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole("link", { name: "Export", exact: true })).toBeVisible({ timeout: 45_000 });
   expect(Date.now() - started).toBeLessThan(45_000);
 
   // A free edit never charges; a paid one shows its price first
@@ -33,7 +33,7 @@ test("Brief → Script → filming → Edit → review → export, on the mock",
   await page.goto(`${projectUrl}/review`);
   await page.getByRole("button", { name: /create a review link/i }).click();
   await expect(page.getByRole("button", { name: /copy link/i })).toBeVisible();
-  const token = (await page.locator("code").innerText()).match(/\/r\/(\w+)/)?.[1];
+  const token = ((await page.locator("code").getAttribute("title")) ?? "").match(/\/r\/([\w-]+)/)?.[1];
   expect(token).toBeTruthy();
 
   const client = await (await browser.newContext()).newPage();

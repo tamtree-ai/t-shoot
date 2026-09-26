@@ -119,7 +119,7 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
                     <path d="M6 4l14 8-14 8z" />
                   </svg>
                 </button>
-                <button type="button" onClick={() => setVoice(v.id)} className="flex flex-col text-left">
+                <button type="button" aria-pressed={selected} onClick={() => setVoice(v.id)} className="flex flex-col text-left">
                   <span className="text-[13px] font-medium">{v.name}</span>
                   <span className="text-[11px] text-fg-muted">{v.desc}</span>
                 </button>
