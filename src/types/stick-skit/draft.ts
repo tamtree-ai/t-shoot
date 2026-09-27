@@ -20,12 +20,32 @@ export type SkitVerdict = {
   estimatedDurationS: number | null;
 };
 
+/**
+ * Spoken beats whose line is only spaces. The engine takes them (a string of length ≥ 1),
+ * but TTS would voice silence at a line's price, so Studio's gate refuses them.
+ */
+function blankLines(skit: unknown): Record<string, unknown>[] {
+  const beats = (skit as { beats?: unknown })?.beats;
+  if (!Array.isArray(beats)) return [];
+  return beats.flatMap((b: { line?: unknown; silent?: unknown }, i) =>
+    b && b.silent !== true && typeof b.line === "string" && b.line.length > 0 && !b.line.trim()
+      ? [{ check: "blank-line", level: "error", message: "This line is empty.", path: `beats[${i}].line` }]
+      : [],
+  );
+}
+
 export function judgeSkit(skit: unknown): SkitVerdict {
   try {
     const d = checkDraft(skit, stickRegistry);
+    const blank = blankLines(skit);
     return {
       lines: d.lines.map((l) => ({ id: l.id, speaker: l.speaker, character: l.character, text: l.text, ...(l.delivery ? { delivery: l.delivery } : {}) })),
-      check: { ok: d.check.ok, errors: d.check.errors, warnings: d.check.warnings, findings: d.check.findings },
+      check: {
+        ok: d.check.ok && blank.length === 0,
+        errors: d.check.errors + blank.length,
+        warnings: d.check.warnings,
+        findings: [...blank, ...d.check.findings],
+      },
       warnings: d.warnings.map((w) => (w.path ? `${w.path}: ${w.message}` : w.message)),
       estimatedDurationS: d.estimatedDurationSec,
     };

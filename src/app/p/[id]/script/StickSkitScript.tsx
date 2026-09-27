@@ -55,7 +55,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           catalogVersion={draft.catalogVersion}
           revisionNote={draft.previousSkit ? draft.revisionNote : null}
           produce={produce}
-          initialNote={comment ? `${comment.authorName} said: “${comment.body}”` : ""}
+          fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}
         />
       ) : (
         <WriteSkit projectId={project.id} topic={brief.topic} />

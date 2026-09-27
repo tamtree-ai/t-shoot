@@ -16,6 +16,7 @@ import { characterName } from "@/types/stick-skit/catalog";
 import { canApprove, castOf, judgeSkit, withBeats, type SkitVerdict } from "@/types/stick-skit/draft";
 import { requestRun } from "./dispatcher";
 import { getProject } from "./projects";
+import { getProjectComment } from "./review";
 import { runAndRecordStage } from "./runs";
 import { getTypeDefaults } from "./type-settings";
 
@@ -63,8 +64,12 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   await saveOutput(projectId, catalogVersion, output as StickScriptOut, { previousSkit: null, revisionNote: null });
 }
 
-/** "Ask for a change": `stick-script` in revise mode over the skit as it stands, undoable once. */
-export async function reviseSkit(projectId: string, note: string, memberId: string): Promise<void> {
+/**
+ * "Ask for a change": `stick-script` in revise mode over the skit as it stands, undoable once.
+ * When it started from a review comment (09 §6.6), the change is recorded and the comment
+ * resolved once the revise lands.
+ */
+export async function reviseSkit(projectId: string, note: string, memberId: string, sourceCommentId?: string): Promise<void> {
   const { catalogVersion } = await stickProject(projectId);
   const draft = await requireDraft(projectId);
 
@@ -76,6 +81,19 @@ export async function reviseSkit(projectId: string, note: string, memberId: stri
     confirmedBy: memberId,
   });
   await saveOutput(projectId, catalogVersion, output as StickScriptOut, { previousSkit: draft.skit, revisionNote: note });
+  if (sourceCommentId) await resolveComment(projectId, sourceCommentId, note, memberId);
+}
+
+async function resolveComment(projectId: string, commentId: string, note: string, memberId: string): Promise<void> {
+  const comment = await getProjectComment(projectId, commentId);
+  if (!comment || comment.resolved) return;
+  await db.transaction(async (tx) => {
+    const [change] = await tx
+      .insert(schema.changeRequests)
+      .values({ projectId, note, sourceCommentId: commentId, estimateUsd: STICK_SCRIPT_PRICE_USD.toString(), confirmedBy: memberId, confirmedAt: new Date() })
+      .returning({ id: schema.changeRequests.id });
+    await tx.update(schema.comments).set({ resolvedByChangeRequestId: change.id }).where(eq(schema.comments.id, commentId));
+  });
 }
 
 async function saveOutput(

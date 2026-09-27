@@ -25,6 +25,12 @@ describe("judgeSkit", () => {
     expect(v.check.findings.length).toBeGreaterThan(0);
     expect(canApprove(v)).toBe(false);
   });
+
+  it("refuses a line of only spaces, which the engine alone would voice", () => {
+    const v = judgeSkit(editBeat(skit, "l2", { line: "   " }));
+    expect(v.check.findings[0]).toMatchObject({ check: "blank-line", path: "beats[1].line" });
+    expect(canApprove(v)).toBe(false);
+  });
 });
 
 describe("editBeat", () => {

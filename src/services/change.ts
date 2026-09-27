@@ -84,7 +84,7 @@ export async function planChange(sceneId: string, note: string, memberId: string
   };
   const [row] = await db
     .insert(schema.changeRequests)
-    .values({ sceneId, note, sourceCommentId, plan, estimateUsd: totalUsd })
+    .values({ projectId: project.id, sceneId, note, sourceCommentId, plan, estimateUsd: totalUsd })
     .returning({ id: schema.changeRequests.id });
   return { changeId: row.id, note, ...plan };
 }
@@ -92,6 +92,7 @@ export async function planChange(sceneId: string, note: string, memberId: string
 export async function confirmChange(changeId: string, memberId: string): Promise<void> {
   const [change] = await db.select().from(schema.changeRequests).where(eq(schema.changeRequests.id, changeId));
   if (!change || change.confirmedAt) throw new Error("This change was already applied.");
+  if (!change.sceneId) throw new Error("This change isn't about a scene.");
   const plan = change.plan as unknown as Pick<ChangePlan, "after" | "changed" | "totalUsd">;
   const [scene] = await db.select().from(schema.scenes).where(eq(schema.scenes.id, change.sceneId));
   const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, scene.projectId));

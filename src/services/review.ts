@@ -99,7 +99,7 @@ export async function reviewVideoAsset(token: string): Promise<string | null> {
 /** One comment on any of a project's versions (the owner turning it into a change). */
 export async function getProjectComment(projectId: string, commentId: string) {
   const [row] = await db
-    .select({ authorName: schema.comments.authorName, body: schema.comments.body })
+    .select({ authorName: schema.comments.authorName, body: schema.comments.body, resolved: schema.comments.resolvedByChangeRequestId })
     .from(schema.comments)
     .innerJoin(schema.projectVersions, eq(schema.projectVersions.id, schema.comments.versionId))
     .where(and(eq(schema.comments.id, commentId), eq(schema.projectVersions.projectId, projectId)))

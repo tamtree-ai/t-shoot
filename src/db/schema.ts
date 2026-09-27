@@ -170,7 +170,9 @@ export const runs = pgTable(
 
 export const changeRequests = pgTable("change_requests", {
   id: id(),
-  sceneId: uuid("scene_id").notNull().references(() => scenes.id, { onDelete: "cascade" }),
+  projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  /** The scene an `ai_clips` change is about; null for a type with no scenes (a skit revise). */
+  sceneId: uuid("scene_id").references(() => scenes.id, { onDelete: "cascade" }),
   note: text("note").notNull(),
   sourceCommentId: uuid("source_comment_id"),
   /** revise-scene result: the new beat + which parts changed. */

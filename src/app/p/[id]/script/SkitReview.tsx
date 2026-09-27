@@ -50,7 +50,7 @@ export function SkitReview({
   catalogVersion,
   revisionNote,
   produce,
-  initialNote,
+  fromComment,
 }: {
   projectId: string;
   topic: string;
@@ -60,13 +60,15 @@ export function SkitReview({
   revisionNote: string | null;
   produce: ProduceState | null;
   /** A review comment being turned into a change (09 §6.6): it starts the Ask-for-a-change note. */
-  initialNote: string;
+  fromComment: { id: string; note: string } | null;
 }) {
   const router = useRouter();
   const [skit, setSkit] = useState(initial);
   const [save, setSave] = useState<SaveState>("saved");
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState(initialNote);
+  const [note, setNote] = useState(fromComment?.note ?? "");
+  // The comment is resolved by the first revise made from it, not by any later one.
+  const [sourceComment, setSourceComment] = useState(fromComment?.id);
   const [busy, startBusy] = useTransition();
   const [approving, startApprove] = useTransition();
 
@@ -255,7 +257,15 @@ export function SkitReview({
             <button
               type="button"
               disabled={busy || !note.trim()}
-              onClick={() => run(() => reviseSkitAction(projectId, note), () => setNote(""))}
+              onClick={() =>
+                run(
+                  () => reviseSkitAction(projectId, note, sourceComment),
+                  () => {
+                    setNote("");
+                    setSourceComment(undefined);
+                  },
+                )
+              }
               className="h-[34px] rounded-lg border border-line-strong bg-hover px-3.5 text-[13px] font-medium text-fg disabled:opacity-60"
             >
               {busy ? "Working…" : "Rewrite"}

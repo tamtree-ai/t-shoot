@@ -91,10 +91,11 @@ export async function saveSkitBeatsAction(projectId: string, beats: unknown): Pr
   }
 }
 
-export async function reviseSkitAction(projectId: string, note: string): Promise<ActionResult> {
+/** `sourceCommentId`: the review comment this change came from, resolved once the revise lands. */
+export async function reviseSkitAction(projectId: string, note: string, sourceCommentId?: string): Promise<ActionResult> {
   if (!note.trim()) return { ok: false, error: "Say what to change." };
   const member = await getCurrentMember();
-  return guarded(projectId, () => reviseSkit(projectId, note.trim(), member.memberId));
+  return guarded(projectId, () => reviseSkit(projectId, note.trim(), member.memberId, sourceCommentId));
 }
 
 export async function keepSkitRevisionAction(projectId: string): Promise<ActionResult> {

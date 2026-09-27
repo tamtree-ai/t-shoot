@@ -29,6 +29,13 @@
       "when": 1790427433095,
       "tag": "0003_production_types_contract",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790470696414,
+      "tag": "0004_change_requests_per_project",
+      "breakpoints": true
     }
   ]
 }
