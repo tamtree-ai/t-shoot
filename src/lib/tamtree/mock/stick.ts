@@ -17,20 +17,48 @@ import groupChat from "./stick/group-chat.skit.json";
 export type StickMockFailure = "catalog_mismatch" | "invalid_skit";
 
 type Beat = { id: string; speaker?: string; line?: string };
+type Scene = { id: string; set: string; beats: Beat[] };
+type StickBrief = Extract<StickScriptIn, { mode: "draft" }>["brief"];
 
 const clone = <T>(v: T): T => structuredClone(v);
+
+/**
+ * The committed skit cut into `brief.scenes` scenes: its beats split evenly, never opening a
+ * scene on a silent beat, each scene on the brief's next set, or else a set not yet used.
+ */
+function inScenes(skit: Skit & { set?: string; beats?: Beat[] }, brief: StickBrief & { scenes: number }): Skit {
+  const beats = skit.beats ?? [];
+  const pool = [...(brief.allowed_sets ?? Object.keys(stickRegistry.sets)), ...Object.keys(stickRegistry.sets)].filter((s) => s in stickRegistry.sets);
+  const used: string[] = [];
+  const scenes: Scene[] = [];
+  let at = 0;
+  for (let i = 0; i < brief.scenes && at < beats.length; i++) {
+    let end = i === brief.scenes - 1 ? beats.length : Math.round(((i + 1) * beats.length) / brief.scenes);
+    while (end < beats.length && !beats[end]!.line) end++;
+    const set = brief.sets?.[i] ?? pool.find((s) => !used.includes(s) && !brief.sets?.includes(s)) ?? skit.set!;
+    used.push(set);
+    scenes.push({ id: `s${i + 1}`, set, beats: beats.slice(at, end) });
+    at = end;
+  }
+  const out: Skit = { ...skit, scenes: scenes.filter((sc) => sc.beats.length > 0) };
+  delete out.set;
+  delete out.beats;
+  return out;
+}
 
 /** What the script model "wrote": the committed skit for a draft, one changed line for a revise. */
 function mockWrite(input: StickScriptIn): { skit: Skit; premise?: Record<string, unknown> } {
   if (input.mode === "draft") {
-    const skit = clone(groupChat) as Skit & { set: string };
+    const skit = clone(groupChat) as Skit & { set: string; beats?: Beat[] };
+    const { scenes } = input.brief;
+    if (scenes) return { skit: inScenes(skit, { ...input.brief, scenes }), premise: clone(premise) };
     const set = input.brief.set ?? input.brief.allowed_sets?.find((s) => s in stickRegistry.sets);
     if (set && set in stickRegistry.sets) skit.set = set;
     return { skit, premise: clone(premise) };
   }
   // Revise "applies" the note to the punchline only, and keeps every id.
-  const skit = clone(input.skit) as Skit & { beats?: Beat[] };
-  const spoken = (skit.beats ?? []).filter((b) => b.line);
+  const skit = clone(input.skit) as Skit & { beats?: Beat[]; scenes?: { beats?: Beat[] }[] };
+  const spoken = (skit.scenes ? skit.scenes.flatMap((sc) => sc.beats ?? []) : (skit.beats ?? [])).filter((b) => b.line);
   const last = spoken.at(-1);
   if (last?.line) last.line = `${last.line.replace(/[.!?]+$/, "")}. Obviously.`;
   return { skit };

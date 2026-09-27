@@ -24,6 +24,20 @@ async function run<F extends "stick-script" | "stick-produce">(a: MockTamtreeAda
 }
 
 describe("mock stick-script", () => {
+  it("drafts a multi-scene skit when the brief asks for scenes: its sets first, then unused allowed ones", async () => {
+    const a = fast();
+    const r = await run(a, "stick-script", { mode: "draft", catalog_version: version, brief: { ...brief, scenes: 3, sets: ["office-1"] } }, "ms1");
+    expect(r.status).toBe("completed");
+    const out = readStageOutput("stick-script", await a.getRunOutput(r.id));
+    const scenes = (out.skit as { scenes: { set: string; beats: { line?: string }[] }[] }).scenes;
+    expect(scenes.map((sc) => sc.set)).toEqual(["office-1", "cafe-1", expect.any(String)]);
+    expect(new Set(scenes.map((sc) => sc.set)).size).toBe(3);
+    expect(scenes.every((sc) => sc.beats[0]?.line)).toBe(true);
+    expect(out.skit).not.toHaveProperty("beats");
+    expect(out.lines).toHaveLength(12);
+    expect(out.check).toMatchObject({ errors: 0 });
+  });
+
   it("drafts the group-chat skit, staged and checked by the real stickstage package", async () => {
     const a = fast();
     const r = await run(a, "stick-script", { mode: "draft", catalog_version: version, brief }, "d1");

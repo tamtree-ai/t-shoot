@@ -26,6 +26,12 @@ const TEMPLATE_LABELS: Record<TemplateId, string> = {
   "text-slam": "Text slam",
 };
 const TONES = ["Deadpan", "Wholesome", "Chaotic", "Dry"];
+const SCENE_COUNTS = [
+  { n: 1, label: "One" },
+  { n: 2, label: "Two" },
+  { n: 3, label: "Three" },
+  { n: 4, label: "Four" },
+] as const;
 
 /**
  * The `stick_skit` brief (09 §6.2): what it's about, the format, who's in it and where,
@@ -34,14 +40,16 @@ const TONES = ["Deadpan", "Wholesome", "Chaotic", "Dry"];
  */
 export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
   const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id));
-  const sets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id));
+  const catalogSets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id));
 
   const [topic, setTopic] = useState("");
   const [description, setDescription] = useState("");
   const [template, setTemplate] = useState<TemplateId | null>(defaults.default_template ?? null);
   const [picked, setPicked] = useState<string[]>(characters.slice(0, 1).map((c) => c.id));
   const [selves, setSelves] = useState(["me", "my brain"]);
-  const [set, setSet] = useState<string | null>(null);
+  const [scenes, setScenes] = useState(1);
+  /** The picked sets in scene order: at most one per scene; none is the writer's pick. */
+  const [sets, setSets] = useState<string[]>([]);
   const [tone, setTone] = useState<string | null>(null);
   const [limit, setLimit] = useState(Number(defaults.limit_usd).toFixed(2));
   const [editingLimit, setEditingLimit] = useState(false);
@@ -62,6 +70,19 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
     setPicked((p) => {
       if (p.includes(id)) return p.length > 1 ? p.filter((c) => c !== id) : p;
       return maxPicked === 1 ? [id] : [...p, id].slice(-maxPicked);
+    });
+  }
+
+  function chooseScenes(n: number) {
+    setScenes(n);
+    setSets((p) => p.slice(0, n));
+  }
+
+  function toggleSet(id: string) {
+    setSets((p) => {
+      if (scenes === 1) return [id];
+      if (p.includes(id)) return p.filter((s) => s !== id);
+      return p.length < scenes ? [...p, id] : [...p.slice(0, -1), id];
     });
   }
 
@@ -90,7 +111,7 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
       ...(description.trim() && { description: description.trim() }),
       ...(template && { template }),
       cast: cast(),
-      ...(set && { set }),
+      ...(scenes === 1 ? sets[0] && { set: sets[0] } : { scenes, ...(sets.length > 0 && { sets }) }),
       ...(tone && { tone: tone.toLowerCase() }),
     };
     const limitUsd = Number(limit || defaults.limit_usd).toFixed(2);
@@ -190,18 +211,56 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
         )}
       </div>
 
-      <div role="group" aria-label="Set" className="flex flex-col gap-2.5">
-        <span className={label}>Set</span>
-        <div className="grid grid-cols-8 gap-2">
-          <button type="button" aria-pressed={set === null} onClick={() => setSet(null)} className={`${card(set === null)} flex aspect-[9/16] items-center justify-center p-2 text-center text-xs text-fg-2`}>
-            Writer&rsquo;s pick
-          </button>
-          {sets.map((s) => (
-            <button key={s.id} type="button" aria-pressed={set === s.id} title={s.description} onClick={() => setSet(s.id)} className={`${card(set === s.id)} aspect-[9/16]`}>
-              <SetThumb id={s.id} className="absolute inset-0" />
-              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-left text-[11px] font-medium text-white">{setLabel(s.id)}</span>
+      <div role="group" aria-label="Scenes" className="flex flex-col gap-2.5">
+        <span className={label}>Scenes</span>
+        <div className="flex gap-1.5">
+          {SCENE_COUNTS.map(({ n, label: word }) => (
+            <button key={n} type="button" aria-pressed={scenes === n} onClick={() => chooseScenes(n)} className={`${toggleBase} ${scenes === n ? toggleOn : toggleOff}`}>
+              {word}
             </button>
           ))}
+        </div>
+        <span className="text-xs text-fg-muted">
+          {scenes === 1 ? "The whole skit plays on one set." : `The skit moves through ${scenes} sets, one per scene.`}
+        </span>
+      </div>
+
+      <div role="group" aria-label={scenes === 1 ? "Set" : "Sets"} className="flex flex-col gap-2.5">
+        <span className={label}>
+          {scenes === 1 ? (
+            "Set"
+          ) : (
+            <>
+              Sets <span className="font-normal tracking-normal normal-case">· up to {scenes}, in scene order; the writer picks the rest</span>
+            </>
+          )}
+        </span>
+        <div className="grid grid-cols-8 gap-2">
+          <button type="button" aria-pressed={sets.length === 0} onClick={() => setSets([])} className={`${card(sets.length === 0)} flex aspect-[9/16] items-center justify-center p-2 text-center text-xs text-fg-2`}>
+            Writer&rsquo;s pick
+          </button>
+          {catalogSets.map((s) => {
+            const order = sets.indexOf(s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                aria-pressed={order >= 0}
+                aria-label={scenes > 1 && order >= 0 ? `${setLabel(s.id)}, scene ${order + 1}` : setLabel(s.id)}
+                title={s.description}
+                onClick={() => toggleSet(s.id)}
+                className={`${card(order >= 0)} aspect-[9/16]`}
+              >
+                <SetThumb id={s.id} className="absolute inset-0" />
+                {scenes > 1 && order >= 0 && (
+                  <span aria-hidden className="absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full bg-accent font-mono text-[11px] font-semibold text-accent-ink">
+                    {order + 1}
+                  </span>
+                )}
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-left text-[11px] font-medium text-white">{setLabel(s.id)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -6,6 +6,19 @@ import { stickCatalog } from "./catalog";
 const brief = { topic: "Replying “sounds good” unread", cast: [{ id: "milo", character: "milo" }, { id: "june", character: "june" }] };
 const all = StickSkitDefaults.parse({});
 
+describe("a multi-scene brief", () => {
+  it("takes up to one allowed set per scene, each once, and no single set beside them", () => {
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 3 }, "1.00", all)).toBeNull();
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 3, sets: ["cafe-1", "office-1"] }, "1.00", all)).toBeNull();
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 2, sets: ["cafe-1", "office-1", "living-1"] }, "1.00", all)).toMatch(/at most 2 sets/);
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 2, sets: ["cafe-1", "cafe-1"] }, "1.00", all)).toMatch(/its own set/);
+    expect(stickBriefOutsideDefaults({ ...brief, sets: ["cafe-1"] }, "1.00", all)).toMatch(/how many scenes/);
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 2, set: "cafe-1" }, "1.00", all)).toMatch(/not both/);
+    const cafeOnly = StickSkitDefaults.parse({ allowed_sets: ["cafe-1"] });
+    expect(stickBriefOutsideDefaults({ ...brief, scenes: 2, sets: ["cafe-1", "office-1"] }, "1.00", cafeOnly)).toMatch(/isn't available/);
+  });
+});
+
 describe("stick_skit tenant defaults", () => {
   it("parses an org with no saved settings to the whole catalog, the plugin's voices and a $1.00 cap", () => {
     expect(all.allowed_sets).toEqual(stickCatalog.sets.map((s) => s.id));

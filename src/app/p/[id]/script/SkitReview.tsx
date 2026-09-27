@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import Link from "next/link";
 
@@ -13,8 +13,20 @@ import { isTerminal } from "@/lib/tamtree/types";
 import type { Skit } from "@/lib/tamtree/stage-flows";
 import type { ProduceState } from "@/services/skit";
 import { estimateProduce } from "@/types/stick-skit";
-import { characterName } from "@/types/stick-skit/catalog";
-import { beatsOf, canApprove, castOf, editBeat, judgeSkit, type BeatPatch, type EditableBeat } from "@/types/stick-skit/draft";
+import { characterName, setLabel } from "@/types/stick-skit/catalog";
+import {
+  allBeats,
+  beatsOf,
+  canApprove,
+  castOf,
+  editBeat,
+  findingTarget,
+  judgeSkit,
+  scenesOf,
+  type BeatPatch,
+  type EditableBeat,
+  type SkitScene,
+} from "@/types/stick-skit/draft";
 import {
   approveSkitAction,
   keepSkitRevisionAction,
@@ -30,11 +42,11 @@ const field = "box-border rounded-lg border border-line bg-canvas-script px-2.5 
 type SaveState = "saved" | "saving" | "unsaved" | "failed";
 type Finding = { check?: string; level?: string; message?: string; path?: string };
 
-/** `beats[1].line` → "Beat 2, line": where a finding points, in the editor's own numbering. */
-function where(path?: string): string | null {
-  const m = path?.match(/^beats\[(\d+)\](?:\.(\w+))?/);
-  if (!m) return null;
-  return `Beat ${Number(m[1]) + 1}${m[2] ? `, ${m[2] === "pauseBeforeMs" ? "pause" : m[2] === "text" ? "text slam" : m[2]}` : ""}`;
+/** `beats[1].line` → "Beat 2, line": where a finding points, in the editor's own numbering (across scenes). */
+function where(skit: Skit, path?: string): string | null {
+  const t = findingTarget(skit, path);
+  if (!t) return null;
+  return `Beat ${t.beat}${t.field ? `, ${t.field === "pauseBeforeMs" ? "pause" : t.field === "text" ? "text slam" : t.field}` : ""}`;
 }
 
 /**
@@ -74,6 +86,7 @@ export function SkitReview({
 
   const verdict = useMemo(() => judgeSkit(skit), [skit]);
   const beats = useMemo(() => beatsOf(skit), [skit]);
+  const scenes = useMemo(() => scenesOf(skit), [skit]);
   const cast = castOf(skit);
   const estimate = estimateProduce(verdict.lines.length);
   const making = !!produce && !isTerminal(produce.status);
@@ -91,7 +104,7 @@ export function SkitReview({
     if (!pending) return true;
     latest.current = null;
     setSave("saving");
-    const result = await saveSkitBeatsAction(projectId, pending.beats);
+    const result = await saveSkitBeatsAction(projectId, allBeats(pending));
     if (!result.ok) {
       setSave("failed");
       setError(result.error);
@@ -157,9 +170,15 @@ export function SkitReview({
           )}
 
           <ol aria-label="Beats" className="flex flex-col gap-3">
-            {beats.map((beat, i) => (
-              <BeatRow key={beat.id} index={i + 1} beat={beat} cast={cast} onEdit={(patch) => edit(beat.id, patch)} />
-            ))}
+            {beats.map((beat, i) => {
+              const scene = beat.scene !== beats[i - 1]?.scene ? scenes.findIndex((sc) => sc.id === beat.scene) : -1;
+              return (
+                <Fragment key={beat.id}>
+                  {scene >= 0 && <SceneHeading n={scene + 1} of={scenes.length} scene={scenes[scene]!} />}
+                  <BeatRow index={i + 1} beat={beat} cast={cast} onEdit={(patch) => edit(beat.id, patch)} />
+                </Fragment>
+              );
+            })}
           </ol>
         </div>
       </main>
@@ -181,7 +200,7 @@ export function SkitReview({
                 <li key={i} className="flex gap-2 text-[13px] leading-snug">
                   <span className={f.level === "error" ? "text-accent-link" : "text-attention"}>{f.level === "error" ? "Problem" : "Worth a look"}</span>
                   <span className="text-fg-2">
-                    {where(f.path) && <span className="text-fg">{where(f.path)}: </span>}
+                    {where(skit, f.path) && <span className="text-fg">{where(skit, f.path)}: </span>}
                     {f.message}
                   </span>
                 </li>
@@ -330,6 +349,19 @@ function ProducePanel({ projectId, produce, limitUsd }: { projectId: string; pro
       <span className={`size-1.5 rounded-full ${state.dot === "accent" ? "animate-pulse bg-accent" : "bg-fg-muted"}`} />
       {state.word === "Queued" ? "Waiting to start…" : "Voicing the lines and drawing the video…"}
     </p>
+  );
+}
+
+/** Where a multi-scene skit moves to a new set: the scene's number, set and POV card. */
+function SceneHeading({ n, of, scene }: { n: number; of: number; scene: SkitScene }) {
+  return (
+    <li role="presentation" className={`flex items-baseline gap-2.5 px-1 ${n > 1 ? "pt-3" : ""}`}>
+      <h2 className="text-[11px] font-semibold tracking-[0.08em] text-fg-muted uppercase">
+        Scene {n} of {of}
+        {scene.set && <span className="ml-2 font-normal tracking-normal text-fg-2 normal-case">{setLabel(scene.set)}</span>}
+      </h2>
+      {(scene.card ?? scene.pov) && <span className="truncate text-xs text-fg-3">{scene.card ? `Card: ${scene.card}` : scene.pov}</span>}
+    </li>
   );
 }
 

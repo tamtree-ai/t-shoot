@@ -131,6 +131,13 @@ export const StickBrief = z.object({
   cast: z.array(StickCast).min(1).max(2),
   /** Unset: the script model picks from `allowed_sets` (or the whole catalog). */
   set: z.string().optional(),
+  /**
+   * Several scenes, each on its own set (StickStage `scenes[]`). Unset: one scene. Not yet
+   * read by the plugin's `stick-script`, which still writes one scene.
+   */
+  scenes: z.number().int().min(2).max(4).optional(),
+  /** With `scenes`: the sets to move through, in order. Scenes past the list: the model picks. */
+  sets: z.array(z.string()).min(1).max(4).optional(),
   /** v0 extension: the workspace's allowed sets, so the model never picks another. */
   allowed_sets: z.array(z.string()).optional(),
   tone: z.string().optional(),

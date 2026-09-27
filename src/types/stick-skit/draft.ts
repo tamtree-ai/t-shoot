@@ -20,18 +20,39 @@ export type SkitVerdict = {
   estimatedDurationS: number | null;
 };
 
+/** Every beat with its path, whether the skit keeps one list (`beats`) or one per scene (`scenes[].beats`). */
+function locatedBeats(skit: unknown): { beat: unknown; path: string }[] {
+  const doc = skit as { beats?: unknown; scenes?: unknown } | null;
+  if (Array.isArray(doc?.scenes)) {
+    return doc.scenes.flatMap((sc: { beats?: unknown }, i) =>
+      Array.isArray(sc?.beats) ? sc.beats.map((beat, j) => ({ beat, path: `scenes[${i}].beats[${j}]` })) : [],
+    );
+  }
+  return Array.isArray(doc?.beats) ? doc.beats.map((beat, i) => ({ beat, path: `beats[${i}]` })) : [];
+}
+
 /**
  * Spoken beats whose line is only spaces. The engine takes them (a string of length ≥ 1),
  * but TTS would voice silence at a line's price, so Studio's gate refuses them.
  */
 function blankLines(skit: unknown): Record<string, unknown>[] {
-  const beats = (skit as { beats?: unknown })?.beats;
-  if (!Array.isArray(beats)) return [];
-  return beats.flatMap((b: { line?: unknown; silent?: unknown }, i) =>
-    b && b.silent !== true && typeof b.line === "string" && b.line.length > 0 && !b.line.trim()
-      ? [{ check: "blank-line", level: "error", message: "This line is empty.", path: `beats[${i}].line` }]
-      : [],
-  );
+  return locatedBeats(skit).flatMap(({ beat, path }) => {
+    const b = beat as { line?: unknown; silent?: unknown } | null;
+    return b && b.silent !== true && typeof b.line === "string" && b.line.length > 0 && !b.line.trim()
+      ? [{ check: "blank-line", level: "error", message: "This line is empty.", path: `${path}.line` }]
+      : [];
+  });
+}
+
+/**
+ * Where a finding points, in the editor's numbering: beats count from 1 across every scene.
+ * `scenes[1].beats[0].line` in a skit whose first scene has 5 beats → `{ beat: 6, field: "line" }`.
+ */
+export function findingTarget(skit: unknown, path?: string): { beat: number; field?: string } | null {
+  const m = path?.match(/^((?:scenes\[\d+\]\.)?beats\[\d+\])(?:\.(\w+))?/);
+  if (!m) return null;
+  const index = locatedBeats(skit).findIndex((b) => b.path === m[1]);
+  return index < 0 ? null : { beat: index + 1, ...(m[2] ? { field: m[2] } : {}) };
 }
 
 export function judgeSkit(skit: unknown): SkitVerdict {
@@ -70,11 +91,14 @@ export function canApprove(v: SkitVerdict): boolean {
 }
 
 type RawBeat = Record<string, unknown> & { id: string };
+type RawScene = Record<string, unknown> & { id: string; beats: RawBeat[] };
 type Slam = { type: "slam"; value: string } & Record<string, unknown>;
 
 /** One beat as the editor shows it. */
 export type EditableBeat = {
   id: string;
+  /** The scene it plays in; unset in a one-scene skit. */
+  scene?: string;
   silent: boolean;
   speaker?: string;
   line?: string;
@@ -92,17 +116,63 @@ export type BeatPatch = {
   slams?: string[];
 };
 
+/** A multi-scene skit's scenes (StickStage `scenes[]`), or null for one scene. */
+function rawScenes(skit: Skit): RawScene[] | null {
+  return Array.isArray(skit.scenes) ? (skit.scenes as RawScene[]) : null;
+}
+
+/** Every beat, in play order, across scenes. */
 function rawBeats(skit: Skit): RawBeat[] {
+  const scenes = rawScenes(skit);
+  if (scenes) return scenes.flatMap((sc) => (Array.isArray(sc.beats) ? sc.beats : []));
   const beats = skit.beats;
   if (!Array.isArray(beats)) throw new Error("This skit has no beats to edit.");
   return beats as RawBeat[];
 }
 
+/** The skit with its beats replaced, in play order, keeping each scene's share of them. */
+function replaceBeats(skit: Skit, beats: RawBeat[]): Skit {
+  const scenes = rawScenes(skit);
+  if (!scenes) return { ...skit, beats };
+  let at = 0;
+  return {
+    ...skit,
+    scenes: scenes.map((sc) => {
+      const n = Array.isArray(sc.beats) ? sc.beats.length : 0;
+      return { ...sc, beats: beats.slice(at, (at += n)) };
+    }),
+  };
+}
+
+/** The beats as the editor saves them: one list in play order, whatever the skit's shape. */
+export function allBeats(skit: Skit): RawBeat[] {
+  return rawBeats(skit);
+}
+
+export type SkitScene = { id: string; set?: string; pov?: string; card?: string; beatIds: string[] };
+
+/** A multi-scene skit's scenes, for the editor's scene headings; empty for one scene. */
+export function scenesOf(skit: Skit): SkitScene[] {
+  return (rawScenes(skit) ?? []).map((sc) => {
+    const set = typeof sc.set === "string" ? sc.set : typeof skit.set === "string" ? skit.set : undefined;
+    const card = (sc.card as { title?: unknown } | undefined)?.title;
+    return {
+      id: sc.id,
+      ...(set ? { set } : {}),
+      ...(typeof sc.pov === "string" ? { pov: sc.pov } : {}),
+      ...(typeof card === "string" ? { card } : {}),
+      beatIds: (Array.isArray(sc.beats) ? sc.beats : []).map((b) => b.id),
+    };
+  });
+}
+
 const slamsOf = (beat: RawBeat): Slam[] => (Array.isArray(beat.text) ? (beat.text as Slam[]).filter((t) => t?.type === "slam") : []);
 
 export function beatsOf(skit: Skit): EditableBeat[] {
+  const sceneOf = new Map(scenesOf(skit).flatMap((sc) => sc.beatIds.map((id) => [id, sc.id] as const)));
   return rawBeats(skit).map((b) => ({
     id: b.id,
+    ...(sceneOf.has(b.id) ? { scene: sceneOf.get(b.id) } : {}),
     silent: b.silent === true || typeof b.line !== "string",
     speaker: typeof b.speaker === "string" ? b.speaker : undefined,
     line: typeof b.line === "string" ? b.line : undefined,
@@ -124,9 +194,9 @@ export function castOf(skit: Skit): { id: string; character: string; label?: str
 export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
   const beats = rawBeats(skit);
   if (!beats.some((b) => b.id === beatId)) throw new Error(`No beat "${beatId}" in this skit.`);
-  return {
-    ...skit,
-    beats: beats.map((b) => {
+  return replaceBeats(
+    skit,
+    beats.map((b) => {
       if (b.id !== beatId) return b;
       const next: RawBeat = { ...b };
       if (patch.speaker !== undefined) next.speaker = patch.speaker;
@@ -141,12 +211,13 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
       }
       return next;
     }),
-  };
+  );
 }
 
 /**
  * What the server accepts from the editor: the stored skit with only its beats replaced
- * (OD-12), so cast, set, shots and meta can't be changed from the review screen.
+ * (OD-12), so cast, sets, scenes, shots and meta can't be changed from the review screen.
+ * `beats` is every beat in play order (`allBeats`); each scene keeps its own.
  */
 export function withBeats(stored: Skit, beats: unknown): Skit {
   if (!Array.isArray(beats)) throw new Error("Beats must be a list.");
@@ -155,5 +226,5 @@ export function withBeats(stored: Skit, beats: unknown): Skit {
   if (ids.length !== storedIds.length || ids.some((id, i) => id !== storedIds[i])) {
     throw new Error("Beats can be edited, not added, removed or reordered, here.");
   }
-  return { ...stored, beats };
+  return replaceBeats(stored, beats as RawBeat[]);
 }

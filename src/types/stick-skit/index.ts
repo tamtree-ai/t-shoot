@@ -48,6 +48,13 @@ export function stickBriefOutsideDefaults(brief: StickBrief, limitUsd: string, d
     if (!d.allowed_characters.includes(member.character)) return `${member.character} isn't available in this workspace.`;
   }
   if (brief.set && !d.allowed_sets.includes(brief.set)) return "That set isn't available in this workspace.";
+  if (brief.scenes && brief.set) return "Pick one set, or a set per scene, not both.";
+  if (brief.sets) {
+    if (!brief.scenes) return "Pick how many scenes before picking their sets.";
+    if (brief.sets.length > brief.scenes) return `Pick at most ${brief.scenes} sets, one per scene.`;
+    if (new Set(brief.sets).size !== brief.sets.length) return "Give each scene its own set.";
+    if (brief.sets.some((s) => !d.allowed_sets.includes(s))) return "That set isn't available in this workspace.";
+  }
   const template = brief.template && stickCatalog.templates.find((t) => t.id === brief.template);
   if (template && template.cast !== brief.cast.length) {
     return `That format needs ${template.cast === 1 ? "one character" : "two characters"}.`;
