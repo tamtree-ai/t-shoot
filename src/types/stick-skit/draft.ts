@@ -5,7 +5,7 @@
  * so the review screen re-checks every edit in the browser and the server re-checks it on save,
  * with no run either way.
  */
-import { checkDraft, SkitError } from "stickstage";
+import { checkDraft, lastWordAnchor, normWord, SkitError, tokenize } from "stickstage";
 
 import { stickRegistry } from "@/lib/stick/registry";
 import type { Skit, StickCheck, StickLine } from "@/lib/tamtree/stage-flows";
@@ -59,13 +59,14 @@ export function judgeSkit(skit: unknown): SkitVerdict {
   try {
     const d = checkDraft(skit, stickRegistry);
     const blank = blankLines(skit);
+    const slams = slamAnchorFindings(skit);
     return {
       lines: d.lines.map((l) => ({ id: l.id, speaker: l.speaker, character: l.character, text: l.text, ...(l.delivery ? { delivery: l.delivery } : {}) })),
       check: {
         ok: d.check.ok && blank.length === 0,
         errors: d.check.errors + blank.length,
-        warnings: d.check.warnings,
-        findings: [...blank, ...d.check.findings],
+        warnings: d.check.warnings + slams.length,
+        findings: [...blank, ...slams, ...d.check.findings],
       },
       warnings: d.warnings.map((w) => (w.path ? `${w.path}: ${w.message}` : w.message)),
       estimatedDurationS: d.estimatedDurationSec,
@@ -105,6 +106,8 @@ export type EditableBeat = {
   expression?: string;
   pauseBeforeMs?: number;
   slams: string[];
+  /** The word each slam hits, when it is anchored to a word. */
+  slamAt: ({ word: string; occurrence: number } | null)[];
 };
 
 export type BeatPatch = {
@@ -114,7 +117,15 @@ export type BeatPatch = {
   /** null removes the pause. */
   pauseBeforeMs?: number | null;
   slams?: string[];
+  /**
+   * Word anchors parallel to `slams`. A null entry lets the editor pick the anchor.
+   * Set when the person double-taps a word, so the slam hits that occurrence.
+   */
+  slamAnchors?: ({ word: string; occurrence: number } | null)[];
 };
+
+/** Which scene each beat plays in, when the skit has more than one. */
+export type ScenePlan = { id: string; set?: string; beatIds: string[] };
 
 /** A multi-scene skit's scenes (StickStage `scenes[]`), or null for one scene. */
 function rawScenes(skit: Skit): RawScene[] | null {
@@ -168,6 +179,95 @@ export function scenesOf(skit: Skit): SkitScene[] {
 
 const slamsOf = (beat: RawBeat): Slam[] => (Array.isArray(beat.text) ? (beat.text as Slam[]).filter((t) => t?.type === "slam") : []);
 
+/** The first place `value`'s words appear in the line, or null. */
+function phraseAnchor(line: string, value: string): { word: string; occurrence: number } | null {
+  const lineToks = tokenize(line);
+  const want = tokenize(value).map((t) => t.norm).filter(Boolean);
+  if (want.length === 0 || lineToks.length < want.length) return null;
+  for (let i = 0; i <= lineToks.length - want.length; i++) {
+    if (want.every((n, j) => lineToks[i + j]!.norm === n)) {
+      const hit = lineToks[i]!;
+      const occurrence = lineToks.slice(0, i + 1).filter((t) => t.norm === hit.norm).length;
+      return { word: hit.norm || hit.text, occurrence };
+    }
+  }
+  return null;
+}
+
+/** Point a slam at its own words, or at the last word of the line when those words are gone. */
+function retargetSlam(slam: Slam, line: string): Slam {
+  const phrase = phraseAnchor(line, slam.value);
+  if (phrase) return { ...slam, at: phrase };
+  if (tokenize(line).length === 0) return slam;
+  return { ...slam, at: lastWordAnchor(line) };
+}
+
+function slamDisagrees(slam: Slam): boolean {
+  const at = slam.at as { word?: unknown } | undefined;
+  if (!at || typeof at.word !== "string") return false;
+  const norms = tokenize(slam.value).map((t) => t.norm).filter(Boolean);
+  return !norms.includes(normWord(at.word));
+}
+
+/** The chip says one thing and the film hits another word. A warning: the line still plays. */
+function slamAnchorFindings(skit: unknown): Record<string, unknown>[] {
+  return locatedBeats(skit).flatMap(({ beat, path }) => {
+    const b = beat as RawBeat | null;
+    if (!b) return [];
+    return slamsOf(b).flatMap((slam) =>
+      slamDisagrees(slam)
+        ? [{ check: "slam-anchor", level: "warning", message: `The slam “${slam.value}” still hits “${(slam.at as { word: string }).word}”.`, path: `${path}.text` }]
+        : [],
+    );
+  });
+}
+
+function spoken(beat: RawBeat): boolean {
+  return beat.silent !== true && typeof beat.line === "string" && beat.line.trim().length > 0;
+}
+
+type Slot = { sceneId: string; beat: RawBeat };
+
+function slotsOf(skit: Skit): { scenes: RawScene[] | null; slots: Slot[] } {
+  const scenes = rawScenes(skit);
+  if (!scenes) return { scenes: null, slots: rawBeats(skit).map((beat) => ({ sceneId: "", beat })) };
+  return { scenes, slots: scenes.flatMap((sc) => (Array.isArray(sc.beats) ? sc.beats : []).map((beat) => ({ sceneId: sc.id, beat }))) };
+}
+
+function fromSlots(skit: Skit, scenes: RawScene[] | null, slots: Slot[]): Skit {
+  if (!scenes) return { ...skit, beats: slots.map((s) => s.beat) };
+  const next = scenes
+    .map((sc) => ({ ...sc, beats: slots.filter((s) => s.sceneId === sc.id).map((s) => s.beat) }))
+    .filter((sc) => sc.beats.length > 0);
+  const { beats: _omit, ...rest } = skit as Skit & { beats?: unknown };
+  return { ...rest, scenes: next };
+}
+
+/** Move `from` so it lands at `to` in the list after the removal. `to` is the original index to occupy. */
+function relocate<T>(list: T[], from: number, to: number): T[] {
+  const next = list.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(Math.max(0, Math.min(to, next.length)), 0, item!);
+  return next;
+}
+
+function takenIds(skit: Skit): Set<string> {
+  const ids = new Set(rawBeats(skit).map((b) => b.id));
+  for (const sc of rawScenes(skit) ?? []) ids.add(sc.id);
+  return ids;
+}
+
+function freshId(prefix: string, taken: Set<string>): string {
+  let id = "";
+  do id = prefix + Math.random().toString(36).slice(2, 8);
+  while (taken.has(id) || !/^[a-z][a-z0-9]*$/.test(id));
+  return id;
+}
+
+function blankBeat(id: string, speaker?: string): RawBeat {
+  return { id, ...(speaker ? { speaker } : {}), line: " ", expression: "neutral" };
+}
+
 export function beatsOf(skit: Skit): EditableBeat[] {
   const sceneOf = new Map(scenesOf(skit).flatMap((sc) => sc.beatIds.map((id) => [id, sc.id] as const)));
   return rawBeats(skit).map((b) => ({
@@ -179,6 +279,10 @@ export function beatsOf(skit: Skit): EditableBeat[] {
     expression: typeof b.expression === "string" ? b.expression : undefined,
     pauseBeforeMs: typeof b.pauseBeforeMs === "number" ? b.pauseBeforeMs : undefined,
     slams: slamsOf(b).map((s) => s.value),
+    slamAt: slamsOf(b).map((s) => {
+      const at = s.at as { word?: unknown; occurrence?: unknown } | undefined;
+      return at && typeof at.word === "string" ? { word: normWord(at.word), occurrence: typeof at.occurrence === "number" ? at.occurrence : 1 } : null;
+    }),
   }));
 }
 
@@ -188,8 +292,9 @@ export function castOf(skit: Skit): { id: string; character: string; label?: str
 }
 
 /**
- * A new skit with one beat changed. Everything the patch doesn't name (actions, shots, sfx,
- * timing anchors) is kept; a slam keeps its timing when only its words change.
+ * A new skit with one beat changed. Everything the patch doesn't name (actions, shots, sfx)
+ * is kept. A slam keeps its timing when only its words change and those words are not in the
+ * line. Changing the line retargets every slam: onto its own words, or the last word.
  */
 export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
   const beats = rawBeats(skit);
@@ -204,10 +309,29 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
       if (patch.expression !== undefined) next.expression = patch.expression;
       if (patch.pauseBeforeMs === null) delete next.pauseBeforeMs;
       else if (patch.pauseBeforeMs !== undefined) next.pauseBeforeMs = Math.max(0, Math.round(patch.pauseBeforeMs));
+      const line = typeof next.line === "string" ? next.line : undefined;
       if (patch.slams !== undefined) {
         const old = slamsOf(b);
         const others = Array.isArray(b.text) ? (b.text as Slam[]).filter((t) => t?.type !== "slam") : [];
-        next.text = [...others, ...patch.slams.map((value, i) => (old[i] ? { ...old[i], value } : { type: "slam" as const, value }))];
+        next.text = [
+          ...others,
+          ...patch.slams.map((value, i) => {
+            const prev = old[i];
+            const slam: Slam = prev ? { ...prev, value } : { type: "slam", value };
+            const pinned = patch.slamAnchors?.[i];
+            if (pinned) return { ...slam, at: pinned };
+            if (!line) return slam;
+            if (!prev || patch.line !== undefined) return retargetSlam(slam, line);
+            if (value !== prev.value && phraseAnchor(line, value)) return retargetSlam(slam, line);
+            return slam;
+          }),
+        ];
+      } else if (patch.line !== undefined && line) {
+        const slams = slamsOf(next);
+        if (slams.length) {
+          const others = Array.isArray(next.text) ? (next.text as Slam[]).filter((t) => t?.type !== "slam") : [];
+          next.text = [...others, ...slams.map((s) => retargetSlam(s, line))];
+        }
       }
       return next;
     }),
@@ -215,16 +339,221 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
 }
 
 /**
- * What the server accepts from the editor: the stored skit with only its beats replaced
- * (OD-12), so cast, sets, scenes, shots and meta can't be changed from the review screen.
- * `beats` is every beat in play order (`allBeats`); each scene keeps its own.
+ * Rewrite slam anchors that no longer name the slam's own words. The editor does this
+ * when a draft opens, so a line edited earlier stops firing on the old word.
  */
-export function withBeats(stored: Skit, beats: unknown): Skit {
-  if (!Array.isArray(beats)) throw new Error("Beats must be a list.");
-  const storedIds = rawBeats(stored).map((b) => b.id);
-  const ids = beats.map((b) => (b && typeof b === "object" && "id" in b ? (b as RawBeat).id : undefined));
-  if (ids.length !== storedIds.length || ids.some((id, i) => id !== storedIds[i])) {
-    throw new Error("Beats can be edited, not added, removed or reordered, here.");
+export function alignSlams(skit: Skit): { skit: Skit; changed: boolean } {
+  let next = skit;
+  let changed = false;
+  for (const beat of rawBeats(skit)) {
+    if (typeof beat.line !== "string") continue;
+    const slams = slamsOf(beat);
+    if (!slams.some(slamDisagrees)) continue;
+    next = editBeat(next, beat.id, { line: beat.line, slams: slams.map((s) => s.value) });
+    changed = true;
   }
-  return replaceBeats(stored, beats as RawBeat[]);
+  return { skit: next, changed };
+}
+
+/** Where each beat sits, for a save of a multi-scene skit. Undefined for one scene. */
+export function scenePlanOf(skit: Skit): ScenePlan[] | undefined {
+  const scenes = scenesOf(skit);
+  if (scenes.length === 0) return undefined;
+  return scenes.map((sc) => ({ id: sc.id, ...(sc.set ? { set: sc.set } : {}), beatIds: sc.beatIds }));
+}
+
+function parseIncoming(beats: unknown): RawBeat[] {
+  if (!Array.isArray(beats)) throw new Error("Beats must be a list.");
+  const incoming = beats.map((b) => {
+    if (!b || typeof b !== "object" || typeof (b as RawBeat).id !== "string" || !(b as RawBeat).id) throw new Error("Each beat needs an id.");
+    return b as RawBeat;
+  });
+  if (new Set(incoming.map((b) => b.id)).size !== incoming.length) throw new Error("Each beat needs its own id.");
+  if (!incoming.some(spoken)) throw new Error("Keep at least one spoken line.");
+  return incoming;
+}
+
+/**
+ * What the server accepts from the editor: the stored skit with its beats replaced.
+ * Lines can be added, removed, and reordered. Cast and meta stay. A multi-scene skit
+ * needs `scenePlan` so each line still belongs to a scene. The last spoken line cannot go.
+ */
+export function withBeats(stored: Skit, beats: unknown, scenePlan?: ScenePlan[]): Skit {
+  const incoming = parseIncoming(beats);
+  const byId = new Map(incoming.map((b) => [b.id, b]));
+  const scenes = rawScenes(stored);
+  if (!scenes) {
+    if (scenePlan && scenePlan.length > 1) return applyScenePlan(stored, byId, incoming, scenePlan);
+    return { ...stored, beats: incoming };
+  }
+  const plan = scenePlan ?? planIfUnchanged(scenes, incoming);
+  return applyScenePlan(stored, byId, incoming, plan);
+}
+
+/** Same beats, same scenes: the older callers that only edited words. */
+function planIfUnchanged(scenes: RawScene[], incoming: RawBeat[]): ScenePlan[] {
+  const storedIds = scenes.flatMap((sc) => sc.beats.map((b) => b.id));
+  const ids = incoming.map((b) => b.id);
+  if (ids.length === storedIds.length && ids.every((id, i) => id === storedIds[i])) {
+    return scenes.map((sc) => ({
+      id: sc.id,
+      ...(typeof sc.set === "string" ? { set: sc.set } : {}),
+      beatIds: sc.beats.map((b) => b.id),
+    }));
+  }
+  throw new Error("Say which scene each line plays in.");
+}
+
+function applyScenePlan(stored: Skit, byId: Map<string, RawBeat>, incoming: RawBeat[], plan: ScenePlan[]): Skit {
+  const known = new Map((rawScenes(stored) ?? []).map((sc) => [sc.id, sc]));
+  const sets = stickRegistry.sets;
+  if (!plan.length) throw new Error("A skit needs a scene.");
+  const seen = new Set<string>();
+  const scenes = plan.map((p) => {
+    if (!p || typeof p.id !== "string" || !p.id) throw new Error("Each scene needs an id.");
+    if (!Array.isArray(p.beatIds) || p.beatIds.length === 0) throw new Error("A scene needs a line.");
+    const prev = known.get(p.id);
+    const set = p.set ?? (typeof prev?.set === "string" ? prev.set : typeof stored.set === "string" ? stored.set : undefined);
+    if (set && !sets[set]) throw new Error(`That set isn't in the catalog.`);
+    const beats = p.beatIds.map((id) => {
+      if (seen.has(id)) throw new Error("A line can't play in two scenes.");
+      seen.add(id);
+      const beat = byId.get(id);
+      if (!beat) throw new Error("A scene names a line that isn't in the skit.");
+      return beat;
+    });
+    return { ...(prev ?? { id: p.id }), id: p.id, ...(set ? { set } : {}), beats };
+  });
+  if (seen.size !== incoming.length) throw new Error("Every line has to belong to a scene.");
+  const { beats: _omit, set: _set, ...rest } = stored as Skit & { beats?: unknown; set?: unknown };
+  return { ...rest, scenes } as Skit;
+}
+
+/** A new spoken line after `afterId` (or at the start when `afterId` is null). Same scene, previous speaker. */
+export function addBeat(skit: Skit, afterId: string | null): { skit: Skit; id: string } {
+  const { scenes, slots } = slotsOf(skit);
+  const after = afterId === null ? -1 : slots.findIndex((s) => s.beat.id === afterId);
+  if (afterId !== null && after < 0) throw new Error(`No beat "${afterId}" in this skit.`);
+  const neighbor = slots[after] ?? slots[0];
+  const speaker = (typeof neighbor?.beat.speaker === "string" ? neighbor.beat.speaker : undefined) ?? castOf(skit)[0]?.id;
+  const id = freshId("b", takenIds(skit));
+  const slot: Slot = { sceneId: neighbor?.sceneId ?? "", beat: blankBeat(id, speaker) };
+  const next = slots.slice();
+  next.splice(after + 1, 0, slot);
+  return { skit: fromSlots(skit, scenes, next), id };
+}
+
+/** A copy of a line, without its shot, so the director stages the copy. */
+export function duplicateBeat(skit: Skit, beatId: string): { skit: Skit; id: string } {
+  const { scenes, slots } = slotsOf(skit);
+  const at = slots.findIndex((s) => s.beat.id === beatId);
+  if (at < 0) throw new Error(`No beat "${beatId}" in this skit.`);
+  const source = slots[at]!.beat;
+  const id = freshId("b", takenIds(skit));
+  const slams = slamsOf(source);
+  const beat: RawBeat = {
+    id,
+    ...(typeof source.speaker === "string" ? { speaker: source.speaker } : {}),
+    ...(typeof source.line === "string" ? { line: source.line } : { line: " " }),
+    ...(typeof source.expression === "string" ? { expression: source.expression } : {}),
+    ...(typeof source.pauseBeforeMs === "number" ? { pauseBeforeMs: source.pauseBeforeMs } : {}),
+    ...(slams.length ? { text: slams.map((s) => ({ ...s })) } : {}),
+  };
+  const next = slots.slice();
+  next.splice(at + 1, 0, { sceneId: slots[at]!.sceneId, beat });
+  return { skit: fromSlots(skit, scenes, next), id };
+}
+
+/** Drop a line. The last spoken line stays, with a reason. */
+export function deleteBeat(skit: Skit, beatId: string): Skit {
+  const { scenes, slots } = slotsOf(skit);
+  const at = slots.findIndex((s) => s.beat.id === beatId);
+  if (at < 0) throw new Error(`No beat "${beatId}" in this skit.`);
+  const beat = slots[at]!.beat;
+  const spokenLeft = slots.filter((s) => s.beat.id !== beatId && spoken(s.beat)).length;
+  if (spoken(beat) && spokenLeft === 0) throw new Error("Keep at least one spoken line.");
+  if (slots.length === 1) throw new Error("Keep at least one line.");
+  const next = slots.slice();
+  next.splice(at, 1);
+  return fromSlots(skit, scenes, next);
+}
+
+/** Swap a line with its neighbor. Across a scene boundary, the line joins that scene. */
+export function moveBeat(skit: Skit, beatId: string, direction: "up" | "down"): Skit {
+  const { slots } = slotsOf(skit);
+  const from = slots.findIndex((s) => s.beat.id === beatId);
+  if (from < 0) throw new Error(`No beat "${beatId}" in this skit.`);
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (to < 0 || to >= slots.length) return skit;
+  return placeBeat(skit, beatId, to);
+}
+
+/** Land `beatId` on `toIndex` (the index it should occupy). */
+export function placeBeat(skit: Skit, beatId: string, toIndex: number): Skit {
+  const { scenes, slots } = slotsOf(skit);
+  const from = slots.findIndex((s) => s.beat.id === beatId);
+  if (from < 0) throw new Error(`No beat "${beatId}" in this skit.`);
+  if (toIndex === from) return skit;
+  const host = slots[Math.max(0, Math.min(toIndex, slots.length - 1))];
+  const moved: Slot = { ...slots[from]!, sceneId: host?.sceneId ?? slots[from]!.sceneId };
+  const next = relocate(slots, from, toIndex);
+  next[next.findIndex((s) => s.beat.id === beatId)] = moved;
+  return fromSlots(skit, scenes, next);
+}
+
+/** A new scene after `afterSceneId`, with one blank line, on `setId`. */
+export function addScene(skit: Skit, afterSceneId: string | null, setId: string): { skit: Skit; id: string } {
+  if (!stickRegistry.sets[setId]) throw new Error("That set isn't in the catalog.");
+  const scenes = rawScenes(skit);
+  const id = freshId("s", takenIds(skit));
+  const speaker = castOf(skit)[0]?.id;
+  const scene: RawScene = { id, set: setId, beats: [blankBeat(freshId("b", takenIds(skit)), speaker)] };
+  if (!scenes) {
+    const first: RawScene = {
+      id: freshId("s", new Set([id, ...takenIds(skit)])),
+      ...(typeof skit.set === "string" ? { set: skit.set } : { set: setId }),
+      beats: rawBeats(skit),
+    };
+    const { beats: _b, set: _s, ...rest } = skit as Skit & { beats?: unknown; set?: unknown };
+    return { skit: { ...rest, scenes: [first, scene] } as Skit, id };
+  }
+  const at = afterSceneId === null ? -1 : scenes.findIndex((sc) => sc.id === afterSceneId);
+  if (afterSceneId !== null && at < 0) throw new Error(`No scene "${afterSceneId}" in this skit.`);
+  const next = scenes.slice();
+  next.splice(at + 1, 0, scene);
+  return { skit: { ...skit, scenes: next }, id };
+}
+
+/** Drop a scene and its lines. The last scene, and the last spoken line, stay. */
+export function dropScene(skit: Skit, sceneId: string): Skit {
+  const scenes = rawScenes(skit);
+  if (!scenes) throw new Error("This skit has one scene.");
+  if (scenes.length === 1) throw new Error("Keep at least one scene.");
+  const scene = scenes.find((sc) => sc.id === sceneId);
+  if (!scene) throw new Error(`No scene "${sceneId}" in this skit.`);
+  const left = scenes.filter((sc) => sc.id !== sceneId).flatMap((sc) => sc.beats);
+  if (!left.some(spoken)) throw new Error("Keep at least one spoken line.");
+  return { ...skit, scenes: scenes.filter((sc) => sc.id !== sceneId) };
+}
+
+export function moveScene(skit: Skit, sceneId: string, direction: "up" | "down"): Skit {
+  const scenes = rawScenes(skit);
+  if (!scenes) return skit;
+  const from = scenes.findIndex((sc) => sc.id === sceneId);
+  if (from < 0) throw new Error(`No scene "${sceneId}" in this skit.`);
+  const to = direction === "up" ? from - 1 : from + 1;
+  if (to < 0 || to >= scenes.length) return skit;
+  const next = scenes.slice();
+  const [scene] = next.splice(from, 1);
+  next.splice(to, 0, scene!);
+  return { ...skit, scenes: next };
+}
+
+/** Change the set a scene is filmed on. One-scene skits use the top-level set. */
+export function setSceneSet(skit: Skit, sceneId: string | null, setId: string): Skit {
+  if (!stickRegistry.sets[setId]) throw new Error("That set isn't in the catalog.");
+  const scenes = rawScenes(skit);
+  if (!scenes) return { ...skit, set: setId };
+  if (!scenes.some((sc) => sc.id === sceneId)) throw new Error(`No scene "${sceneId}" in this skit.`);
+  return { ...skit, scenes: scenes.map((sc) => (sc.id === sceneId ? { ...sc, set: setId } : sc)) };
 }

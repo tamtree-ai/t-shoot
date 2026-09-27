@@ -14,6 +14,7 @@ import {
   updateSceneText,
 } from "@/services/script";
 import { approveSkit, keepSkitRevision, reviseSkit, saveSkitBeats, undoSkitRevision, writeSkit } from "@/services/skit";
+import type { ScenePlan } from "@/types/stick-skit/draft";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -82,9 +83,13 @@ export async function writeSkitAction(projectId: string): Promise<ActionResult> 
  * Saves a beats edit. No revalidate: the browser already shows the re-checked skit, and a
  * re-render mid-typing would reset the editor. Returns the server's own verdict.
  */
-export async function saveSkitBeatsAction(projectId: string, beats: unknown): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
+export async function saveSkitBeatsAction(
+  projectId: string,
+  beats: unknown,
+  scenePlan?: ScenePlan[],
+): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
   try {
-    const verdict = await saveSkitBeats(projectId, beats);
+    const verdict = await saveSkitBeats(projectId, beats, scenePlan);
     return { ok: true, errors: verdict.check.errors };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong saving the skit." };

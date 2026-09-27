@@ -13,7 +13,7 @@ import { Skit, type StickProduceIn, type StickScriptOut } from "@/lib/tamtree/st
 import { timelineDigest } from "@/lib/timeline";
 import { estimateProduce, stickSkit } from "@/types/stick-skit";
 import { characterName } from "@/types/stick-skit/catalog";
-import { canApprove, castOf, judgeSkit, withBeats, type SkitVerdict } from "@/types/stick-skit/draft";
+import { canApprove, castOf, judgeSkit, withBeats, type ScenePlan, type SkitVerdict } from "@/types/stick-skit/draft";
 import { requestRun } from "./dispatcher";
 import { getProject } from "./projects";
 import { getProjectComment } from "./review";
@@ -124,10 +124,10 @@ async function saveOutput(
  * The owner's edit from the beats editor: only the beats are taken (OD-12), re-checked here as
  * the browser already did. A direct edit settles any pending "Ask for a change".
  */
-export async function saveSkitBeats(projectId: string, beats: unknown): Promise<SkitVerdict> {
+export async function saveSkitBeats(projectId: string, beats: unknown, scenePlan?: ScenePlan[]): Promise<SkitVerdict> {
   await stickProject(projectId);
   const draft = await requireDraft(projectId);
-  const skit = withBeats(Skit.parse(draft.skit), beats);
+  const skit = withBeats(Skit.parse(draft.skit), beats, scenePlan);
   const verdict = judgeSkit(skit);
   await db
     .update(schema.skitDrafts)

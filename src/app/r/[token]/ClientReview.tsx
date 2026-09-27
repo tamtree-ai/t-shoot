@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
+import { fit916 } from "@/components/stick-skit/fit";
+import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { gradientFor } from "../../p/[id]/edit/shared";
 import type { ReviewView } from "@/services/review";
 import { approveAction, commentAction } from "./actions";
@@ -23,6 +25,8 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
   const box = useRef<HTMLTextAreaElement>(null);
 
   const video = useRef<HTMLVideoElement>(null);
+  const [stage, stageSize] = useElementSize();
+  const fitted = fit916(stageSize.width, stageSize.height);
   const duration = review.durationS;
 
   // A timeline (ai_clips) is walked on a clock; a rendered video (stick_skit) plays itself.
@@ -66,7 +70,7 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
   });
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas-script">
+    <div className="flex h-dvh flex-col overflow-hidden bg-canvas-script">
       <header className="flex flex-wrap items-center gap-4 border-b border-rule-2 px-6 py-3">
         <div className="flex flex-col gap-0.5">
           <span className="font-display text-2xl leading-none italic">{review.projectTitle}</span>
@@ -83,31 +87,37 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
         )}
       </header>
 
-      <div className="flex flex-1 max-lg:flex-col">
-        <main className="flex flex-1 flex-col items-center gap-3 px-4 py-5 sm:px-10" style={{ background: "radial-gradient(circle at 50% 40%, #15151a 0%, #0a0a0c 70%)" }}>
-          <div role="img" aria-label="Phone preview" className="relative box-border h-[648px] w-[352px] max-w-full shrink-0 rounded-[50px] bg-[#050506] p-[11px] shadow-[0_0_0_1px_#3a3a42,inset_0_0_0_1px_rgba(255,255,255,0.05),0_30px_80px_rgba(0,0,0,0.6)] max-sm:h-[560px] max-sm:w-[304px]">
-            <div className="absolute top-[22px] left-1/2 z-[2] h-7 w-[94px] -translate-x-1/2 rounded-[14px] bg-black" />
-            {review.video ? (
-              <video
-                ref={video}
-                src={`/r/${token}/video`}
-                playsInline
-                preload="metadata"
-                onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
-                onEnded={() => setPlaying(false)}
-                className="h-full w-full rounded-[40px] bg-black object-cover"
-              />
-            ) : (
-              scene && (
-                <div className="relative h-full w-full overflow-hidden rounded-[40px]" style={{ background: gradientFor(scene.position) }}>
-                  <div className="absolute inset-0 flex items-center justify-center p-10 text-center text-[13px] leading-normal text-white/40">[footage — scene {scene.position}]</div>
-                  {cap && <div className="absolute right-6 bottom-[130px] left-6 text-center text-[27px] leading-[1.2] font-bold tracking-[-0.01em] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.55)]">{cap.text}</div>}
+      <div className="flex min-h-0 flex-1 max-lg:flex-col">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col" style={{ background: "radial-gradient(circle at 50% 40%, #15151a 0%, #0a0a0c 70%)" }}>
+          <div ref={stage} className="relative min-h-0 flex-1">
+            <div className="absolute inset-0 flex items-center justify-center p-3">
+              {fitted.width > 0 && (
+                <div role="img" aria-label="Preview" className="relative box-border rounded-[8%] bg-[#050506] p-[1.6%] shadow-[0_0_0_1px_#3a3a42,0_24px_60px_rgba(0,0,0,0.55)]" style={{ width: fitted.width, height: fitted.height }}>
+                  <div className="absolute top-[3%] left-1/2 z-[2] h-[4%] w-[26%] -translate-x-1/2 rounded-full bg-black" />
+                  {review.video ? (
+                    <video
+                      ref={video}
+                      src={`/r/${token}/video`}
+                      playsInline
+                      preload="metadata"
+                      onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+                      onEnded={() => setPlaying(false)}
+                      className="h-full w-full rounded-[6%] bg-black object-contain"
+                    />
+                  ) : (
+                    scene && (
+                      <div className="relative h-full w-full overflow-hidden rounded-[6%]" style={{ background: gradientFor(scene.position) }}>
+                        <div className="absolute inset-0 flex items-center justify-center p-10 text-center text-[13px] leading-normal text-white/40">[footage — scene {scene.position}]</div>
+                        {cap && <div className="absolute right-6 bottom-[18%] left-6 text-center text-[clamp(16px,2.4vw,27px)] leading-[1.2] font-bold tracking-[-0.01em] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.55)]">{cap.text}</div>}
+                      </div>
+                    )
+                  )}
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
 
-          <div className="flex w-full max-w-[640px] flex-col gap-2">
+          <div className="mx-auto flex w-full max-w-[640px] shrink-0 flex-col gap-2 px-4 pb-4">
             <div className="relative h-4">
               <input type="range" min={0} max={Math.round(duration * 10)} value={Math.round(t * 10)} onChange={(e) => seek(Number(e.target.value) / 10)} aria-label={`Playhead, ${fmt(t)} of ${fmt(duration)}`} className="absolute top-0 left-0 m-0 h-4 w-full accent-accent" />
             </div>
@@ -126,7 +136,7 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
           </div>
         </main>
 
-        <aside aria-label="Comments" className="flex w-[420px] shrink-0 flex-col border-l border-rule-2 bg-panel-2 max-lg:w-auto max-lg:border-t max-lg:border-l-0">
+        <aside aria-label="Comments" className="flex w-[380px] shrink-0 flex-col overflow-hidden border-l border-rule-2 bg-panel-2 max-lg:max-h-[40vh] max-lg:w-auto max-lg:border-t max-lg:border-l-0">
           <div className="flex h-14 items-center gap-2 px-5"><h2 className="text-sm font-semibold">Comments</h2><span className="num text-xs text-fg-muted">{review.comments.length}</span></div>
           <ol className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
             {review.comments.length === 0 && <li className="px-3 py-2 text-[13px] text-fg-3">No comments yet.</li>}

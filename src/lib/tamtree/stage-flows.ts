@@ -1,7 +1,7 @@
 /**
  * The stage-flow I/O contract (provisional v0).
  *
- * Tamshoot defines this contract; the `shortvideo` plugin's stage flows (Track P, S1) and
+ * t-shoot defines this contract; the `shortvideo` plugin's stage flows (Track P, S1) and
  * the `stickstage` plugin's (`stage-flows/`) must produce exactly these shapes. Mirrored in
  * agent-orchestrator changes/2026-09-25-short-video-studio/07-frontend-first.md §2 —
  * change both together.
@@ -132,8 +132,8 @@ export const StickBrief = z.object({
   /** Unset: the script model picks from `allowed_sets` (or the whole catalog). */
   set: z.string().optional(),
   /**
-   * Several scenes, each on its own set (StickStage `scenes[]`). Unset: one scene. Not yet
-   * read by the plugin's `stick-script`, which still writes one scene.
+   * Several scenes, each on its own set (StickStage `scenes[]`). Unset: one scene.
+   * The writer keeps this count; a reply that disagrees is split to fit.
    */
   scenes: z.number().int().min(2).max(4).optional(),
   /** With `scenes`: the sets to move through, in order. Scenes past the list: the model picks. */

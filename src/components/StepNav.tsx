@@ -28,7 +28,9 @@ export function StepNav({
   projectId?: string;
   steps?: readonly StepKey[];
 }) {
-  const shown = steps ? STEPS.filter((s) => steps.includes(s.key)) : STEPS;
+  const pool = steps ? STEPS.filter((s) => steps.includes(s.key)) : [...STEPS];
+  // Once a project exists, Brief has no screen. The topic lives on the script.
+  const shown = projectId ? pool.filter((s) => s.key !== "brief") : pool;
   const currentIndex = shown.findIndex((s) => s.key === current);
   return (
     <nav

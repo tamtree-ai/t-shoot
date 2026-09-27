@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import groupChat from "@/lib/tamtree/mock/stick/group-chat.skit.json";
 import type { Skit } from "@/lib/tamtree/stage-flows";
-import { allBeats, beatsOf, canApprove, editBeat, findingTarget, judgeSkit, scenesOf, withBeats } from "./draft";
+import { addBeat, alignSlams, allBeats, beatsOf, canApprove, deleteBeat, duplicateBeat, editBeat, findingTarget, judgeSkit, moveBeat, scenesOf, setSceneSet, withBeats, scenePlanOf } from "./draft";
 
 const skit = groupChat as Skit;
 
@@ -44,13 +44,43 @@ describe("editBeat", () => {
     expect(skit.beats).not.toBe(next.beats);
   });
 
-  it("keeps a slam's timing when only its words change, and adds new ones", () => {
+  it("keeps a slam's timing when only its words change, and adds new ones on the last word", () => {
     const one = editBeat(skit, "l1", { slams: ["SEEN"] });
     const retimed = { ...one, beats: (one.beats as Record<string, unknown>[]).map((b) => (b.id === "l1" ? { ...b, text: [{ type: "slam", value: "SEEN", at: { ms: 200 } }] } : b)) };
     const two = editBeat(retimed, "l1", { slams: ["SEEN BY 6", "0 REPLIES"] });
     expect(beatsOf(two).find((b) => b.id === "l1")?.slams).toEqual(["SEEN BY 6", "0 REPLIES"]);
     const text = (two.beats as Record<string, unknown>[]).find((b) => b.id === "l1")!.text as Record<string, unknown>[];
     expect(text[0].at).toEqual({ ms: 200 });
+    const line = beatsOf(retimed).find((b) => b.id === "l1")!.line!;
+    const last = line.trim().split(/\s+/).at(-1)!.replace(/[^\p{L}\p{N}']/gu, "").toLowerCase();
+    expect(text[1].at).toMatchObject({ word: last });
+  });
+
+  it("retargets a slam when the line no longer says the old word", () => {
+    const next = editBeat(skit, "l12", { line: "What? That's not saving. That's Wasting!" });
+    const text = (next.beats as Record<string, unknown>[]).find((b) => b.id === "l12")!.text as { at: { word: string } }[];
+    expect(text[0].at.word).toBe("wasting");
+    expect(judgeSkit(next).check.findings.some((f) => f.check === "slam-anchor")).toBe(false);
+  });
+
+  it("warns when the slam chip and the word it hits disagree", () => {
+    const next = editBeat(skit, "l12", { slams: ["WASTING!"] });
+    const text = (next.beats as Record<string, unknown>[]).find((b) => b.id === "l12")!.text as { at: { word: string } }[];
+    expect(text[0].at.word).toBe("mom");
+    const v = judgeSkit(next);
+    expect(v.check.findings.some((f) => f.check === "slam-anchor")).toBe(true);
+    expect(v.check.ok).toBe(true);
+
+    const beats = (skit.beats as Record<string, unknown>[]).map((b) =>
+      b.id === "l12" ? { ...b, line: "That's wasting.", text: [{ type: "slam", value: "WASTING!", at: { word: "saving", occurrence: 1 } }] } : b,
+    );
+    const stale = { ...skit, beats } as Skit;
+    expect(judgeSkit(stale).check.ok).toBe(false);
+    const fixed = alignSlams(stale);
+    expect(fixed.changed).toBe(true);
+    const anchored = ((fixed.skit as Skit & { beats: Record<string, unknown>[] }).beats.find((b) => b.id === "l12")!.text as { at: { word: string } }[])[0];
+    expect(anchored.at.word).toBe("wasting");
+    expect(judgeSkit(fixed.skit).check.findings.some((f) => f.check === "slam-anchor")).toBe(false);
   });
 });
 
@@ -62,10 +92,29 @@ describe("withBeats", () => {
     expect(beatsOf(merged).find((b) => b.id === "l2")?.line).toBe("Seen.");
   });
 
-  it("refuses added, dropped or reordered beats", () => {
-    const beats = skit.beats as unknown[];
-    expect(() => withBeats(skit, beats.slice(1))).toThrow(/not added, removed or reordered/);
-    expect(() => withBeats(skit, [beats[1], beats[0], ...beats.slice(2)])).toThrow();
+  it("accepts a reorder and refuses a skit with no spoken line", () => {
+    const beats = [...(skit.beats as Record<string, unknown>[])];
+    const swapped = withBeats(skit, [beats[1], beats[0], ...beats.slice(2)]);
+    expect(beatsOf(swapped).map((b) => b.id).slice(0, 2)).toEqual([beats[1]!.id, beats[0]!.id]);
+    const silenced = beats.map((b) => ({ ...b, line: " " }));
+    expect(() => withBeats(skit, silenced)).toThrow(/spoken line/);
+  });
+});
+
+describe("reshaping the beat list", () => {
+  it("adds, duplicates, reorders, and refuses to delete the last spoken line", () => {
+    const added = addBeat(skit, "l2");
+    expect(beatsOf(added.skit).map((b) => b.id)).toEqual(["l1", "l2", added.id, "l3", "l4", "r1", "l5", "l6", "l7", "l8", "l9", "l10", "l11", "l12"]);
+    expect(beatsOf(added.skit).find((b) => b.id === added.id)).toMatchObject({ speaker: beatsOf(skit).find((b) => b.id === "l2")?.speaker });
+    const copy = duplicateBeat(skit, "l2");
+    expect(beatsOf(copy.skit).find((b) => b.id === copy.id)?.line).toBe(beatsOf(skit).find((b) => b.id === "l2")?.line);
+    const moved = moveBeat(skit, "l2", "up");
+    expect(beatsOf(moved).map((b) => b.id).slice(0, 2)).toEqual(["l2", "l1"]);
+    const dropped = deleteBeat(skit, "l2");
+    expect(beatsOf(dropped).some((b) => b.id === "l2")).toBe(false);
+    let last = skit;
+    for (const beat of beatsOf(skit).slice(0, -1)) last = deleteBeat(last, beat.id);
+    expect(() => deleteBeat(last, beatsOf(last)[0]!.id)).toThrow(/spoken line/);
   });
 });
 
@@ -98,7 +147,10 @@ describe("a multi-scene skit", () => {
     const merged = withBeats(scenes, allBeats(edited)) as Skit & { scenes: { set: string; beats: unknown[] }[] };
     expect(merged.scenes.map((sc) => [sc.set, sc.beats.length])).toEqual([["living-1", 5], ["cafe-1", 8]]);
     expect(beatsOf(merged).find((b) => b.id === "l2")?.line).toBe("We saw it.");
-    expect(() => withBeats(scenes, allBeats(scenes).slice(1))).toThrow(/not added, removed or reordered/);
+    expect(withBeats(scenes, allBeats(edited), scenePlanOf(edited)).scenes).toBeDefined();
+    expect(() => withBeats(scenes, allBeats(scenes).slice(1))).toThrow(/which scene/);
+    const moved = setSceneSet(scenes, "cafe", "plain-1") as Skit & { scenes: { id: string; set: string }[] };
+    expect(moved.scenes.find((sc) => sc.id === "cafe")?.set).toBe("plain-1");
   });
 
   it("points a finding in a later scene at the editor's beat number", () => {

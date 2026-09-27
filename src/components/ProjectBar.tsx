@@ -1,3 +1,4 @@
+import { displayTitle } from "@/lib/display-title";
 import { StepNav, type StepKey } from "./StepNav";
 import { StudioMark } from "./StudioMark";
 
@@ -21,7 +22,7 @@ export function ProjectBar({
       <div className="flex w-[440px] items-center gap-2.5">
         <StudioMark />
         <span className="text-[#3a3a42]">/</span>
-        <span className="font-display text-xl text-fg italic">{title}</span>
+        <span className="truncate font-display text-xl text-fg italic">{displayTitle(title)}</span>
       </div>
       <StepNav current={current} reachable={["brief", "script", "edit", "review", "export"]} projectId={projectId} steps={steps} />
       <div className="flex w-[440px] items-center justify-end gap-2.5">{right}</div>

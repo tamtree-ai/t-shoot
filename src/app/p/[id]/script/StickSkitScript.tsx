@@ -5,10 +5,13 @@ import type { Project } from "@/db/schema";
 import { Skit } from "@/lib/tamtree/stage-flows";
 import { getProjectComment } from "@/services/review";
 import { getProduceState, getSkitDraft } from "@/services/skit";
+import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
+import { setLabel } from "@/types/stick-skit/catalog";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
 import { StudioMark } from "@/components/StudioMark";
+import { displayTitle } from "@/lib/display-title";
 
 /**
  * The `stick_skit` script step (09 §6 steps 3–4): writing the skit if the brief's run didn't,
@@ -20,9 +23,11 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
   const draft = await getSkitDraft(project.id);
   const produce = await getProduceState(project.id, draft);
   const made = produce?.versionNumber != null;
+  const setIds = brief.allowed_sets?.length ? brief.allowed_sets : stickCatalog.sets.map((s) => s.id);
+  const setOptions = setIds.filter((id) => stickCatalog.sets.some((s) => s.id === id)).map((id) => ({ id, label: setLabel(id) }));
 
   return (
-    <>
+    <div className="flex h-dvh flex-col overflow-hidden">
       <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-rule-2 bg-panel px-5">
         <div className="flex w-[420px] items-center gap-2.5">
           <StudioMark large />
@@ -31,7 +36,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
             Projects
           </Link>
           <span className="text-lg text-[#3a3a42]">/</span>
-          <span className="font-display text-[22px] text-fg italic">{project.title}</span>
+          <span className="truncate font-display text-[22px] text-fg italic">{displayTitle(project.title)}</span>
         </div>
         <StepNav current="script" reachable={made ? ["brief", "script", "review", "export"] : ["brief", "script"]} projectId={project.id} steps={stickSkit.steps} />
         <div className="flex w-[420px] justify-end">
@@ -55,10 +60,12 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           revisionNote={draft.previousSkit ? draft.revisionNote : null}
           produce={produce}
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}
+          setOptions={setOptions}
+          focusFraction={comment && !comment.resolved && changeFromComment ? comment.fraction : null}
         />
       ) : (
         <WriteSkit projectId={project.id} topic={brief.topic} />
       )}
-    </>
+    </div>
   );
 }

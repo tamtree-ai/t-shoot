@@ -66,7 +66,7 @@ export function ExportView({ model }: { model: Model }) {
             <li key={v.id} className="flex items-center gap-3 px-4 py-3 text-[13px]">
               <span className="font-medium">Version {v.number}</span>
               <span className="num text-fg-muted">{clock(v.durationS)}</span>
-              <span className="text-fg-muted">{new Date(v.createdAt).toLocaleDateString()}</span>
+              <span className="text-fg-muted">{new Date(v.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>
               {v.approvedBy && <span className="text-ready">Approved by {v.approvedBy}</span>}
               <span className="num ml-auto text-xs text-fg-muted">{v.digest.slice(0, 8)}</span>
               {v.renderAssetId ? <a href={`/api/media/${v.renderAssetId}?name=${encodeURIComponent(model.project.title)}-v${v.number}.mp4`} className="text-accent-link">Download</a> : <span className="text-fg-muted">Not rendered</span>}

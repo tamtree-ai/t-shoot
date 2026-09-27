@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { db, schema } from "@/db";
 import { locate } from "@/lib/timeline";
 import { getEditModel } from "@/services/edit-model";
+import { getProject } from "@/services/projects";
+import { typeOf } from "@/types/registry";
 import { EditWorkspace } from "./EditWorkspace";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +13,9 @@ export const dynamic = "force-dynamic";
 export default async function EditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ change?: string }> }) {
   const { id } = await params;
   const { change } = await searchParams;
+  const project = await getProject(id);
+  if (!project) notFound();
+  if (!(typeOf(project).steps as readonly string[]).includes("edit")) redirect(`/p/${id}/script`);
   const model = await getEditModel(id);
   if (!model) notFound();
   if (!model.project.scriptApproved) redirect(`/p/${id}/script`);

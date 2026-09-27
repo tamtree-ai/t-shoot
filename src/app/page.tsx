@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ProjectLibrary } from "@/components/ProjectLibrary";
 import { StudioMark } from "@/components/StudioMark";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
 import { getCurrentMember } from "@/lib/auth";
@@ -51,41 +52,22 @@ export default async function Home() {
         </main>
       ) : (
         <main className="flex-1 bg-canvas px-4 py-10">
-          <div className="mx-auto flex max-w-3xl flex-col gap-6">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h1 className="font-display text-[40px] leading-none">Projects</h1>
-                <p className="mt-2 text-[13px] text-fg-muted">
-                  {projects.length} {projects.length === 1 ? "short" : "shorts"}
-                </p>
-              </div>
-              <NewShort />
-            </div>
-            <ul className="overflow-hidden rounded-lg border border-rule-2 bg-panel">
-              {projects.map((p) => {
-                const type = productionType(p.kind);
-                const step = openStep(p.step, type.steps);
-                return (
-                  <li key={p.id} className="border-b border-rule-2 last:border-b-0">
-                    <Link href={`/p/${p.id}/${step}`} className="flex items-center gap-4 px-4 py-3.5 hover:bg-hover">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-display text-xl text-fg italic">{p.title}</span>
-                        <span className="mt-0.5 block text-xs text-fg-muted">{type.label}</span>
-                      </span>
-                      <span className="w-16 shrink-0 text-[13px] text-fg-2">{STEP_LABEL[step]}</span>
-                      <time
-                        dateTime={p.updatedAt.toISOString()}
-                        title={p.updatedAt.toLocaleString("en-AU")}
-                        className="num w-24 shrink-0 text-right text-xs text-fg-muted"
-                      >
-                        {ago(p.updatedAt)}
-                      </time>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <ProjectLibrary
+            projects={projects.map((p) => {
+              const type = productionType(p.kind);
+              const step = openStep(p.step, type.steps);
+              return {
+                id: p.id,
+                title: p.title,
+                kind: p.kind,
+                kindLabel: type.label,
+                stepLabel: STEP_LABEL[step],
+                href: `/p/${p.id}/${step}`,
+                ago: ago(p.updatedAt),
+                updatedAt: p.updatedAt.toISOString(),
+              };
+            })}
+          />
         </main>
       )}
     </>

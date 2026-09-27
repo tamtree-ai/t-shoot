@@ -89,7 +89,10 @@ export async function createStickSkitProject(memberId: string, orgId: string, in
   return project.id;
 }
 
+const PROJECT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getProject(projectId: string) {
+  if (!PROJECT_ID.test(projectId)) return null;
   return (await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) })) ?? null;
 }
 

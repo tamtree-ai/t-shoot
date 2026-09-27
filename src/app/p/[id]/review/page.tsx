@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { ProjectBar } from "@/components/ProjectBar";
 import { db, schema } from "@/db";
 import { locate } from "@/lib/timeline";
+import { getProject } from "@/services/projects";
 import { projectComments } from "@/services/review";
 import { listVersions } from "@/services/versions";
-import { eq } from "drizzle-orm";
 import { typeOf } from "@/types/registry";
 import { versionMedia } from "@/types/versions";
 import { ReviewOwner } from "./ReviewOwner";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, id));
+  const project = await getProject(id);
   if (!project) notFound();
   const versions = await listVersions(id);
   const links = versions.length
@@ -22,11 +22,18 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
     : [];
   const comments = await projectComments(id);
 
+  const films = versions.flatMap((v) => {
+    const media = versionMedia(v);
+    if (media.kind !== "video") return [];
+    return [{ id: v.id, number: v.number, durationS: media.durationS, src: `/api/media/${media.mp4AssetId}?name=${encodeURIComponent(`${project.title}-v${v.number}.mp4`)}` }];
+  });
+
   return (
-    <>
+    <div className="flex h-dvh flex-col overflow-hidden">
       <ProjectBar projectId={id} title={project.title} current="review" steps={typeOf(project).steps} />
       <ReviewOwner
         projectId={id}
+        films={films}
         changeStep={(typeOf(project).steps as readonly string[]).includes("edit") ? "edit" : "script"}
         versions={versions.map((v) => ({ id: v.id, number: v.number, createdAt: v.createdAt.toISOString(), approvedBy: v.approvedBy, durationS: versionMedia(v).durationS }))}
         links={links.map((l) => ({ id: l.id, token: l.token, versionId: l.versionId }))}
@@ -45,6 +52,6 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
           resolved: !!c.resolvedByChangeRequestId,
         }))}
       />
-    </>
+    </div>
   );
 }

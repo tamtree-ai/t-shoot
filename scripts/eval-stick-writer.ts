@@ -1,7 +1,7 @@
 /**
  * Writer-contract batch 4: a fixed set of stick-script drafts and change requests,
  * scored against a live Tamtree. Spends money (about $0.01 each, $0.02 if a reply
- * is repaired). Nothing here is the app: it calls Tamshoot's live adapter directly.
+ * is repaired). Nothing here is the app: it calls t-shoot's live adapter directly.
  *
  *   pnpm eval:writer -- --yes --label baseline-minimax
  *
@@ -15,7 +15,7 @@ import { stickCatalog } from "@/lib/stick/registry";
 import { LiveTamtreeAdapter } from "@/lib/tamtree/live-adapter";
 import { readStageOutput } from "@/lib/tamtree/read-output";
 import type { StickBrief } from "@/lib/tamtree/stage-flows";
-import { StickScriptOut as StickScriptOutSchema } from "@/lib/tamtree/stage-flows";
+import { StickScriptOut as StickScriptOutSchema, type StickScriptOut } from "@/lib/tamtree/stage-flows";
 import { isTerminal, type RunOut } from "@/lib/tamtree/types";
 import { draftKeepsPlan, reviseKeepsPlan, scenePlanOf } from "@/types/stick-skit/writer-eval";
 
@@ -258,9 +258,7 @@ async function writeReport(): Promise<void> {
     `# Stick-script writer evaluation — ${label}`,
     ``,
     `Catalog \`${stickCatalog.version}\`. ${new Date().toISOString()}.`,
-    `This scores today's writer. Multi-scene briefs are in the set on purpose: until writer-contract batch 3, a live draft ignores \`scenes\` and comes back as one scene, so those rows fail "plan" and that is the baseline.`,
-    ``,
-    `Usable means the reply parsed, the check had no errors, and the scene plan held. The batch-4 gate is 90% usable after the one repair pass. That pass is not in this writer yet.`,
+    `Usable means the reply parsed, the check had no errors, and the scene plan held. The stick-script flow asks once more when a reply cannot be used, so this score is after that repair.`,
     ``,
     `| | n | parsed | check passed | plan kept | usable | cost |`,
     `|---|---:|---:|---:|---:|---:|---:|`,

@@ -99,10 +99,20 @@ export async function reviewVideoAsset(token: string): Promise<string | null> {
 /** One comment on any of a project's versions (the owner turning it into a change). */
 export async function getProjectComment(projectId: string, commentId: string) {
   const [row] = await db
-    .select({ authorName: schema.comments.authorName, body: schema.comments.body, resolved: schema.comments.resolvedByChangeRequestId })
+    .select({
+      authorName: schema.comments.authorName,
+      body: schema.comments.body,
+      resolved: schema.comments.resolvedByChangeRequestId,
+      timecodeS: schema.comments.timecodeS,
+      kind: schema.projectVersions.kind,
+      payload: schema.projectVersions.payload,
+    })
     .from(schema.comments)
     .innerJoin(schema.projectVersions, eq(schema.projectVersions.id, schema.comments.versionId))
     .where(and(eq(schema.comments.id, commentId), eq(schema.projectVersions.projectId, projectId)))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  const media = versionMedia(row);
+  const fraction = media.durationS > 0 ? Math.min(1, Math.max(0, row.timecodeS / media.durationS)) : 0;
+  return { authorName: row.authorName, body: row.body, resolved: row.resolved, timecodeS: row.timecodeS, fraction };
 }

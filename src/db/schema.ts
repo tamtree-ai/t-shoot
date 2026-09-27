@@ -267,6 +267,29 @@ export const skitDrafts = pgTable("skit_drafts", {
   updatedAt: updatedAt(),
 });
 
+export const publicationPlatform = pgEnum("publication_platform", ["youtube", "instagram", "tiktok"]);
+export const publicationStatus = pgEnum("publication_status", ["draft", "confirmed"]);
+
+/**
+ * A post the owner has written for one platform. Confirming it does not upload:
+ * the Tamtree connector that would send it is a later plugin.
+ */
+export const publications = pgTable(
+  "publications",
+  {
+    id: id(),
+    projectId: uuid("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+    versionId: uuid("version_id").notNull().references(() => projectVersions.id, { onDelete: "cascade" }),
+    platform: publicationPlatform("platform").notNull(),
+    status: publicationStatus("status").notNull().default("draft"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("publications_version_platform").on(t.versionId, t.platform)],
+);
+
 export type Project = typeof projects.$inferSelect;
 export type Scene = typeof scenes.$inferSelect;
 export type RunRecord = typeof runs.$inferSelect;
