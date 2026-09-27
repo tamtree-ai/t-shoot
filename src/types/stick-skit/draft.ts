@@ -33,7 +33,7 @@ function locatedBeats(skit: unknown): { beat: unknown; path: string }[] {
 
 /**
  * Spoken beats whose line is only spaces. The engine takes them (a string of length ≥ 1),
- * but TTS would voice silence at a line's price, so Studio's gate refuses them.
+ * but TTS would voice silence at a line's price, so t-shoot's gate refuses them.
  */
 function blankLines(skit: unknown): Record<string, unknown>[] {
   return locatedBeats(skit).flatMap(({ beat, path }) => {

@@ -61,7 +61,7 @@ export type TamtreeConnection =
 const REQUIRED_FLOWS = ["stick-script", "stick-produce"] as const;
 
 /**
- * Whether Studio is talking to a real Tamtree, for the connection pill. Never throws: a bad
+ * Whether t-shoot is talking to a real Tamtree, for the connection pill. Never throws: a bad
  * env, an unreachable host or a rejected key each come back as `error` with what to fix.
  */
 export async function getTamtreeConnection(): Promise<TamtreeConnection> {

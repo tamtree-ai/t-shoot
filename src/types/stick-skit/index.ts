@@ -106,7 +106,7 @@ export const stickSkit = {
   tenantDefaultsSchema: StickSkitDefaults,
   catalog: async (version?: string) => {
     if (version && version !== stickCatalog.version) {
-      throw new Error(`This project was written against catalog ${version}; Studio now ships ${stickCatalog.version}.`);
+      throw new Error(`This project was written against catalog ${version}; t-shoot now ships ${stickCatalog.version}.`);
     }
     return stickCatalog;
   },

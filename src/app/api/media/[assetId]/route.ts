@@ -3,7 +3,7 @@ import { getTamtreeAdapter } from "@/lib/tamtree";
 import { assetResponse, attachment } from "@/services/media";
 
 /**
- * Media proxy stand-in (Track W3 builds the real one, with a Tamshoot object store).
+ * Media proxy stand-in (Track W3 builds the real one, with a t-shoot object store).
  * Signed-in members only. On the mock, assets live in the *worker's* process; a stick
  * render's files are re-derived (`services/media.ts`), anything else is a placeholder.
  */

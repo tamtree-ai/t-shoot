@@ -1,5 +1,5 @@
 /**
- * The Tamshoot worker: a separate Node process (not part of Next) that drives runs.
+ * The t-shoot worker: a separate Node process (not part of Next) that drives runs.
  *
  *   pnpm worker
  *

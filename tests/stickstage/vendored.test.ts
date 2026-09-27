@@ -10,7 +10,7 @@ describe("vendored stickstage", () => {
     const recorded = readFileSync(new URL("../../vendor/STICKSTAGE", import.meta.url), "utf8").match(/^catalog (\S+)$/m)?.[1];
     expect(catalog.version).toBe(recorded);
   });
-  it("exposes the schemas and the catalog Tamshoot builds on", () => {
+  it("exposes the schemas and the catalog t-shoot builds on", () => {
     expect(typeof SkitSchema.safeParse).toBe("function");
     expect(PremiseSchema.shape.cast).toBeDefined();
     expect(catalog.characters.map((c) => c.id)).toEqual(expect.arrayContaining(["milo", "june"]));

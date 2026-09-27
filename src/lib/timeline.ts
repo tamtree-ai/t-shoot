@@ -1,6 +1,6 @@
 /**
  * The TimelineV1 draft (video-generation 02-timeline-v1.md, frozen 1080×1920 @ 30 fps),
- * built from Tamshoot's document. A version is a snapshot of this plus its digest, so
+ * built from t-shoot's document. A version is a snapshot of this plus its digest, so
  * an identical film never renders twice and an old version can be downloaded as it was.
  * Typed loosely until the zod TimelineV1 lands with the Remotion package (W5).
  */

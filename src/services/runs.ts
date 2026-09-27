@@ -1,5 +1,5 @@
 /**
- * Records a completed stage run against Tamshoot's own `runs` table (02-architecture
+ * Records a completed stage run against t-shoot's own `runs` table (02-architecture
  * §4 data model) after `runStageSync` finishes it. F2's dispatcher takes over recording
  * queued/running/failed runs from events; this only ever writes a `completed` row,
  * which is all F1's synchronous script calls produce.

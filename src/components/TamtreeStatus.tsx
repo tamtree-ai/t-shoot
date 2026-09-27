@@ -56,10 +56,10 @@ function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConne
         aria-labelledby="tamtree-setup-title"
         className="flex max-h-[90vh] w-[560px] flex-col gap-4 overflow-y-auto rounded-[14px] border border-line bg-panel p-6 text-left shadow-2xl"
       >
-        <h2 id="tamtree-setup-title" className="text-[17px] font-semibold tracking-[-0.01em]">Connect Studio to Tamtree</h2>
+        <h2 id="tamtree-setup-title" className="text-[17px] font-semibold tracking-[-0.01em]">Connect t-shoot to Tamtree</h2>
         {connection.state === "mock" ? (
           <p className="text-[13px] leading-relaxed text-fg-3">
-            Studio is running on the <b className="text-fg-2">mock adapter</b> (scenario <code>{connection.scenario}</code>), so every
+            t-shoot is running on the <b className="text-fg-2">mock adapter</b> (scenario <code>{connection.scenario}</code>), so every
             script and clip is a canned sample. Nothing reaches Tamtree until you switch to live.
           </p>
         ) : (
@@ -92,7 +92,7 @@ function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConne
             <Code>{`TAMTREE_ADAPTER=live\nTAMTREE_BASE_URL=${base}\nTAMTREE_API_KEY=<runtime key>\nTAMTREE_FLOW_IDS=stick-script=<id>,stick-produce=<id>`}</Code>
           </li>
           <li>
-            Restart Studio. The adapter is chosen when Studio starts, so a page reload is not enough:
+            Restart t-shoot. The adapter is chosen when t-shoot starts, so a page reload is not enough:
             <Code>{"scripts/stop.sh && scripts/start.sh"}</Code>
           </li>
         </ol>

@@ -1,5 +1,5 @@
 /**
- * The spend guard (02-architecture §4): Studio is the only per-action cost gate, so a
+ * The spend guard (02-architecture §4): t-shoot is the only per-action cost gate, so a
  * paid run needs a pre-flight estimate and must fit under the per-video limit and, when
  * known, the workspace budget (A5). Money is compared in integer micro-dollars — never
  * by adding floats.

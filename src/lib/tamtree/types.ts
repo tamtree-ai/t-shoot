@@ -1,5 +1,5 @@
 /**
- * Tamtree /v1 shapes Tamshoot depends on, re-exported from the vendored generated
+ * Tamtree /v1 shapes t-shoot depends on, re-exported from the vendored generated
  * client so the rest of the app never reaches into `v1.d.ts` directly.
  *
  * Names follow engine-api *as built* (changes/2026-09-15-engine-api/02-api-contract.md):
@@ -20,7 +20,7 @@ export type UsageSummaryOut = Schemas["UsageSummaryOut"];
 export type MessageAccepted = Schemas["MessageAccepted"];
 
 /**
- * Run statuses Tamshoot maps. `RunOut.status` is a free string on /v1, so anything
+ * Run statuses t-shoot maps. `RunOut.status` is a free string on /v1, so anything
  * else is treated as "working" and never as done (03-experience §3).
  */
 export const TERMINAL_STATUSES = ["completed", "failed", "cancelled"] as const;

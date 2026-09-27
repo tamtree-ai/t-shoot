@@ -1,10 +1,10 @@
 @AGENTS.md
 
-# CLAUDE.md — Tamshoot
+# CLAUDE.md — t-shoot
 
-**Tamshoot** is the Studio app. Non-technical people (Dilhan's team and their clients,
+**t-shoot** is the app. Non-technical people (Dilhan's team and their clients,
 invite-only) use it to go from a topic to a captioned 1080×1920 short. **Tamtree is the invisible
-engine.** Tamshoot owns the *document* (projects, scenes, script, the TimelineV1 draft, reviews,
+engine.** t-shoot owns the *document* (projects, scenes, script, the TimelineV1 draft, reviews,
 versions), and Tamtree owns the *work* (runs, assets, cost, traces).
 
 ## Where the plan lives

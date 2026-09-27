@@ -1,6 +1,6 @@
 /**
  * A production type: one engine's way of making a video (08-adr-production-types,
- * 09-production-types-plan §2). Tamshoot is the front end for every engine; each type
+ * 09-production-types-plan §2). t-shoot is the front end for every engine; each type
  * says which project steps it uses, what its brief looks like, which Tamtree stage flows
  * do its paid work, and how its draft is priced before the human gate.
  *

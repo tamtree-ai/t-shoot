@@ -1,5 +1,5 @@
 /**
- * Edit-screen mutations (03 §2). Free edits change Tamshoot's document only. Paid edits
+ * Edit-screen mutations (03 §2). Free edits change t-shoot's document only. Paid edits
  * go through `requestRun`, so each one carries an estimate and a confirming member — the
  * UI only calls these after a confirmation dialog that showed the price. Nothing here is
  * called from a keystroke or a blur: editing text only ever *marks* work as pending.

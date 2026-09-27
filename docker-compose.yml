@@ -1,4 +1,4 @@
-# Tamshoot's own Postgres. Port 5433: the Tamtree dev stack already holds 5432.
+# t-shoot's own Postgres. Port 5433: the Tamtree dev stack already holds 5432.
 services:
   postgres:
     image: postgres:17

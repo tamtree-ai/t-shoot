@@ -27,7 +27,7 @@ export async function getSkitDraft(projectId: string): Promise<SkitDraft | null>
   return row ?? null;
 }
 
-/** A stick-skit project, with its pinned catalog still the one Studio ships. */
+/** A stick-skit project, with its pinned catalog still the one t-shoot ships. */
 async function stickProject(projectId: string) {
   const project = await getProject(projectId);
   if (!project || project.kind !== stickSkit.kind) throw new Error("Project not found.");

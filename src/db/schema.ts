@@ -1,5 +1,5 @@
 /**
- * Tamshoot's own document (02-architecture §4). Tamtree owns runs, assets, cost and
+ * t-shoot's own document (02-architecture §4). Tamtree owns runs, assets, cost and
  * traces; this schema only *references* them (tamtree_run_id, asset ids) and caches
  * what the UI needs.
  *
@@ -222,7 +222,7 @@ export const comments = pgTable("comments", {
   createdAt: createdAt(),
 });
 
-/** Bytes proxied from Tamtree into Tamshoot's object store (G1, Track W3). */
+/** Bytes proxied from Tamtree into t-shoot's object store (G1, Track W3). */
 export const mediaCache = pgTable("media_cache", {
   assetId: text("asset_id").primaryKey(),
   objectKey: text("object_key").notNull(),

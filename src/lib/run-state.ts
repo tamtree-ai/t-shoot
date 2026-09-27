@@ -1,6 +1,6 @@
 /**
  * The state machine and wording map (03-experience §3, 02-architecture §4): Tamtree's
- * run statuses and error codes become the one vocabulary Studio shows — a dot plus a
+ * run statuses and error codes become the one vocabulary t-shoot shows — a dot plus a
  * word. Pure; no I/O. `RunOut.status` is a free string on /v1, so anything unknown
  * fails closed to "Working", never to Ready.
  */

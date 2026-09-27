@@ -1,5 +1,5 @@
 /**
- * Drives one Tamshoot `runs` row to a terminal state: trigger it (idempotently), replay
+ * Drives one t-shoot `runs` row to a terminal state: trigger it (idempotently), replay
  * missed events through A3, follow the live SSE stream, then read cost, error and output.
  *
  * It is safe to call again after a crash at any point — that is the recovery path

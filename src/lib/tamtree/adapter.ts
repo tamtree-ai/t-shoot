@@ -1,5 +1,5 @@
 /**
- * The one seam between Tamshoot and Tamtree (07-frontend-first §1).
+ * The one seam between t-shoot and Tamtree (07-frontend-first §1).
  *
  * Only services and the worker call this. The UI never imports it. Track F runs on
  * MockTamtreeAdapter; Track W adds LiveTamtreeAdapter, which must pass the same

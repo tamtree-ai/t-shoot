@@ -1,6 +1,6 @@
 /**
  * The dispatcher's front door (02-architecture §4 run engine). `requestRun` is the only
- * way a stage run starts from Tamshoot: it refuses without a pre-flight estimate and a
+ * way a stage run starts from t-shoot: it refuses without a pre-flight estimate and a
  * confirming member, checks the spend guard, persists the row (with its Idempotency-Key)
  * and hands it to the worker. It does not talk to Tamtree — the worker's `driveRun` does.
  */

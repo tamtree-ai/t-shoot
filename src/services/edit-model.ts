@@ -1,6 +1,6 @@
 /**
  * The Edit screen's read model: one serialisable object per project, built from
- * Tamshoot's document (scenes, takes) and its `runs` rows mapped through the state
+ * t-shoot's document (scenes, takes) and its `runs` rows mapped through the state
  * machine. The UI never sees a raw Tamtree status.
  */
 import "server-only";

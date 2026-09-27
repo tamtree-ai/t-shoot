@@ -134,7 +134,7 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
 
   return (
     <>
-      <div role="note" className="hidden shrink-0 items-center gap-2 border-b border-attention-line bg-attention-soft px-4 py-2 text-xs text-attention max-[1023px]:flex">Studio’s editor works best on a wider screen. Reviewing and exporting work anywhere.</div>
+      <div role="note" className="hidden shrink-0 items-center gap-2 border-b border-attention-line bg-attention-soft px-4 py-2 text-xs text-attention max-[1023px]:flex">t-shoot’s editor works best on a wider screen. Reviewing and exporting work anywhere.</div>
       <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
         <div className="flex w-[440px] items-center gap-2.5 max-[1279px]:w-auto">
           <StudioMark />

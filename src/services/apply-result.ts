@@ -1,5 +1,5 @@
 /**
- * Copies a finished run's validated output onto Tamshoot's document: narration → the
+ * Copies a finished run's validated output onto t-shoot's document: narration → the
  * scene (asset, duration, phrase timings, voice no longer out of date); clip → the take;
  * stick-produce → a new version.
  * Called by the worker after `driveRun`; safe to call twice (it only overwrites with the

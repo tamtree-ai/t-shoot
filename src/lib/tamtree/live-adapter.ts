@@ -11,7 +11,7 @@
  *   is the last seq; it is mapped back to `next_after_seq`.
  * - **The stream polls A3.** The SSE stream resumes by stream position, not by `seq`, so
  *   following a run polls `…/events?after_seq=` until the run is terminal. Exact, restart-
- *   safe, and a second of latency is nothing to a Studio screen.
+ *   safe, and a second of latency is nothing to a t-shoot screen.
  * - **Byte ranges.** D1's content route ignores `Range` and may 302 to a presigned URL.
  *   Assets are immutable by id, so each is fetched whole once, cached (bounded), and
  *   sliced here. Track W3's media proxy replaces this.
@@ -70,15 +70,16 @@ export class LiveTamtreeAdapter implements TamtreeAdapter {
   async triggerRun<F extends StageFlow>(flow: F, input: StageInput[F], opts: TriggerOptions): Promise<RunDetail> {
     const flowId = await this.flowId(flow);
     const body: Schemas["RunFlowIn"] = { input: input as Record<string, unknown>, metadata: opts.metadata ?? null };
-    return this.json<RunDetail>(`/v1/flows/${flowId}/run`, {
+    const detail = await this.json<RunDetail>(`/v1/flows/${flowId}/run`, {
       method: "POST",
       headers: { "Idempotency-Key": opts.idempotencyKey },
       body: JSON.stringify(body),
     });
+    return { ...detail, run: normalizeRun(detail.run) };
   }
 
-  getRun(runId: string): Promise<RunOut> {
-    return this.json(`/v1/runs/${enc(runId)}`);
+  async getRun(runId: string): Promise<RunOut> {
+    return normalizeRun(await this.json<RunOut>(`/v1/runs/${enc(runId)}`));
   }
 
   getRunOutput(runId: string): Promise<RunOutputOut> {
@@ -234,4 +235,13 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
       resolve();
     }, { once: true });
   });
+}
+
+/**
+ * Tamtree ends a successful run as `succeeded`; t-shoot's run rows, worker and UI all
+ * say `completed` (the mock's word). Translate here so nothing past the adapter polls a
+ * finished run forever.
+ */
+function normalizeRun<R extends { status: string }>(run: R): R {
+  return run.status === "succeeded" ? { ...run, status: "completed" } : run;
 }

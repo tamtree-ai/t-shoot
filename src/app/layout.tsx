@@ -12,7 +12,7 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Studio",
+  title: "t-shoot",
   description: "Brief it, approve the script, watch your short get made.",
 };
 

@@ -1,5 +1,5 @@
 /**
- * Track W2 (the stick flows' half): publish Tamshoot's stage flows into a Tamtree workspace,
+ * Track W2 (the stick flows' half): publish t-shoot's stage flows into a Tamtree workspace,
  * by name, and print the `TAMTREE_FLOW_IDS` line the runtime adapter reads.
  *
  *   pnpm tamtree:provision [flows-dir]      default: $STICKSTAGE_PLUGIN_DIR/stage-flows
@@ -65,7 +65,7 @@ async function main(baseUrl: string, apiKey: string) {
     const doc = parse(await readFile(join(dir, file), "utf8")) as { metadata: { name: string }; spec: Schemas["FlowDefinition"] };
     const name = doc.metadata.name;
     if (!(STICK_FLOWS as readonly string[]).includes(name)) {
-      console.warn(`skip ${file}: "${name}" is not a Tamshoot stage flow`);
+      console.warn(`skip ${file}: "${name}" is not a t-shoot stage flow`);
       continue;
     }
     const unmapped = bindCredentials(doc.spec);
