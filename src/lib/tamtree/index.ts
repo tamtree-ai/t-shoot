@@ -47,4 +47,42 @@ export function getTamtreeAdapter(): TamtreeAdapter {
   return adapter;
 }
 
+export type TamtreeConnection =
+  | { state: "mock"; scenario: string }
+  | { state: "connected"; baseUrl: string }
+  | { state: "error"; baseUrl?: string; problem: string };
+
+const REQUIRED_FLOWS = ["stick-script", "stick-produce"] as const;
+
+/**
+ * Whether Studio is talking to a real Tamtree, for the connection pill. Never throws: a bad
+ * env, an unreachable host or a rejected key each come back as `error` with what to fix.
+ */
+export async function getTamtreeConnection(): Promise<TamtreeConnection> {
+  const parsed = Env.safeParse(process.env);
+  if (!parsed.success) return { state: "error", problem: `.env.local is invalid: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}.` };
+  const env = parsed.data;
+  if (env.TAMTREE_ADAPTER === "mock") return { state: "mock", scenario: env.TAMSHOOT_MOCK_SCENARIO };
+  if (!env.TAMTREE_BASE_URL || !env.TAMTREE_API_KEY) {
+    return { state: "error", baseUrl: env.TAMTREE_BASE_URL, problem: "TAMTREE_ADAPTER=live needs TAMTREE_BASE_URL and TAMTREE_API_KEY." };
+  }
+  const baseUrl = env.TAMTREE_BASE_URL;
+  const flowIds = parseFlowIds(env.TAMTREE_FLOW_IDS) ?? {};
+  const missing = REQUIRED_FLOWS.filter((f) => !flowIds[f]);
+  if (missing.length) return { state: "error", baseUrl, problem: `TAMTREE_FLOW_IDS has no id for ${missing.join(" and ")}. Run pnpm tamtree:provision.` };
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/usage/summary`, {
+      headers: { Authorization: `Bearer ${env.TAMTREE_API_KEY}` },
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    });
+    if (res.status === 401) return { state: "error", baseUrl, problem: "Tamtree rejected TAMTREE_API_KEY (401)." };
+    if (res.status === 403) return { state: "error", baseUrl, problem: "TAMTREE_API_KEY lacks a scope (403). It needs run:flow read:runs read:assets read:usage." };
+    if (!res.ok) return { state: "error", baseUrl, problem: `Tamtree answered ${res.status} for GET /v1/usage/summary.` };
+    return { state: "connected", baseUrl };
+  } catch {
+    return { state: "error", baseUrl, problem: `Tamtree is not reachable at ${baseUrl}.` };
+  }
+}
+
 export type { TamtreeAdapter } from "./adapter";

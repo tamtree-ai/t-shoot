@@ -1,10 +1,16 @@
 import Link from "next/link";
 
+import { TamtreeStatus } from "@/components/TamtreeStatus";
+import { getTamtreeConnection } from "@/lib/tamtree";
+
+export const dynamic = "force-dynamic";
+
 /**
  * The projects home in its empty state (03 §1.1 — one call to action). A project list
  * for a returning org is F5 (03 §1's later steps); every org is single-project until then.
  */
-export default function Home() {
+export default async function Home() {
+  const connection = await getTamtreeConnection();
   return (
     <>
       <header className="flex h-[52px] shrink-0 items-center gap-2.5 border-b border-rule bg-panel px-4">
@@ -12,7 +18,9 @@ export default function Home() {
         <span className="text-sm font-semibold tracking-tight">Studio</span>
         <span className="text-[#3a3a42]">/</span>
         <span className="text-[13px] text-fg-3">Projects</span>
-        <Link href="/settings" className="ml-auto text-[13px] text-fg-3 hover:text-fg">
+        <span className="ml-auto" />
+        <TamtreeStatus connection={connection} />
+        <Link href="/settings" className="ml-2 text-[13px] text-fg-3 hover:text-fg">
           Settings
         </Link>
       </header>
