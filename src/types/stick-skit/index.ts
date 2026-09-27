@@ -29,10 +29,17 @@ export const StickSkitDefaults = z
   .object({
     allowed_sets: knownIds(SET_IDS, "Allow at least one set.").default(SET_IDS),
     allowed_characters: knownIds(CHARACTER_IDS, "Allow at least one character.").default(CHARACTER_IDS),
-    voice_map: z.record(z.string(), z.enum(VOICE_IDS)).default(DEFAULT_VOICE_MAP),
+    voice_map: z.record(z.string(), z.enum(VOICE_IDS)).default({}),
     default_template: z.enum(TEMPLATES).optional(),
     limit_usd: spendCap("1.00"),
     hashtags_suffix: z.string().trim().max(200).optional(),
+  })
+  .transform((d) => {
+    const voice_map = { ...d.voice_map };
+    for (const id of d.allowed_characters) {
+      if (!voice_map[id] && DEFAULT_VOICE_MAP[id]) voice_map[id] = DEFAULT_VOICE_MAP[id];
+    }
+    return { ...d, voice_map };
   })
   .refine((d) => d.allowed_characters.every((c) => d.voice_map[c]), {
     message: "Give every allowed character a voice.",

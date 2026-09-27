@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { estimateProduce, stickBriefOutsideDefaults, stickSkit, StickSkitDefaults } from ".";
-import { stickCatalog } from "./catalog";
+import { DEFAULT_VOICE_MAP, stickCatalog } from "./catalog";
 
 const brief = { topic: "Replying “sounds good” unread", cast: [{ id: "milo", character: "milo" }, { id: "june", character: "june" }] };
 const all = StickSkitDefaults.parse({});
@@ -22,8 +22,8 @@ describe("a multi-scene brief", () => {
 describe("stick_skit tenant defaults", () => {
   it("parses an org with no saved settings to the whole catalog, the plugin's voices and a $1.00 cap", () => {
     expect(all.allowed_sets).toEqual(stickCatalog.sets.map((s) => s.id));
-    expect(all.allowed_characters).toEqual(["milo", "june"]);
-    expect(all.voice_map).toEqual({ milo: "Puck", june: "Kore" });
+    expect(all.allowed_characters).toEqual(stickCatalog.characters.map((c) => c.id));
+    expect(all.voice_map).toEqual(Object.fromEntries(stickCatalog.characters.map((c) => [c.id, DEFAULT_VOICE_MAP[c.id]])));
     expect(all.limit_usd).toBe("1.00");
     expect(all.default_template).toBeUndefined();
   });
@@ -34,10 +34,18 @@ describe("stick_skit tenant defaults", () => {
     expect(() => StickSkitDefaults.parse({ allowed_characters: ["ghost"] })).toThrow(/at least one character/);
   });
 
-  it("needs a voice for every allowed character, from the known voices", () => {
-    expect(() => StickSkitDefaults.parse({ voice_map: { milo: "Puck" } })).toThrow(/every allowed character a voice/);
+  it("fills a default voice for any allowed character the saved map omits", () => {
+    const filled = StickSkitDefaults.parse({ voice_map: { milo: "Puck" } });
+    expect(filled.voice_map.milo).toBe("Puck");
+    expect(filled.voice_map.june).toBe("Kore");
+    for (const id of filled.allowed_characters) expect(filled.voice_map[id]).toBeTruthy();
     expect(() => StickSkitDefaults.parse({ voice_map: { milo: "Puck", june: "Robot" } })).toThrow();
     expect(StickSkitDefaults.parse({ allowed_characters: ["milo"], voice_map: { milo: "Charon" } }).voice_map).toEqual({ milo: "Charon" });
+  });
+
+  it("already has a voice for the characters not vendored yet", () => {
+    expect(DEFAULT_VOICE_MAP).toMatchObject({ lila: "Zephyr", theo: "Puck", moss: "Charon", dash: "Kore" });
+    for (const c of stickCatalog.characters) expect(DEFAULT_VOICE_MAP[c.id], c.id).toBeTruthy();
   });
 });
 

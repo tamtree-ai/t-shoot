@@ -15,8 +15,28 @@ export const STICK_VOICES = [
   { id: "Charon", desc: "Deep · steady" },
 ] as const;
 
-/** The plugin's starting pair: Milo the sincere straight man, June the deadpan one. */
-export const DEFAULT_VOICE_MAP: Record<string, string> = { milo: "Puck", june: "Kore" };
+/**
+ * A voice for every character the catalog has or is about to have. Settings parse
+ * `allowed_characters` as the whole catalog, so a character with no voice here stops
+ * an org that has never saved settings from loading.
+ *
+ * Four TTS voices, six people. Each pair that shares a stage gets two different ones:
+ * Milo/June, Lila/Theo, Moss/Dash.
+ */
+export const DEFAULT_VOICE_MAP: Record<string, string> = {
+  milo: "Puck", // earnest
+  june: "Kore", // deadpan
+  lila: "Zephyr", // a child, light
+  theo: "Puck", // eager
+  moss: "Charon", // unhurried
+  dash: "Kore", // already sure
+};
+
+/**
+ * Writer-contract batch 3. Until that flow is provisioned, a live `stick-script`
+ * ignores `scenes` and returns one scene, so the brief does not offer the choice.
+ */
+export const MULTI_SCENE_WRITER_LIVE = false;
 
 /** "cafe-1" → "Cafe", "street-night-1" → "Street night", "living-2" → "Living 2". */
 export function setLabel(id: string): string {

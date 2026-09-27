@@ -30,7 +30,7 @@ export function WriteSkit({ projectId, topic }: { projectId: string; topic: stri
           className="flex h-12 items-center gap-2.5 rounded-[10px] bg-accent px-5 text-[15px] font-semibold text-accent-ink disabled:opacity-60"
         >
           {writing ? "Writing the skit…" : "Write the skit"}
-          <span className="font-mono text-[13px] font-medium">~${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
+          <span className="font-mono text-[13px] font-medium">up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
         </button>
         {error && (
           <p role="alert" className="text-[13px] text-attention">

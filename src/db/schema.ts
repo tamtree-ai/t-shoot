@@ -254,6 +254,8 @@ export const skitDrafts = pgTable("skit_drafts", {
   premise: jsonb("premise").$type<Record<string, unknown> | null>(),
   lines: jsonb("lines").$type<Record<string, unknown>[]>().notNull().default([]),
   check: jsonb("check").$type<Record<string, unknown> | null>(),
+  /** What the writer corrected on the way in (a mood clamped, a scene count forced). */
+  warnings: jsonb("warnings").$type<string[]>().notNull().default([]),
   estimatedDurationS: real("estimated_duration_s"),
   catalogVersion: text("catalog_version").notNull(),
   digest: text("digest").notNull(),

@@ -60,6 +60,7 @@ export function SkitReview({
   skit: initial,
   limitUsd,
   catalogVersion,
+  warnings,
   revisionNote,
   produce,
   fromComment,
@@ -69,6 +70,8 @@ export function SkitReview({
   skit: Skit;
   limitUsd: string;
   catalogVersion: string;
+  /** Corrections the writer made to the reply (a mood clamped, a scene count forced). */
+  warnings: string[];
   revisionNote: string | null;
   produce: ProduceState | null;
   /** A review comment being turned into a change (09 §6.6): it starts the Ask-for-a-change note. */
@@ -190,6 +193,19 @@ export function SkitReview({
           <p className="mt-1 text-center font-mono text-[10px] text-fg-muted">catalog {catalogVersion}</p>
         </div>
 
+        {warnings.length > 0 && (
+          <section aria-label="Writer adjustments" className="flex flex-col gap-2">
+            <span className={label}>Writer adjusted</span>
+            <ul className="flex flex-col gap-1.5">
+              {warnings.map((w, i) => (
+                <li key={i} className="text-[13px] leading-snug text-fg-2">
+                  {w}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section aria-label="Self-check" className="flex flex-col gap-2">
           <span className={label}>Self-check</span>
           {findings.length === 0 ? (
@@ -271,7 +287,7 @@ export function SkitReview({
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-fg-muted">
-              Rewrites the skit · ~<span className="font-mono">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span> · you can undo it
+              Rewrites the skit · up to <span className="font-mono">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span> · you can undo it
             </span>
             <button
               type="button"

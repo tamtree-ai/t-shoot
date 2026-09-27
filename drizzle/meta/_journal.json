@@ -36,6 +36,13 @@
       "when": 1790470696414,
       "tag": "0004_change_requests_per_project",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790510117533,
+      "tag": "0005_skit_draft_warnings",
+      "breakpoints": true
     }
   ]
 }

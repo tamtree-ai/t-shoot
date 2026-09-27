@@ -6,7 +6,7 @@ import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
 import type { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickBriefOutsideDefaults, type StickSkitDefaults } from "@/types/stick-skit";
-import { characterName, setLabel, stickCatalog } from "@/types/stick-skit/catalog";
+import { characterName, MULTI_SCENE_WRITER_LIVE, setLabel, stickCatalog } from "@/types/stick-skit/catalog";
 import { createStickProjectAction } from "./actions";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px]";
@@ -214,14 +214,29 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
       <div role="group" aria-label="Scenes" className="flex flex-col gap-2.5">
         <span className={label}>Scenes</span>
         <div className="flex gap-1.5">
-          {SCENE_COUNTS.map(({ n, label: word }) => (
-            <button key={n} type="button" aria-pressed={scenes === n} onClick={() => chooseScenes(n)} className={`${toggleBase} ${scenes === n ? toggleOn : toggleOff}`}>
-              {word}
-            </button>
-          ))}
+          {SCENE_COUNTS.map(({ n, label: word }) => {
+            const locked = !MULTI_SCENE_WRITER_LIVE && n > 1;
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={scenes === n}
+                disabled={locked}
+                title={locked ? "The writer still returns one scene" : undefined}
+                onClick={() => chooseScenes(n)}
+                className={`${toggleBase} ${scenes === n ? toggleOn : toggleOff} disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                {word}
+              </button>
+            );
+          })}
         </div>
         <span className="text-xs text-fg-muted">
-          {scenes === 1 ? "The whole skit plays on one set." : `The skit moves through ${scenes} sets, one per scene.`}
+          {MULTI_SCENE_WRITER_LIVE
+            ? scenes === 1
+              ? "The whole skit plays on one set."
+              : `The skit moves through ${scenes} sets, one per scene.`
+            : "The writer still returns one scene. Several scenes turns on with the next writer."}
         </span>
       </div>
 
@@ -286,7 +301,7 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
           className="flex h-[46px] items-center gap-2.5 rounded-[10px] bg-accent px-[22px] text-[15px] font-semibold text-accent-ink disabled:opacity-60"
         >
           {pending ? "Writing the skit…" : "Write the skit"}
-          <span className="font-mono text-xs font-medium">~${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
+          <span className="font-mono text-xs font-medium">up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
         </button>
         <span className="text-xs leading-relaxed text-fg-muted">
           You&rsquo;ll see what voicing costs before anything is spent.

@@ -51,6 +51,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           skit={Skit.parse(draft.skit)}
           limitUsd={project.limitUsd}
           catalogVersion={draft.catalogVersion}
+          warnings={draft.warnings}
           revisionNote={draft.previousSkit ? draft.revisionNote : null}
           produce={produce}
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}

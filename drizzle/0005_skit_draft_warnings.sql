@@ -1,0 +1,1 @@
+ALTER TABLE "skit_drafts" ADD COLUMN "warnings" jsonb DEFAULT '[]'::jsonb NOT NULL;

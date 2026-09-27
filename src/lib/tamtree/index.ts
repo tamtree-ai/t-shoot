@@ -29,6 +29,9 @@ const globalForAdapter = globalThis as unknown as { __tamtreeAdapter?: { key: st
  */
 export function getTamtreeAdapter(): TamtreeAdapter {
   const env = Env.parse(process.env);
+  if (process.env.TAMSHOOT_E2E === "1" && env.TAMTREE_ADAPTER !== "mock") {
+    throw new Error("Playwright is running with TAMSHOOT_E2E=1, which refuses a live Tamtree adapter.");
+  }
   // Next hot-reloads .env.local without a restart; rebuild when it changes, or runs stay on the
   // old adapter while the connection pill (which re-reads the env) already reports the new one.
   const key = JSON.stringify(env);

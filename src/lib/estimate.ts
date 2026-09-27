@@ -10,8 +10,12 @@ export const CLIP_PRICE_USD = 0.48;
 export const NARRATE_PRICE_USD = 0.004;
 export const SCRIPT_PRICE_USD = 0.003;
 
-/** stick_skit (09 §5): one script call; TTS per spoken line, the render is not metered. */
-export const STICK_SCRIPT_PRICE_USD = 0.01;
+/**
+ * stick_skit (09 §5): TTS per spoken line; the render is not metered.
+ * One script call is about $0.01. The writer may re-ask once when a reply can't be
+ * used, so the price shown and reserved before the click is that worst case.
+ */
+export const STICK_SCRIPT_PRICE_USD = 0.02;
 export const STICK_LINE_PRICE_USD = 0.0015;
 /** The script prompt's hard ceiling on lines, so the declared maximum for a produce run. */
 export const STICK_MAX_LINES = 13;
