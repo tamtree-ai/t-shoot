@@ -17,7 +17,8 @@
     "tamtree:vendor": "bash scripts/vendor-tamtree-types.sh",
     "worker": "tsx --conditions=react-server --env-file=.env.local src/worker/index.ts",
     "test:e2e": "playwright test",
-    "stickstage:vendor": "bash scripts/vendor-stickstage.sh"
+    "stickstage:vendor": "bash scripts/vendor-stickstage.sh",
+    "tamtree:provision": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/provision-tamtree.ts"
   },
   "dependencies": {
     "@remotion/captions": "4.0.529",
@@ -49,7 +50,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "yaml": "^2.9.1"
   },
   "packageManager": "pnpm@11.17.0"
 }
