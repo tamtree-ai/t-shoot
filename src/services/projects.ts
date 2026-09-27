@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import type { CurrentMember } from "@/lib/auth";
@@ -91,6 +91,21 @@ export async function createStickSkitProject(memberId: string, orgId: string, in
 
 export async function getProject(projectId: string) {
   return (await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) })) ?? null;
+}
+
+/** Every project in the org, the most recently touched first (the projects home). */
+export async function listProjects(orgId: string) {
+  return db
+    .select({
+      id: schema.projects.id,
+      title: schema.projects.title,
+      kind: schema.projects.kind,
+      step: schema.projects.step,
+      updatedAt: schema.projects.updatedAt,
+    })
+    .from(schema.projects)
+    .where(eq(schema.projects.orgId, orgId))
+    .orderBy(desc(schema.projects.updatedAt));
 }
 
 /** The `ai_clips` draft: the scenes still in the film, in order. */

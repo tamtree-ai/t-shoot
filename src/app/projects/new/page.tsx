@@ -6,6 +6,7 @@ import { getTypeDefaults } from "@/services/type-settings";
 import { productionType } from "@/types/registry";
 import { PRODUCTION_KINDS, type ProductionKind } from "@/types/types";
 import { typeUi } from "@/types/ui";
+import { StudioMark } from "@/components/StudioMark";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
     <>
       <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
         <div className="flex w-[440px] items-center gap-2.5">
-          <span aria-hidden className="size-4 rounded bg-accent" />
-          <span className="text-sm font-semibold tracking-tight">Studio</span>
+          <StudioMark />
           <span className="text-[#3a3a42]">/</span>
           <Link href="/" className="text-[13px] text-fg-3">
             Projects

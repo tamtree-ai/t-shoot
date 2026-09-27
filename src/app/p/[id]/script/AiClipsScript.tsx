@@ -9,6 +9,7 @@ import { aiClips } from "@/types/ai-clips";
 import { voiceLabel } from "@/types/ai-clips/catalog";
 import { EstimateAside } from "./EstimateAside";
 import { Screenplay } from "./Screenplay";
+import { StudioMark } from "@/components/StudioMark";
 
 /** Script (03 §1.2, `Script.dc.html`): the `ai_clips` draft screen and its human gate. */
 export async function AiClipsScript({ project }: { project: Project }) {
@@ -30,10 +31,7 @@ export async function AiClipsScript({ project }: { project: Project }) {
     <>
       <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-rule-2 bg-panel px-5">
         <div className="flex w-[420px] items-center gap-2.5">
-          <div className="flex size-[22px] items-center justify-center rounded-md border border-line bg-raised-2">
-            <span className="size-2 rounded-full bg-accent" />
-          </div>
-          <span className="text-[15px] font-semibold tracking-[-0.01em]">Studio</span>
+          <StudioMark large />
           <span className="text-lg text-[#3a3a42]">/</span>
           <Link href="/" className="text-[13px] text-fg-3">
             Projects

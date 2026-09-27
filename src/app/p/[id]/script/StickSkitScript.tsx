@@ -8,6 +8,7 @@ import { getProduceState, getSkitDraft } from "@/services/skit";
 import { stickSkit } from "@/types/stick-skit";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
+import { StudioMark } from "@/components/StudioMark";
 
 /**
  * The `stick_skit` script step (09 §6 steps 3–4): writing the skit if the brief's run didn't,
@@ -24,10 +25,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
     <>
       <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-rule-2 bg-panel px-5">
         <div className="flex w-[420px] items-center gap-2.5">
-          <div className="flex size-[22px] items-center justify-center rounded-md border border-line bg-raised-2">
-            <span className="size-2 rounded-full bg-accent" />
-          </div>
-          <span className="text-[15px] font-semibold tracking-[-0.01em]">Studio</span>
+          <StudioMark large />
           <span className="text-lg text-[#3a3a42]">/</span>
           <Link href="/" className="text-[13px] text-fg-3">
             Projects

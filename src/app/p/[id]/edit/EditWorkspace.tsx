@@ -30,6 +30,7 @@ import { Rail } from "./Rail";
 import { FailureBanner, PhonePreview, StageFacts, StageHeader } from "./Stage";
 import { usd } from "./shared";
 import { Timeline } from "./Timeline";
+import { StudioMark } from "@/components/StudioMark";
 
 type ActionResult = { ok: true } | { ok: false; error: string; guard?: string };
 
@@ -136,8 +137,7 @@ export function EditWorkspace({ model, initialChange }: { model: EditModel; init
       <div role="note" className="hidden shrink-0 items-center gap-2 border-b border-attention-line bg-attention-soft px-4 py-2 text-xs text-attention max-[1023px]:flex">Studio’s editor works best on a wider screen. Reviewing and exporting work anywhere.</div>
       <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
         <div className="flex w-[440px] items-center gap-2.5 max-[1279px]:w-auto">
-          <span aria-hidden className="size-4 rounded bg-accent" />
-          <span className="text-sm font-semibold tracking-tight">Studio</span>
+          <StudioMark />
           <span className="text-[#3a3a42]">/</span>
           <span className="font-display text-xl text-fg italic">{model.project.title}</span>
           <span className="ml-1 flex items-center gap-1.5 text-xs text-fg-muted"><span className="size-1.5 rounded-full bg-ready" />{pending ? "Saving…" : "Saved"}</span>
