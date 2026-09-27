@@ -212,9 +212,11 @@ export class LiveTamtreeAdapter implements TamtreeAdapter {
     let code = "http_error";
     let message = `Tamtree answered ${res.status} for ${init.method ?? "GET"} ${path}.`;
     try {
-      const body = (await res.json()) as { error?: { code?: string; message?: string } };
+      const body = (await res.json()) as { error?: { code?: string; message?: string; detail?: unknown } };
       if (body.error?.code) code = body.error.code;
       if (body.error?.message) message = body.error.message;
+      // A 422 carries its issue list in `detail`; without it the message says nothing actionable.
+      if (Array.isArray(body.error?.detail) && body.error.detail.length) message += `: ${body.error.detail.join("; ")}`;
     } catch {
       // not JSON: keep the generic message
     }

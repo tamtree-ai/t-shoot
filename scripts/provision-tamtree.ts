@@ -31,36 +31,43 @@ const dir =
   process.argv[2] ??
   join(process.env.STICKSTAGE_PLUGIN_DIR ?? join(homedir(), "sites/tamtree-plugins/stickstage-tamtree"), "stage-flows");
 
-const tamtree = new LiveTamtreeAdapter({ baseUrl, apiKey });
-const existing = await tamtree.readFlowIds();
-const ids: Record<string, string> = {};
+async function main(baseUrl: string, apiKey: string) {
+  const tamtree = new LiveTamtreeAdapter({ baseUrl, apiKey });
+  const existing = await tamtree.readFlowIds();
+  const ids: Record<string, string> = {};
 
-for (const file of (await readdir(dir)).filter((f) => /\.ya?ml$/.test(f)).sort()) {
-  const doc = parse(await readFile(join(dir, file), "utf8")) as { metadata: { name: string }; spec: Schemas["FlowDefinition"] };
-  const name = doc.metadata.name;
-  if (!(STICK_FLOWS as readonly string[]).includes(name)) {
-    console.warn(`skip ${file}: "${name}" is not a Tamshoot stage flow`);
-    continue;
+  for (const file of (await readdir(dir)).filter((f) => /\.ya?ml$/.test(f)).sort()) {
+    const doc = parse(await readFile(join(dir, file), "utf8")) as { metadata: { name: string }; spec: Schemas["FlowDefinition"] };
+    const name = doc.metadata.name;
+    if (!(STICK_FLOWS as readonly string[]).includes(name)) {
+      console.warn(`skip ${file}: "${name}" is not a Tamshoot stage flow`);
+      continue;
+    }
+    const id = existing.get(name);
+    if (!id) {
+      const created = await tamtree.json<Schemas["FlowOut"]>("/v1/flows", {
+        method: "POST",
+        body: JSON.stringify({ name, definition: doc.spec } satisfies Schemas["FlowCreate"]),
+      });
+      ids[name] = created.id;
+      console.log(`created ${name} (${created.id}) v${created.version}`);
+      continue;
+    }
+    await tamtree.json(`/v1/flows/${id}`, { method: "PUT", body: JSON.stringify({ definition: doc.spec } satisfies Schemas["FlowUpdate"]) });
+    const published = await tamtree.json<Schemas["FlowPublishOut"]>(`/v1/flows/${id}/publish`, { method: "POST" });
+    ids[name] = id;
+    console.log(`updated ${name} (${id}): ${published.status}`);
   }
-  const id = existing.get(name);
-  if (!id) {
-    const created = await tamtree.json<Schemas["FlowOut"]>("/v1/flows", {
-      method: "POST",
-      body: JSON.stringify({ name, definition: doc.spec } satisfies Schemas["FlowCreate"]),
-    });
-    ids[name] = created.id;
-    console.log(`created ${name} (${created.id}) v${created.version}`);
-    continue;
+
+  const missing = STICK_FLOWS.filter((f) => !ids[f]);
+  if (missing.length) {
+    console.error(`missing from ${dir}: ${missing.join(", ")}`);
+    process.exit(1);
   }
-  await tamtree.json(`/v1/flows/${id}`, { method: "PUT", body: JSON.stringify({ definition: doc.spec } satisfies Schemas["FlowUpdate"]) });
-  const published = await tamtree.json<Schemas["FlowPublishOut"]>(`/v1/flows/${id}/publish`, { method: "POST" });
-  ids[name] = id;
-  console.log(`updated ${name} (${id}): ${published.status}`);
+  console.log(`\nTAMTREE_FLOW_IDS=${Object.entries(ids).map(([n, i]) => `${n}=${i}`).join(",")}`);
 }
 
-const missing = STICK_FLOWS.filter((f) => !ids[f]);
-if (missing.length) {
-  console.error(`missing from ${dir}: ${missing.join(", ")}`);
+main(baseUrl, apiKey).catch((err) => {
+  console.error(err);
   process.exit(1);
-}
-console.log(`\nTAMTREE_FLOW_IDS=${Object.entries(ids).map(([n, i]) => `${n}=${i}`).join(",")}`);
+});
