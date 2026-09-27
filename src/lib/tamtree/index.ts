@@ -21,15 +21,18 @@ function parseFlowIds(raw: string | undefined): Record<string, string> | undefin
   return Object.fromEntries(raw.split(",").map((pair) => pair.trim().split("=") as [string, string]));
 }
 
-const globalForAdapter = globalThis as unknown as { __tamtreeAdapter?: TamtreeAdapter };
+const globalForAdapter = globalThis as unknown as { __tamtreeAdapter?: { key: string; adapter: TamtreeAdapter } };
 
 /**
  * The process-wide Tamtree adapter. Held on globalThis so Next's dev reloads keep the
  * mock's in-flight runs. Services and the worker call this; UI code never does.
  */
 export function getTamtreeAdapter(): TamtreeAdapter {
-  if (globalForAdapter.__tamtreeAdapter) return globalForAdapter.__tamtreeAdapter;
   const env = Env.parse(process.env);
+  // Next hot-reloads .env.local without a restart; rebuild when it changes, or runs stay on the
+  // old adapter while the connection pill (which re-reads the env) already reports the new one.
+  const key = JSON.stringify(env);
+  if (globalForAdapter.__tamtreeAdapter?.key === key) return globalForAdapter.__tamtreeAdapter.adapter;
   let adapter: TamtreeAdapter;
   if (env.TAMTREE_ADAPTER === "live") {
     if (!env.TAMTREE_BASE_URL || !env.TAMTREE_API_KEY) {
@@ -43,7 +46,7 @@ export function getTamtreeAdapter(): TamtreeAdapter {
   } else {
     adapter = new MockTamtreeAdapter({ scenario: env.TAMSHOOT_MOCK_SCENARIO, speed: env.TAMSHOOT_MOCK_SPEED });
   }
-  globalForAdapter.__tamtreeAdapter = adapter;
+  globalForAdapter.__tamtreeAdapter = { key, adapter };
   return adapter;
 }
 
