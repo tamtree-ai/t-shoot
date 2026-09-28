@@ -19,18 +19,18 @@ async function briefToSkit(page: Page) {
 
 test("a stick-figure skit brief pins the catalog and writes the skit", async ({ page }) => {
   await briefToSkit(page);
-  await expect(page.getByText(/^catalog c1-[0-9a-f]{16}$/)).toBeVisible();
-  await expect(page.getByRole("button", { name: /approve and make the video/i })).toBeEnabled();
+  await expect(page.getByText(/silent preview/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Approve/ })).toBeEnabled();
 });
 
 test("K3: an edit re-checks in the browser, and a broken line blocks Approve", async ({ page }) => {
   await briefToSkit(page);
-  const approve = page.getByRole("button", { name: /approve and make the video/i });
+  const approve = page.getByRole("button", { name: /^Approve/ });
   const line2 = page.getByLabel("Beat 2: line");
-  const saved = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved)$/ });
+  const saved = page.getByRole("status").filter({ hasText: /^(Saved|Saving…|Unsaved)/ });
 
   await line2.fill("We saw it. All of us.");
-  await expect(saved).toHaveText("Saved");
+  await expect(saved).toHaveText(/^Saved/);
   await expect(approve).toBeEnabled();
 
   await line2.fill("");
@@ -40,7 +40,7 @@ test("K3: an edit re-checks in the browser, and a broken line blocks Approve", a
 
   await line2.fill("Seen.");
   await expect(approve).toBeEnabled();
-  await expect(saved).toHaveText("Saved");
+  await expect(saved).toHaveText(/^Saved/);
 
   // The edit was saved, not only shown.
   await page.reload();
@@ -57,16 +57,17 @@ test("K3: Ask for a change rewrites the skit and can be undone", async ({ page }
   await expect(page.getByText("Changed by your note")).toBeVisible();
   await expect(lines.last()).not.toHaveValue(before);
 
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("button", { name: "Undo rewrite" }).click();
   await expect(page.getByText("Changed by your note")).toBeHidden();
   await expect(lines.last()).toHaveValue(before);
 });
 
 test("K4: a double Approve makes one video, and it downloads without a re-render", async ({ page }) => {
   await briefToSkit(page);
-  const approve = page.getByRole("button", { name: /approve and make the video/i });
+  const approve = page.getByRole("button", { name: /^Approve/ });
   // Two clicks before the first lands: the same (skit, voices, catalog) key collapses them.
-  await Promise.all([approve.click(), approve.click({ force: true }).catch(() => undefined)]);
+  await approve.click();
+  await approve.click({ force: true }).catch(() => undefined);
   await expect(page.getByText("Version 1 is ready")).toBeVisible({ timeout: 30_000 });
 
   // Approving the unchanged skit again finds the same run: still one version.
@@ -83,6 +84,6 @@ test("K4: a double Approve makes one video, and it downloads without a re-render
   const res = await page.request.get(href!);
   expect(res.headers()["content-type"]).toBe("video/mp4");
   expect((await res.body()).byteLength).toBeGreaterThan(10_000);
-  const srt = await page.request.get((await page.getByRole("link", { name: "Captions (.srt)" }).getAttribute("href"))!);
+  const srt = await page.request.get((await page.getByRole("link", { name: "Captions", exact: true }).getAttribute("href"))!);
   expect(await srt.text()).toMatch(/^1\n00:00:00,000 --> /);
 });

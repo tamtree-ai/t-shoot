@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { estimateFilming } from "@/lib/estimate";
 import { stickCatalog } from "@/lib/stick/registry";
-import { STAGE_FLOWS, STUDIO_FLOWS } from "@/lib/tamtree/stage-flows";
+import { STAGE_FLOWS, STICK_FLOWS, STUDIO_FLOWS } from "@/lib/tamtree/stage-flows";
 import { kindOf, productionType, stageOf, typeOf } from "./registry";
 import { PRODUCTION_KINDS } from "./types";
 
@@ -25,7 +25,9 @@ describe("production-type registry", () => {
   it("registers every published stage flow exactly once, across all types", () => {
     const flows = PRODUCTION_KINDS.flatMap((k) => Object.values(productionType(k).flows));
     expect(new Set(flows).size).toBe(flows.length);
-    expect(flows.sort()).toEqual([...STAGE_FLOWS].sort());
+    expect(flows.sort()).toEqual([...STUDIO_FLOWS, ...STICK_FLOWS].sort());
+    expect(STAGE_FLOWS).toContain("studio-publish");
+    expect(flows).not.toContain("studio-publish");
   });
 
   it("puts stick_skit on the stick-* flows and pins StickStage's catalog version", () => {

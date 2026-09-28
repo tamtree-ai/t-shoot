@@ -69,6 +69,16 @@ export const productionKind = pgEnum("production_kind", ["ai_clips", "stick_skit
 
 export const projectStep = pgEnum("project_step", ["brief", "script", "edit", "review", "export"]);
 
+/** A named starting point for stick episodes: cast, set, voices, hashtags, spend cap. */
+export const shows = pgTable("shows", {
+  id: id(),
+  orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
 export const projects = pgTable("projects", {
   id: id(),
   orgId: uuid("org_id").notNull().references(() => orgs.id, { onDelete: "cascade" }),
@@ -81,6 +91,10 @@ export const projects = pgTable("projects", {
   brief: jsonb("brief").$type<Record<string, unknown>>().notNull(),
   limitUsd: usd("limit_usd").notNull().default("5"),
   scriptApprovedAt: timestamp("script_approved_at", { withTimezone: true }),
+  showId: uuid("show_id").references(() => shows.id, { onDelete: "set null" }),
+  episodeNumber: integer("episode_number"),
+  /** Hidden from the default library. Search and the Archived filter still find it. Opening it clears this. */
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => members.id),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -219,6 +233,8 @@ export const comments = pgTable("comments", {
   timecodeS: real("timecode_s").notNull(),
   body: text("body").notNull(),
   resolvedByChangeRequestId: uuid("resolved_by_change_request_id").references(() => changeRequests.id),
+  /** The owner closed it without asking the writer to rewrite. */
+  dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -283,6 +299,10 @@ export const publications = pgTable(
     platform: publicationPlatform("platform").notNull(),
     status: publicationStatus("status").notNull().default("draft"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    /** `live` once Tamtree's publish flow accepts it; `failed` when that send fails. Null until then. */
+    delivery: text("delivery"),
+    externalUrl: text("external_url"),
+    result: text("result"),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

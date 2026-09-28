@@ -28,11 +28,12 @@ export async function createProjectAction(input: NewBrief): Promise<CreateProjec
  * A stick-skit brief: saved with its catalog pinned, then the skit is written (`stick-script`,
  * ~$0.01). A failed write still lands on the Script step, which offers to write it again.
  */
-export async function createStickProjectAction(input: NewStickBrief): Promise<CreateProjectResult | void> {
+export async function createStickProjectAction(input: NewStickBrief & { showId?: string; episodeNumber?: number }): Promise<CreateProjectResult | void> {
   const member = await getCurrentMember();
   let projectId: string;
   try {
-    projectId = await createStickSkitProject(member.memberId, member.orgId, input);
+    const { showId, episodeNumber, ...brief } = input;
+    projectId = await createStickSkitProject(member.memberId, member.orgId, brief, { showId, episodeNumber });
   } catch (err) {
     const issues = (err as { issues?: { message: string }[] }).issues;
     return { ok: false, error: issues?.[0]?.message ?? (err instanceof Error ? err.message : "Something went wrong saving the brief.") };

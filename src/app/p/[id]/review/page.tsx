@@ -50,6 +50,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
             return hit ? timeline.scenes.findIndex((s) => s.scene_id === hit.sceneId) + 1 : null;
           })(),
           resolved: !!c.resolvedByChangeRequestId,
+          dismissed: !!c.dismissedAt,
         }))}
       />
     </div>

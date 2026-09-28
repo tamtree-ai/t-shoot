@@ -2847,7 +2847,7 @@ packages:
     resolution: {integrity: sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==}
 
   stickstage@file:vendor/stickstage-0.1.0.tgz:
-    resolution: {integrity: sha512-H8+ABbSj/lOkpJ/RMuVDHP7EflD1R/+9JL17WCP+SaO+ewpRMwa4jqJ8f+ZqsgS17XRL1jRlDT9lf94Q9xC27Q==, tarball: file:vendor/stickstage-0.1.0.tgz}
+    resolution: {integrity: sha512-p0XHo38b0AnIk9lclqw41OokrWRrXi6KVi6CoVICSr7VITXOZApc7pi6+g1eYcLrBPqTvF+Qh3kbbjqtGj7Jsg==, tarball: file:vendor/stickstage-0.1.0.tgz}
     version: 0.1.0
     engines: {node: '>=22'}
     peerDependencies:

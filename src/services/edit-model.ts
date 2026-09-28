@@ -8,6 +8,7 @@ import "server-only";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { lineTitle } from "@/lib/line-title";
 import { estimateNarrationSeconds } from "@/lib/narration";
 import { sceneLength } from "@/lib/timeline";
 import { failureNotice, studioState, type FailureNotice, type StudioState } from "@/lib/run-state";
@@ -15,7 +16,7 @@ import type { StageFlow } from "@/lib/tamtree/stage-flows";
 import { aiClips, aiClipsVoice } from "@/types/ai-clips";
 import { estimateStageUsd, projectSpend } from "./ledger";
 
-export type TakeVM = { id: string; number: number; prompt: string; durationS: number | null; ready: boolean };
+export type TakeVM = { id: string; number: number; prompt: string; durationS: number | null; ready: boolean; assetId: string | null };
 export type ActivityVM = { id: string; text: string; costUsd: string | null; at: string; stage: StageFlow; runId: string; tamtreeRunId: string | null };
 
 export type SceneVM = {
@@ -122,7 +123,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
     return {
       id: scene.id,
       position: scene.position,
-      title: scene.title,
+      title: lineTitle(scene.narration, scene.title),
       narration: scene.narration,
       visualPrompt: scene.visualPrompt,
       voiceOutOfDate: scene.voiceOutOfDate,
@@ -132,7 +133,7 @@ export async function getEditModel(projectId: string): Promise<EditModel | null>
       trimStartS: scene.trimStartS,
       trimEndS: scene.trimEndS,
       chosenTakeId: scene.chosenTakeId,
-      takes: takes.map((t) => ({ id: t.id, number: t.number, prompt: t.visualPrompt, durationS: t.durationS, ready: !!t.clipAssetId })),
+      takes: takes.map((t) => ({ id: t.id, number: t.number, prompt: t.visualPrompt, durationS: t.durationS, ready: !!t.clipAssetId, assetId: t.clipAssetId })),
       clip,
       voice,
       state,

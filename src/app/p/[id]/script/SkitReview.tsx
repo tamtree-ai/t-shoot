@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { normWord, tokenize } from "stickstage";
+import { normWord } from "stickstage";
 
+import { SpeakButton } from "@/components/SpeakButton";
 import { Face } from "@/components/stick-skit/Face";
 import { fit916 } from "@/components/stick-skit/fit";
+import { SetPicker } from "@/components/stick-skit/SetPicker";
 import { SkitPreview, type BeatSpan } from "@/components/stick-skit/SkitPreview";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { stripEmphasis } from "@/lib/emphasis";
 import { failureNotice, studioState } from "@/lib/run-state";
 import { stickCatalog } from "@/lib/stick/registry";
 import { isTerminal } from "@/lib/tamtree/types";
@@ -69,8 +72,9 @@ export function SkitReview({
   topic,
   skit: initial,
   limitUsd,
-  catalogVersion,
   warnings,
+  voices,
+  targetS,
   revisionNote,
   produce,
   fromComment,
@@ -81,8 +85,9 @@ export function SkitReview({
   topic: string;
   skit: Skit;
   limitUsd: string;
-  catalogVersion: string;
   warnings: string[];
+  voices: Record<string, string>;
+  targetS?: 15 | 30 | 45 | 60;
   revisionNote: string | null;
   produce: ProduceState | null;
   fromComment: { id: string; note: string } | null;
@@ -91,7 +96,19 @@ export function SkitReview({
   focusFraction: number | null;
 }) {
   const router = useRouter();
-  const opened = useMemo(() => alignSlams(initial), [initial]);
+  const opened = useMemo(() => {
+    const aligned = alignSlams(initial);
+    let next = aligned.skit;
+    let changed = aligned.changed;
+    for (const beat of beatsOf(next)) {
+      if (!beat.line) continue;
+      const line = stripEmphasis(beat.line);
+      if (line === beat.line) continue;
+      next = editBeat(next, beat.id, { line });
+      changed = true;
+    }
+    return { skit: next, changed };
+  }, [initial]);
   const [skit, setSkit] = useState(opened.skit);
   const [save, setSave] = useState<SaveState>(opened.changed ? "unsaved" : "saved");
   const [savedAt, setSavedAt] = useState<Date | null>(opened.changed ? null : new Date());
@@ -140,7 +157,20 @@ export function SkitReview({
     if (!pending) return true;
     latest.current = null;
     setSave("saving");
-    const result = await saveSkitBeatsAction(projectId, allBeats(pending), scenePlanOf(pending));
+    const multi = Array.isArray((pending as { scenes?: unknown[] }).scenes) && (pending as { scenes: unknown[] }).scenes.length > 0;
+    const setId = typeof (pending as { set?: unknown }).set === "string" ? (pending as { set: string }).set : null;
+    let result: { ok: true; errors: number } | { ok: false; error: string };
+    try {
+      result = await saveSkitBeatsAction(projectId, allBeats(pending), scenePlanOf(pending), {
+        ...(multi ? {} : { set: setId }),
+        cast: castOf(pending),
+      });
+    } catch (err) {
+      latest.current = pending;
+      setSave("failed");
+      setError(err instanceof Error ? err.message : "Something went wrong saving the skit.");
+      return false;
+    }
     if (!result.ok) {
       latest.current = pending;
       setSave("failed");
@@ -204,7 +234,16 @@ export function SkitReview({
     if (frameAt !== null) setSeek((prev) => ({ frame: frameAt, nonce: (prev?.nonce ?? 0) + 1 }));
   }
 
-  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
+  useEffect(() => {
+    if (save !== "unsaved" || !latest.current) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void flush(), SAVE_AFTER_MS);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // `flush` closes over the latest editor state; `skit` is the signal that state changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, skit]);
 
   const onSpans = useCallback((next: BeatSpan[], dur: number) => {
     setSpans(next);
@@ -268,6 +307,9 @@ export function SkitReview({
   const saveWord = save === "saving" ? "Saving…" : save === "unsaved" ? "Unsaved" : save === "failed" ? "Not saved" : savedAt ? `Saved ${clockTime(savedAt)}` : "Saved";
   const statusWord =
     errors.length > 0 ? `${errors.length} ${errors.length === 1 ? "problem" : "problems"}` : findings.length > 0 ? "Worth a look" : "No problems";
+  const seconds = duration > 0 ? Math.max(1, Math.round(duration / 30)) : null;
+  const spoken = beats.map((b) => b.line?.trim()).filter(Boolean).join(" ");
+  const previewVoice = voices[cast[0]?.character ?? ""] ?? "Puck";
 
   return (
     <div className="flex min-h-0 flex-1 bg-canvas-script">
@@ -280,20 +322,49 @@ export function SkitReview({
               {scenes.length > 1 ? ` · ${scenes.length} scenes` : ""}
               {scenes.length <= 1 && scenes[0]?.set ? ` · ${setLabel(scenes[0].set)}` : ""}
               {scenes.length === 0 && typeof (skit as { set?: unknown }).set === "string" ? ` · ${setLabel((skit as { set: string }).set)}` : ""}
+              {seconds != null ? ` · about ${seconds}s` : ""}
+              {targetS ? ` of ${targetS}s` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-8 rounded-lg px-2.5 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
               Undo
             </button>
             {scenes.length <= 1 && setOptions.length > 1 && (
-              <SetSelect
+              <SetPicker
                 value={typeof (skit as { set?: unknown }).set === "string" ? (skit as { set: string }).set : ""}
                 options={setOptions}
                 label="Set"
+                align="end"
                 onChange={(setId) => reshape(() => ({ skit: setSceneSet(skit, null, setId) }))}
               />
             )}
+            {cast.map((member) => (
+              <label key={member.id} className="flex items-center gap-1 text-[12px] text-fg-muted">
+                {member.label ?? "Cast"}
+                <select
+                  aria-label={`Character for ${member.label ?? member.id}`}
+                  value={member.character}
+                  onChange={(e) => {
+                    const next = cast.map((c) => (c.id === member.id ? { ...c, character: e.target.value } : c));
+                    reshape(() => ({ skit: { ...skit, cast: next } }));
+                  }}
+                  className="h-8 rounded-lg border border-line bg-panel px-1 text-[12px] text-fg"
+                >
+                  {stickCatalog.characters.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
+              className="h-8 rounded-lg border border-line px-2.5 text-[12px] text-fg-2 disabled:opacity-50"
+            >
+              Ask the writer to adjust · up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}
+            </button>
           </div>
         </div>
 
@@ -411,9 +482,9 @@ export function SkitReview({
               )}
             </div>
           </div>
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center justify-between gap-2 px-1">
             <p className="text-[11px] text-fg-muted">Silent preview · timing is estimated</p>
-            <p className="font-mono text-[10px] text-fg-muted">{catalogVersion}</p>
+            <SpeakButton text={spoken} voiceId={previewVoice} label="Hear it" />
           </div>
           <ol aria-label="Story" className="flex gap-1 overflow-x-auto pb-1">
             {beats.map((beat, i) => (
@@ -448,19 +519,34 @@ export function SkitReview({
         </div>
 
         <div className="border-t border-rule px-4 py-2">
-          <details className="group">
+          <details className="group" role="region" aria-label="Self-check">
             <summary className={`cursor-pointer text-[13px] ${errors.length ? "text-accent-link" : findings.length ? "text-attention" : "text-ready"}`}>
               {statusWord}
               {warnings.length > 0 && <span className="text-fg-muted"> · writer adjusted {warnings.length}</span>}
             </summary>
             <div className="mt-2 flex max-h-28 flex-col gap-1.5 overflow-y-auto">
-              {findings.map((f, i) => (
-                <p key={i} className="text-[13px] leading-snug text-fg-2">
-                  <span className={f.level === "error" ? "text-accent-link" : "text-attention"}>{f.level === "error" ? "Problem" : "Look"} · </span>
-                  {where(skit, f.path) && <span className="text-fg">{where(skit, f.path)}: </span>}
-                  {f.message}
-                </p>
-              ))}
+              {findings.map((f, i) => {
+                const place = where(skit, f.path);
+                const target = findingTarget(skit, f.path);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      if (!target) return;
+                      const beat = beats[target.beat - 1];
+                      if (!beat) return;
+                      jump(beat.id);
+                      document.getElementById(`beat-${beat.id}`)?.scrollIntoView({ block: "center" });
+                    }}
+                    className="text-left text-[13px] leading-snug text-fg-2"
+                  >
+                    <span className={f.level === "error" ? "text-accent-link" : "text-attention"}>{f.level === "error" ? "Problem" : "Look"} · </span>
+                    {place && <span className="text-fg">{place}: </span>}
+                    {f.message}
+                  </button>
+                );
+              })}
               {warnings.map((w, i) => (
                 <p key={`w${i}`} className="text-[13px] leading-snug text-fg-3">
                   {w}
@@ -540,7 +626,7 @@ function ProducePanel({ projectId, produce, limitUsd }: { projectId: string; pro
       <p className="flex flex-wrap items-center gap-2 px-1 text-[12px] text-fg-2">
         <span className="size-1.5 rounded-full bg-ready" />
         Version {produce.versionNumber} is ready
-        {!produce.current && <span className="text-fg-3">· skit changed since</span>}
+        {!produce.current && <span className="text-fg-3">· changed the skit since this video</span>}
         <Link href={`/p/${projectId}/review`} className="text-accent-link">Review</Link>
         <Link href={`/p/${projectId}/export`} className="text-accent-link">Download</Link>
       </p>
@@ -551,17 +637,6 @@ function ProducePanel({ projectId, produce, limitUsd }: { projectId: string; pro
       <span className={`size-1.5 rounded-full ${state.dot === "accent" ? "animate-pulse bg-accent" : "bg-fg-muted"}`} />
       {state.word === "Queued" ? "Waiting to start…" : "Voicing the lines and drawing the video…"}
     </p>
-  );
-}
-
-function SetSelect({ value, options, label: aria, onChange }: { value: string; options: { id: string; label: string }[]; label: string; onChange: (id: string) => void }) {
-  return (
-    <select aria-label={aria} value={value} onChange={(e) => onChange(e.target.value)} className="h-8 rounded-lg border border-line bg-canvas-script px-2 text-[13px] text-fg">
-      {value && !options.some((o) => o.id === value) && <option value={value}>{setLabel(value)}</option>}
-      {options.map((o) => (
-        <option key={o.id} value={o.id}>{o.label}</option>
-      ))}
-    </select>
   );
 }
 
@@ -587,7 +662,7 @@ function SceneHeading({
   return (
     <li className={`flex flex-wrap items-center gap-2 px-1 ${n > 1 ? "pt-4" : ""}`}>
       <h2 className={label}>Scene {n} of {of}</h2>
-      {options.length > 0 && <SetSelect value={scene.set ?? ""} options={options} label={`Scene ${n} set`} onChange={onSet} />}
+      {options.length > 0 && <SetPicker value={scene.set ?? ""} options={options} label={`Scene ${n} set`} onChange={onSet} />}
       {(scene.card ?? scene.pov) && <span className="truncate text-xs text-fg-3">{scene.card ? `Card: ${scene.card}` : scene.pov}</span>}
       <span className="ml-auto flex items-center gap-1">
         <IconButton label={`Move scene ${n} up`} disabled={n === 1} onClick={() => onMove("up")}>↑</IconButton>
@@ -637,27 +712,32 @@ function BeatCard({
   const what = beat.silent ? `Beat ${index}, silent` : `Beat ${index}`;
 
   return (
-    <li aria-label={what} onClick={onOpen} className={`flex flex-col gap-3 rounded-[14px] border bg-panel px-4 py-3.5 ${playing || open ? "border-accent/70" : "border-line"}`}>
+    <li id={`beat-${beat.id}`} aria-label={what} onClick={onOpen} className={`flex flex-col gap-3 rounded-[14px] border bg-panel px-4 py-3.5 ${playing || open ? "border-accent/70" : "border-line"}`}>
       <div className="flex items-center gap-2">
         <span className="w-6 font-mono text-xs text-fg-muted">{String(index).padStart(2, "0")}</span>
         {beat.silent ? (
           <span className="text-[13px] text-fg-3">Silent{beat.speaker ? ` · ${name}` : ""}</span>
         ) : (
           <div className="flex flex-wrap gap-1" role="group" aria-label={`${what}: speaker`}>
-            {cast.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                aria-pressed={beat.speaker === c.id}
-                aria-label={characterName(c.character)}
-                onClick={() => onEdit({ speaker: c.id })}
-                className={`flex items-center gap-1.5 rounded-full border py-0.5 pr-2.5 pl-0.5 text-[12px] ${beat.speaker === c.id ? "border-accent bg-accent-soft" : "border-line hover:bg-hover"}`}
-              >
-                <Face character={c.character} expression={beat.speaker === c.id ? beat.expression : "neutral"} size={22} />
-                {characterName(c.character)}
-                {c.label ? <span className="text-fg-muted">{c.label}</span> : null}
-              </button>
-            ))}
+            {cast.map((c) => {
+              const selected = beat.speaker === c.id;
+              return (
+                <div key={c.id} className={`flex items-center rounded-full border ${selected ? "border-accent bg-accent-soft" : "border-line"}`}>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    aria-label={characterName(c.character)}
+                    onClick={() => onEdit({ speaker: c.id })}
+                    className="flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-0.5 text-[12px] hover:bg-hover"
+                  >
+                    <Face character={c.character} expression={selected ? beat.expression : "neutral"} size={22} />
+                    {characterName(c.character)}
+                    {c.label ? <span className="text-fg-muted">{c.label}</span> : null}
+                  </button>
+                  {selected ? <MoodMenu beat={beat} character={c.character} what={what} onEdit={onEdit} /> : null}
+                </div>
+              );
+            })}
           </div>
         )}
         <span className="ml-auto flex items-center">
@@ -670,38 +750,7 @@ function BeatCard({
 
       {!beat.silent && (
         <>
-          <div className="flex flex-wrap gap-1" role="group" aria-label={`${what}: expression`}>
-            {stickCatalog.expressions.map((x) => (
-              <button
-                key={x}
-                type="button"
-                aria-pressed={beat.expression === x}
-                aria-label={x}
-                title={x}
-                onClick={() => onEdit({ expression: x })}
-                className={`rounded-lg border p-0.5 ${beat.expression === x ? "border-accent" : "border-transparent hover:bg-hover"}`}
-              >
-                <Face expression={x} character={member?.character} size={26} />
-              </button>
-            ))}
-          </div>
-
-          <textarea
-            aria-label={`${what}: line`}
-            rows={2}
-            value={beat.line ?? ""}
-            onChange={(e) => onEdit({ line: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey) return;
-              e.preventDefault();
-              const el = e.currentTarget;
-              onSplit(el.value.slice(0, el.selectionStart), el.value.slice(el.selectionStart));
-            }}
-            placeholder="Write the line"
-            className="w-full resize-none border-none bg-transparent font-display text-[22px] leading-snug text-fg outline-none placeholder:text-fg-muted"
-          />
-
-          <WordRow beat={beat} what={what} onEdit={onEdit} />
+          <LineField beat={beat} what={what} onEdit={onEdit} onSplit={onSplit} />
 
           <div className="flex flex-wrap items-center gap-2">
             {beat.slams.map((value, i) => (
@@ -741,34 +790,169 @@ function BeatCard({
   );
 }
 
-function WordRow({ beat, what, onEdit }: { beat: EditableBeat; what: string; onEdit: (patch: BeatPatch) => void }) {
-  const tokens = tokenize(beat.line ?? "");
-  if (tokens.length === 0) return <p className="text-[12px] text-fg-muted">Double-click a word to slam it.</p>;
+function moodLabel(id: string): string {
+  return id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+/** Word spans in the raw line, using the same token rules as the slam anchors. */
+function wordSpans(line: string): { start: number; end: number; norm: string; occurrence: number }[] {
+  const spans: { start: number; end: number; norm: string; occurrence: number }[] = [];
   const seen = new Map<string, number>();
+  for (const m of line.matchAll(/\S+/g)) {
+    const raw = m[0];
+    const norm = normWord(raw);
+    const prev = spans[spans.length - 1];
+    if (!norm && prev) {
+      prev.end = m.index + raw.length;
+      continue;
+    }
+    const key = norm || normWord(raw);
+    const occurrence = key ? (seen.get(key) ?? 0) + 1 : 1;
+    if (key) seen.set(key, occurrence);
+    spans.push({ start: m.index, end: m.index + raw.length, norm: key, occurrence });
+  }
+  return spans;
+}
+
+const lineType = "w-full font-display text-[22px] leading-snug break-words whitespace-pre-wrap";
+
+function LineField({
+  beat,
+  what,
+  onEdit,
+  onSplit,
+}: {
+  beat: EditableBeat;
+  what: string;
+  onEdit: (patch: BeatPatch) => void;
+  onSplit: (before: string, after: string) => void;
+}) {
+  const line = beat.line ?? "";
+  const spans = wordSpans(line);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  spans.forEach((span, i) => {
+    if (span.start > cursor) nodes.push(line.slice(cursor, span.start));
+    const text = line.slice(span.start, span.end);
+    const hit = span.norm !== "" && beat.slamAt.some((at) => at && at.word === span.norm && at.occurrence === span.occurrence);
+    nodes.push(
+      hit ? (
+        <mark key={i} className="rounded-[3px] bg-accent/30 text-inherit">
+          {text}
+        </mark>
+      ) : (
+        <span key={i}>{text}</span>
+      ),
+    );
+    cursor = span.end;
+  });
+  if (cursor < line.length) nodes.push(line.slice(cursor));
+
   return (
-    <div className="flex flex-wrap gap-1" aria-label={`${what}: words`}>
-      {tokens.map((token, i) => {
-        const word = token.norm || normWord(token.text);
-        const occurrence = (seen.get(word) ?? 0) + 1;
-        seen.set(word, occurrence);
-        const hit = beat.slamAt.some((at) => at && at.word === word && at.occurrence === occurrence);
-        return (
-          <button
-            key={`${i}-${word}`}
-            type="button"
-            title="Double-click to slam this word"
-            onDoubleClick={() => {
-              const value = (word || token.text).toUpperCase();
-              const anchor = word ? { word, occurrence } : null;
-              if (beat.slams.length === 0) onEdit({ slams: [value], slamAnchors: anchor ? [anchor] : [null] });
-              else onEdit({ slams: [value, ...beat.slams.slice(1)], slamAnchors: [anchor, ...beat.slamAt.slice(1)] });
-            }}
-            className={`rounded-md px-1.5 py-0.5 text-[13px] ${hit ? "bg-accent font-semibold text-accent-ink" : "text-fg-2 hover:bg-hover"}`}
-          >
-            {token.text}
-          </button>
-        );
-      })}
+    <div className="grid min-h-[2.75rem] min-w-0">
+      <div aria-hidden className={`col-start-1 row-start-1 ${lineType} text-fg`}>
+        {nodes}
+        {line.endsWith("\n") ? " " : ""}
+      </div>
+      <textarea
+        aria-label={`${what}: line`}
+        title="Double-click a word to slam it"
+        rows={1}
+        value={line}
+        onChange={(e) => onEdit({ line: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey) return;
+          e.preventDefault();
+          const el = e.currentTarget;
+          onSplit(el.value.slice(0, el.selectionStart), el.value.slice(el.selectionStart));
+        }}
+        onDoubleClick={(e) => {
+          const el = e.currentTarget;
+          const from = Math.min(el.selectionStart, el.selectionEnd);
+          const to = Math.max(el.selectionStart, el.selectionEnd);
+          const span = wordSpans(el.value).find((s) => s.norm && s.start < to && s.end > from);
+          if (!span) return;
+          const anchor = { word: span.norm, occurrence: span.occurrence };
+          const value = span.norm.toUpperCase();
+          if (beat.slams.length === 0) onEdit({ slams: [value], slamAnchors: [anchor] });
+          else onEdit({ slams: [value, ...beat.slams.slice(1)], slamAnchors: [anchor, ...beat.slamAt.slice(1)] });
+        }}
+        placeholder="Write the line"
+        className={`col-start-1 row-start-1 resize-none overflow-hidden border-none bg-transparent ${lineType} text-transparent caret-fg outline-none selection:bg-accent/40 placeholder:text-fg-muted`}
+      />
+    </div>
+  );
+}
+
+function MoodMenu({
+  beat,
+  character,
+  what,
+  onEdit,
+}: {
+  beat: EditableBeat;
+  character?: string;
+  what: string;
+  onEdit: (patch: BeatPatch) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const mood = beat.expression || "neutral";
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title={moodLabel(mood)}
+        aria-label={`${what}: expression is ${moodLabel(mood)}. Change it`}
+        onClick={() => setOpen((v) => !v)}
+        className="mr-1 grid size-5 place-items-center rounded-full text-[11px] text-fg-3 hover:bg-hover"
+      >
+        ▾
+      </button>
+      {open && (
+        <ul role="listbox" aria-label={`${what}: expression`} className="absolute top-full left-0 z-30 mt-1 grid w-[248px] grid-cols-4 gap-0.5 rounded-xl border border-line bg-raised p-1.5 shadow-[0_12px_40px_rgb(0_0_0/0.45)]">
+          {stickCatalog.expressions.map((x) => {
+            const on = mood === x;
+            return (
+              <li key={x}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={on}
+                  aria-label={x}
+                  onClick={() => {
+                    onEdit({ expression: x });
+                    setOpen(false);
+                  }}
+                  className={`flex w-full flex-col items-center gap-1 rounded-lg px-1 py-1.5 ${on ? "bg-accent-soft" : "hover:bg-hover"}`}
+                >
+                  <Face expression={x} character={character} size={28} />
+                  <span className="text-[10px] leading-none text-fg-3">{moodLabel(x)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

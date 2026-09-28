@@ -21,6 +21,7 @@ import {
   type StickProduceIn,
   type StickScriptIn,
   type StickScriptOut,
+  type PublishIn,
 } from "../stage-flows";
 import type {
   AssetContent,
@@ -366,6 +367,15 @@ export class MockTamtreeAdapter implements TamtreeAdapter {
           digest: sha256(`stick-produce:${canonicalJson(p)}`),
           reminder: files.reminder,
         } as StageOutput[F];
+      }
+      case "studio-publish": {
+        const p = input as PublishIn;
+        if (p.platform === "tiktok") {
+          return { url: null, result: "Draft saved in TikTok. Finish privacy in the app. Nothing is public." } as StageOutput[F];
+        }
+        const host = p.platform === "youtube" ? "https://studio.youtube.com/video/mock" : "https://www.instagram.com/reel/mock";
+        const audit = p.platform === "youtube" && p.privacy === "public" ? " Uploaded private until Google’s audit; flip it public in YouTube." : "";
+        return { url: host, result: `Posted to ${p.platform}.${audit}` } as StageOutput[F];
       }
     }
     throw new Error(`unknown flow ${String(flow)}`);

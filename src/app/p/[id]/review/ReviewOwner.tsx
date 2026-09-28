@@ -7,11 +7,11 @@ import { useRef, useState, useTransition } from "react";
 import { fit916 } from "@/components/stick-skit/fit";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { clock } from "../edit/shared";
-import { revokeAction, shareAction } from "./actions";
+import { dismissCommentAction, revokeAction, shareAction } from "./actions";
 
 type Version = { id: string; number: number; createdAt: string; approvedBy: string | null; durationS: number };
 type LinkRow = { id: string; token: string; versionId: string };
-type Comment = { id: string; authorName: string; timecodeS: number; body: string; versionNumber: number; scenePosition: number | null; resolved: boolean };
+type Comment = { id: string; authorName: string; timecodeS: number; body: string; versionNumber: number; scenePosition: number | null; resolved: boolean; dismissed: boolean };
 export type ReviewFilm = { id: string; number: number; durationS: number; src: string };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -46,8 +46,9 @@ export function ReviewOwner({
   const latest = versions[0];
   const shownVersion = film ? versions.find((v) => v.id === film.id) ?? latest : latest;
   const shownLink = shownVersion ? links.find((l) => l.versionId === shownVersion.id) : undefined;
-  const open = comments.filter((c) => !c.resolved);
+  const open = comments.filter((c) => !c.resolved && !c.dismissed);
   const done = comments.filter((c) => c.resolved);
+  const dismissed = comments.filter((c) => c.dismissed && !c.resolved);
   const urlFor = (token: string) => `${window.location.origin}/r/${token}`;
 
   const share = () => start(async () => { setError(null); const r = await shareAction(projectId); if (r.ok) router.refresh(); else setError(r.error); });
@@ -113,7 +114,7 @@ export function ReviewOwner({
         {shownLink ? (
           <div className="flex flex-col gap-2 rounded-xl border border-rule-2 bg-raised-2 p-4">
             <span className="text-xs text-fg-muted">Version {shownVersion?.number} · {shownVersion ? clock(shownVersion.durationS) : ""}</span>
-            <code className="truncate rounded-md bg-canvas px-2.5 py-2 font-mono text-xs text-fg-2">…/r/{shownLink.token.slice(0, 10)}…</code>
+            <code title={`/r/${shownLink.token}`} className="truncate rounded-md bg-canvas px-2.5 py-2 font-mono text-xs text-fg-2">…/r/{shownLink.token.slice(0, 10)}…</code>
             <div className="flex gap-2">
               <button type="button" onClick={() => copy(shownLink.token)} className="h-9 flex-1 rounded-lg bg-accent text-[13px] font-semibold text-accent-ink">{copied === shownLink.token ? "Copied" : "Copy link"}</button>
               <button type="button" onClick={() => start(async () => { await revokeAction(projectId, shownLink.id); router.refresh(); })} className="h-9 rounded-lg border border-line px-3 text-[13px] text-fg-2">Stop sharing</button>
@@ -121,13 +122,14 @@ export function ReviewOwner({
             {shownVersion?.approvedBy && <span className="text-xs text-ready">Approved by {shownVersion.approvedBy}</span>}
           </div>
         ) : (
-          <button type="button" disabled={pending || !latest} onClick={share} className="h-11 rounded-lg bg-accent text-sm font-semibold text-accent-ink disabled:opacity-60">Create a review link</button>
+          <button type="button" disabled={pending} onClick={share} className="h-11 rounded-lg bg-accent text-sm font-semibold text-accent-ink disabled:opacity-60">Create a review link</button>
         )}
         {latest && shownLink && <button type="button" onClick={share} className="text-left text-xs text-fg-muted">Changed something since? Share the latest edits — a new version gets its own link.</button>}
         {error && <p role="alert" className="text-[13px] text-attention">{error}</p>}
 
         <section aria-label="Comments" className="flex flex-col gap-2">
           <div className="flex items-center gap-2"><h2 className="text-sm font-semibold">Needs you</h2><span className="num text-xs text-fg-muted">{open.length}</span></div>
+          {shownVersion?.approvedBy && open.length > 0 && <p className="text-[12px] text-fg-muted">Approved, with comments still open.</p>}
           {open.length === 0 && <p className="text-[13px] text-fg-3">No comments waiting.</p>}
           <ul className="flex flex-col gap-2">
             {open.map((c) => (
@@ -139,10 +141,18 @@ export function ReviewOwner({
                   <span className="ml-auto text-xs text-fg-muted">v{c.versionNumber}</span>
                 </div>
                 <p className="text-sm leading-normal text-fg">{c.body}</p>
-                <Link href={`/p/${projectId}/${changeStep}?change=${c.id}`} className="self-start rounded-lg border border-line-strong bg-[#222227] px-3 py-1.5 text-[13px] font-medium">Turn into a change</Link>
+                <div className="flex gap-2">
+                  <Link href={`/p/${projectId}/${changeStep}?change=${c.id}`} className="self-start rounded-lg border border-line-strong bg-[#222227] px-3 py-1.5 text-[13px] font-medium">Turn into a change</Link>
+                  <button type="button" onClick={() => start(async () => { await dismissCommentAction(projectId, c.id); router.refresh(); })} className="self-start rounded-lg border border-line px-3 py-1.5 text-[13px] text-fg-2">Mark done</button>
+                </div>
               </li>
             ))}
           </ul>
+          {dismissed.length > 0 && (
+            <details className="text-[13px] text-fg-3"><summary className="cursor-pointer">{dismissed.length} marked done</summary>
+              <ul className="mt-2 flex flex-col gap-1.5">{dismissed.map((c) => <li key={c.id} className="text-fg-muted">{c.authorName} · {clock(c.timecodeS)} — {c.body}</li>)}</ul>
+            </details>
+          )}
           {done.length > 0 && (
             <details className="text-[13px] text-fg-3"><summary className="cursor-pointer">{done.length} turned into changes</summary>
               <ul className="mt-2 flex flex-col gap-1.5">{done.map((c) => <li key={c.id} className="text-fg-muted">{c.authorName} · {clock(c.timecodeS)} — {c.body}</li>)}</ul>

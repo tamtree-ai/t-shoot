@@ -33,6 +33,7 @@ const FALLBACK_USD: Record<StageFlow, number> = {
   "stick-script": STICK_SCRIPT_PRICE_USD,
   // TTS only, at the prompt's line ceiling; the render is StickStage CPU and never metered.
   "stick-produce": STICK_LINE_PRICE_USD * STICK_MAX_LINES,
+  "studio-publish": 0,
 };
 
 /**

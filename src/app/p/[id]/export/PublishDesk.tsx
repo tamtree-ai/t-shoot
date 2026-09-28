@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { savePublicationAction } from "./actions";
+import { savePublicationAction, sendPublicationAction } from "./actions";
 import { PLATFORM_LABEL, PLATFORMS, YOUTUBE_CATEGORIES, blankPost, postProblem, type Platform, type PostDraft, type StoredPost } from "@/types/social/post";
 
 export function PublishDesk({
@@ -50,9 +50,12 @@ export function PublishDesk({
     setNote(result.status === "confirmed" ? "Confirmed. Nothing has been uploaded." : "Draft saved.");
   }
 
+  const storedRow = stored.find((row) => row.versionId === versionId && row.platform === platform);
+
   return (
-    <section className="flex flex-col gap-2 border-t border-rule pt-3">
-      <h2 className="text-[11px] font-semibold tracking-[0.08em] text-fg-muted uppercase">Post</h2>
+    <details className="flex flex-col gap-2 border-t border-rule pt-3">
+      <summary className="cursor-pointer text-[13px] font-medium text-fg">Prepare a post — this does not upload</summary>
+      <p className="text-[12px] leading-snug text-fg-muted">Saving or confirming does not upload. Post sends it through Tamtree.</p>
       <div className="flex gap-1" role="tablist" aria-label="Platform">
         {PLATFORMS.map((p) => (
           <button
@@ -120,20 +123,38 @@ export function PublishDesk({
       </label>
       <p className="text-[12px] leading-snug text-fg-muted">
         {platform === "tiktok"
-          ? "TikTok stays a draft here. A person confirms privacy before anything is posted."
-          : "YouTube stays private until Google’s audit. Confirming does not upload."}
+          ? "TikTok is handed off as a draft. You confirm privacy in TikTok."
+          : "YouTube uploads stay private until Google’s audit, even when you pick Public."}
       </p>
       {problem && <p className="text-[12px] text-attention">{problem}</p>}
-      {status[platform] === "confirmed" && <p className="text-[12px] text-ready">Confirmed. Waiting on the connector. This post is not live.</p>}
+      {storedRow?.delivery === "live" && <p className="text-[12px] text-ready">{storedRow.result}{storedRow.externalUrl ? ` ${storedRow.externalUrl}` : ""}</p>}
+      {storedRow?.delivery === "failed" && <p className="text-[12px] text-attention">{storedRow.result}</p>}
+      {status[platform] === "confirmed" && storedRow?.delivery !== "live" && <p className="text-[12px] text-fg-2">Confirmed. Not live yet.</p>}
       {note && <p className="text-[12px] text-fg-2">{note}</p>}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button type="button" disabled={busy} onClick={() => void save(false)} className="h-9 rounded-lg border border-line px-3 text-[13px] font-medium disabled:opacity-50">
           Save draft
         </button>
-        <button type="button" disabled={busy || !!problem} onClick={() => void save(true)} className="h-9 rounded-lg bg-accent px-3 text-[13px] font-semibold text-accent-ink disabled:opacity-50">
-          Confirm post
+        <button type="button" disabled={busy || !!problem} onClick={() => void save(true)} className="h-9 rounded-lg border border-line px-3 text-[13px] font-medium disabled:opacity-50">
+          Confirm
+        </button>
+        <button
+          type="button"
+          disabled={busy || status[platform] !== "confirmed"}
+          onClick={() => {
+            setBusy(true);
+            setNote(null);
+            void sendPublicationAction(projectId, versionId, platform).then((result) => {
+              setBusy(false);
+              if (!result.ok) setNote(result.error);
+              else setNote(result.result ?? "Posted.");
+            });
+          }}
+          className="h-9 rounded-lg bg-accent px-3 text-[13px] font-semibold text-accent-ink disabled:opacity-50"
+        >
+          Post
         </button>
       </div>
-    </section>
+    </details>
   );
 }

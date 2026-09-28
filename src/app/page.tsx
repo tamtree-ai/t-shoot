@@ -5,8 +5,8 @@ import { StudioMark } from "@/components/StudioMark";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
 import { getCurrentMember } from "@/lib/auth";
 import { getTamtreeConnection } from "@/lib/tamtree";
-import { listProjects } from "@/services/projects";
-import { productionType } from "@/types/registry";
+import { listLibrary } from "@/services/library";
+import { listShows, variationPriceUsd } from "@/services/shows";
 import type { ProjectStep } from "@/types/types";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,10 @@ const STEP_LABEL: Record<ProjectStep, string> = {
  */
 export default async function Home() {
   const [connection, member] = await Promise.all([getTamtreeConnection(), getCurrentMember()]);
-  const projects = await listProjects(member.orgId);
+  const [projects, shows] = await Promise.all([
+    listLibrary(member.orgId, (step, steps) => STEP_LABEL[openStep(step as ProjectStep, steps as readonly ProjectStep[])]),
+    listShows(member.orgId),
+  ]);
   return (
     <>
       <header className="flex h-[52px] shrink-0 items-center gap-2.5 border-b border-rule bg-panel px-4">
@@ -52,22 +55,7 @@ export default async function Home() {
         </main>
       ) : (
         <main className="flex-1 bg-canvas px-4 py-10">
-          <ProjectLibrary
-            projects={projects.map((p) => {
-              const type = productionType(p.kind);
-              const step = openStep(p.step, type.steps);
-              return {
-                id: p.id,
-                title: p.title,
-                kind: p.kind,
-                kindLabel: type.label,
-                stepLabel: STEP_LABEL[step],
-                href: `/p/${p.id}/${step}`,
-                ago: ago(p.updatedAt),
-                updatedAt: p.updatedAt.toISOString(),
-              };
-            })}
-          />
+          <ProjectLibrary projects={projects} shows={shows} variationPrice={variationPriceUsd()} />
         </main>
       )}
     </>
@@ -88,13 +76,4 @@ function NewShort() {
 /** The step a project opens on: where it has got to. Once a project exists, `brief` has no screen. */
 function openStep(step: ProjectStep, steps: readonly ProjectStep[]): ProjectStep {
   return step !== "brief" && steps.includes(step) ? step : "script";
-}
-
-function ago(when: Date): string {
-  const s = Math.max(0, Math.round((Date.now() - when.getTime()) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
-  if (s < 7 * 86_400) return `${Math.floor(s / 86_400)} d ago`;
-  return when.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 }

@@ -54,7 +54,7 @@ export function StepNav({
           </>
         );
         const className = `flex h-full items-center gap-1.5 px-3 text-[13px] box-border ${
-          isCurrent ? "font-medium text-fg border-b-2 border-accent" : "text-fg-3"
+          isCurrent ? "font-medium text-fg border-b-2 border-accent" : "text-fg-3 max-sm:hidden"
         }`;
         return href ? (
           <Link key={step.key} href={href} aria-current={isCurrent ? "page" : undefined} className={className}>

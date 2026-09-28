@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { speakPreview } from "@/components/SpeakButton";
 import { briefOutsideDefaults, type AiClipsDefaults } from "@/types/ai-clips";
 import { BRIEF_LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/types/ai-clips/catalog";
 import { createProjectAction } from "./actions";
@@ -111,6 +112,8 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
                 <button
                   type="button"
                   aria-label={`Play a sample of ${v.name}`}
+                  title="A browser preview, not the filmed voice"
+                  onClick={() => speakPreview("This is how the voice will sit in a short.", v.id)}
                   className={`flex size-[30px] shrink-0 items-center justify-center rounded-full ${
                     selected ? "bg-accent text-accent-ink" : "border border-line-strong text-fg-2"
                   }`}

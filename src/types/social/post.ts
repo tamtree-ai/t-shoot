@@ -43,6 +43,9 @@ export type StoredPost = {
   status: "draft" | "confirmed";
   payload: PostDraft;
   confirmedAt: string | null;
+  delivery: "live" | "failed" | null;
+  externalUrl: string | null;
+  result: string | null;
 };
 
 export function blankPost(seed?: { title?: string; description?: string; hashtags?: string }): PostDraft {

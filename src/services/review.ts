@@ -64,6 +64,13 @@ export async function addComment(token: string, input: { authorName: string; tim
   await db.insert(schema.comments).values({ versionId: review.versionId, authorName: name, timecodeS: t, body });
 }
 
+/** Close a comment without asking the writer to rewrite. */
+export async function dismissComment(projectId: string, commentId: string): Promise<void> {
+  const comment = await getProjectComment(projectId, commentId);
+  if (!comment || comment.resolved) return;
+  await db.update(schema.comments).set({ dismissedAt: new Date() }).where(eq(schema.comments.id, commentId));
+}
+
 export async function approveVersion(token: string, name: string) {
   const review = await versionForToken(token);
   if (!name.trim()) throw new Error("Add your name to approve.");

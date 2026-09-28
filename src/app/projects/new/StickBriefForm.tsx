@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
+import { CastOnSet, CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
 import type { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickBriefOutsideDefaults, type StickSkitDefaults } from "@/types/stick-skit";
@@ -38,19 +38,33 @@ const SCENE_COUNTS = [
  * drawn by the engine itself. The org's defaults filter the galleries and cap the limit.
  * No paid call: saving the brief is free, the skit is written on the next screen.
  */
-export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
+export function StickBriefForm({
+  defaults,
+  showId,
+  episodeNumber,
+  initial,
+}: {
+  defaults: StickSkitDefaults;
+  showId?: string;
+  episodeNumber?: number;
+  initial?: { template?: TemplateId | null; cast?: string[]; set?: string; tone?: string | null; topic?: string };
+}) {
   const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id));
   const catalogSets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id));
 
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initial?.topic ?? "");
   const [description, setDescription] = useState("");
-  const [template, setTemplate] = useState<TemplateId | null>(defaults.default_template ?? null);
-  const [picked, setPicked] = useState<string[]>(characters.slice(0, 1).map((c) => c.id));
+  const [template, setTemplate] = useState<TemplateId | null>(initial?.template ?? defaults.default_template ?? null);
+  const startTemplate = initial?.template ?? defaults.default_template ?? null;
+  const startSize = !startTemplate || startTemplate === "me-vs-me" ? 1 : stickCatalog.templates.find((t) => t.id === startTemplate)!.cast;
+  const [picked, setPicked] = useState<string[]>(initial?.cast?.length ? initial.cast : characters.slice(0, startSize).map((c) => c.id));
   const [selves, setSelves] = useState(["me", "my brain"]);
   const [scenes, setScenes] = useState(1);
   /** The picked sets in scene order: at most one per scene; none is the writer's pick. */
-  const [sets, setSets] = useState<string[]>([]);
-  const [tone, setTone] = useState<string | null>(null);
+  const [sets, setSets] = useState<string[]>(initial?.set ? [initial.set] : []);
+  const [hoverSet, setHoverSet] = useState<string | null>(null);
+  const [tone, setTone] = useState<string | null>(initial?.tone ?? null);
+  const [targetS, setTargetS] = useState<15 | 30 | 45 | 60 | null>(null);
   const [limit, setLimit] = useState(Number(defaults.limit_usd).toFixed(2));
   const [editingLimit, setEditingLimit] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +77,12 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
   function chooseTemplate(next: TemplateId | null) {
     setTemplate(next);
     const size = next === "me-vs-me" ? 1 : next ? stickCatalog.templates.find((t) => t.id === next)!.cast : 2;
-    setPicked((p) => p.slice(0, size));
+    setPicked((p) => {
+      const kept = p.slice(0, size);
+      if (kept.length >= size) return kept;
+      const rest = characters.map((c) => c.id).filter((id) => !kept.includes(id));
+      return [...kept, ...rest].slice(0, size);
+    });
   }
 
   function toggleCharacter(id: string) {
@@ -113,6 +132,7 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
       cast: cast(),
       ...(scenes === 1 ? sets[0] && { set: sets[0] } : { scenes, ...(sets.length > 0 && { sets }) }),
       ...(tone && { tone: tone.toLowerCase() }),
+      ...(targetS && { target_s: targetS }),
     };
     const limitUsd = Number(limit || defaults.limit_usd).toFixed(2);
     const refusal = stickBriefOutsideDefaults(brief, limitUsd, defaults);
@@ -122,7 +142,7 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
     }
     setError(null);
     startTransition(async () => {
-      const result = await createStickProjectAction({ ...brief, limitUsd });
+      const result = await createStickProjectAction({ ...brief, limitUsd, showId, episodeNumber });
       if (result && !result.ok) setError(result.error);
     });
   }
@@ -163,12 +183,12 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
             <button
               key={t.id}
               type="button"
-              title={t.description}
               aria-pressed={template === t.id}
               onClick={() => chooseTemplate(t.id)}
-              className={`${toggleBase} ${template === t.id ? toggleOn : toggleOff}`}
+              className={`${toggleBase} h-auto flex-col items-start gap-0.5 py-2 text-left ${template === t.id ? toggleOn : toggleOff}`}
             >
-              {TEMPLATE_LABELS[t.id]}
+              <span>{TEMPLATE_LABELS[t.id]}</span>
+              <span className="text-[11px] font-normal text-fg-muted">{t.description}</span>
             </button>
           ))}
         </div>
@@ -179,19 +199,8 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
 
       <div role="group" aria-label="Cast" className="flex flex-col gap-2.5">
         <span className={label}>
-          Cast <span className="font-normal tracking-normal normal-case">· {selfMode ? "one character, two sides" : maxPicked === 1 ? "one character" : "one or two"}</span>
+          Cast <span className="font-normal tracking-normal normal-case">· {selfMode ? "one character, two sides" : maxPicked === 1 ? "one character" : maxPicked === 2 && template ? "two characters" : "one or two"}</span>
         </span>
-        <div className="grid grid-cols-6 gap-2">
-          {characters.map((c) => {
-            const selected = picked.includes(c.id);
-            return (
-              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.id)} className={`${card(selected)} aspect-[9/16]`}>
-                <CharacterThumb id={c.id} className="absolute inset-0" />
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
-              </button>
-            );
-          })}
-        </div>
         {selfMode && (
           <div className="grid grid-cols-2 gap-2">
             {selves.map((v, i) => (
@@ -209,35 +218,35 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
             ))}
           </div>
         )}
-      </div>
-
-      <div role="group" aria-label="Scenes" className="flex flex-col gap-2.5">
-        <span className={label}>Scenes</span>
-        <div className="flex gap-1.5">
-          {SCENE_COUNTS.map(({ n, label: word }) => {
-            const locked = !MULTI_SCENE_WRITER_LIVE && n > 1;
+        <div className="grid grid-cols-6 gap-2">
+          {characters.map((c) => {
+            const selected = picked.includes(c.id);
             return (
-              <button
-                key={n}
-                type="button"
-                aria-pressed={scenes === n}
-                disabled={locked}
-                title={locked ? "The writer still returns one scene" : undefined}
-                onClick={() => chooseScenes(n)}
-                className={`${toggleBase} ${scenes === n ? toggleOn : toggleOff} disabled:cursor-not-allowed disabled:opacity-40`}
-              >
-                {word}
+              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.id)} className={`${card(selected)} aspect-[9/16]`}>
+                <CharacterThumb id={c.id} className="absolute inset-0" />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
               </button>
             );
           })}
         </div>
-        <span className="text-xs text-fg-muted">
-          {MULTI_SCENE_WRITER_LIVE
-            ? scenes === 1
-              ? "The whole skit plays on one set."
-              : `The skit moves through ${scenes} sets, one per scene.`
-            : "The writer still returns one scene. Several scenes turns on with the next writer."}
-        </span>
+      </div>
+
+      <div role="group" aria-label="Scenes" className="flex flex-col gap-2.5">
+        <span className={label}>Scenes</span>
+        {MULTI_SCENE_WRITER_LIVE ? (
+          <>
+            <div className="flex gap-1.5">
+              {SCENE_COUNTS.map(({ n, label: word }) => (
+                <button key={n} type="button" aria-pressed={scenes === n} onClick={() => chooseScenes(n)} className={`${toggleBase} ${scenes === n ? toggleOn : toggleOff}`}>
+                  {word}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-fg-muted">{scenes === 1 ? "The whole skit plays on one set." : `The skit moves through ${scenes} sets, one per scene.`}</span>
+          </>
+        ) : (
+          <span className="text-xs text-fg-muted">One scene for now.</span>
+        )}
       </div>
 
       <div role="group" aria-label={scenes === 1 ? "Set" : "Sets"} className="flex flex-col gap-2.5">
@@ -250,32 +259,53 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
             </>
           )}
         </span>
-        <div className="grid grid-cols-8 gap-2">
-          <button type="button" aria-pressed={sets.length === 0} onClick={() => setSets([])} className={`${card(sets.length === 0)} flex aspect-[9/16] items-center justify-center p-2 text-center text-xs text-fg-2`}>
-            Writer&rsquo;s pick
+        <div className="flex items-start gap-3">
+          <div className="grid min-w-0 flex-1 grid-cols-6 gap-2">
+            <button type="button" aria-pressed={sets.length === 0} onClick={() => setSets([])} className={`${card(sets.length === 0)} flex aspect-[9/16] items-center justify-center p-2 text-center text-xs text-fg-2`}>
+              Writer&rsquo;s pick
+            </button>
+            {catalogSets.map((s) => {
+              const order = sets.indexOf(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={order >= 0}
+                  aria-label={scenes > 1 && order >= 0 ? `${setLabel(s.id)}, scene ${order + 1}` : setLabel(s.id)}
+                  title={s.description}
+                  onMouseEnter={() => setHoverSet(s.id)}
+                  onMouseLeave={() => setHoverSet((h) => (h === s.id ? null : h))}
+                  onFocus={() => setHoverSet(s.id)}
+                  onBlur={() => setHoverSet((h) => (h === s.id ? null : h))}
+                  onClick={() => toggleSet(s.id)}
+                  className={`${card(order >= 0)} aspect-[9/16]`}
+                >
+                  <SetThumb id={s.id} className="absolute inset-0" />
+                  {scenes > 1 && order >= 0 && (
+                    <span aria-hidden className="absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full bg-accent font-mono text-[11px] font-semibold text-accent-ink">
+                      {order + 1}
+                    </span>
+                  )}
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-left text-[11px] font-medium text-white">{setLabel(s.id)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <SetPreview setId={hoverSet ?? sets.at(-1) ?? (template ? stickCatalog.templates.find((t) => t.id === template)!.defaultSet : catalogSets[0]?.id ?? "plain-1")} characterIds={picked} />
+        </div>
+      </div>
+
+      <div role="group" aria-label="Length" className="flex flex-col gap-2.5">
+        <span className={label}>Length</span>
+        <div className="flex gap-1.5">
+          <button type="button" aria-pressed={targetS === null} onClick={() => setTargetS(null)} className={`${toggleBase} ${targetS === null ? toggleOn : toggleOff}`}>
+            Any
           </button>
-          {catalogSets.map((s) => {
-            const order = sets.indexOf(s.id);
-            return (
-              <button
-                key={s.id}
-                type="button"
-                aria-pressed={order >= 0}
-                aria-label={scenes > 1 && order >= 0 ? `${setLabel(s.id)}, scene ${order + 1}` : setLabel(s.id)}
-                title={s.description}
-                onClick={() => toggleSet(s.id)}
-                className={`${card(order >= 0)} aspect-[9/16]`}
-              >
-                <SetThumb id={s.id} className="absolute inset-0" />
-                {scenes > 1 && order >= 0 && (
-                  <span aria-hidden className="absolute top-1.5 left-1.5 flex size-5 items-center justify-center rounded-full bg-accent font-mono text-[11px] font-semibold text-accent-ink">
-                    {order + 1}
-                  </span>
-                )}
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-5 pb-1.5 text-left text-[11px] font-medium text-white">{setLabel(s.id)}</span>
-              </button>
-            );
-          })}
+          {([15, 30, 45, 60] as const).map((n) => (
+            <button key={n} type="button" aria-pressed={targetS === n} onClick={() => setTargetS(n)} className={`${toggleBase} ${targetS === n ? toggleOn : toggleOff}`}>
+              {n}s
+            </button>
+          ))}
         </div>
       </div>
 
@@ -326,6 +356,19 @@ export function StickBriefForm({ defaults }: { defaults: StickSkitDefaults }) {
         </span>
       </div>
       {error && <p className="text-sm text-[#ff8a64]">{error}</p>}
+    </div>
+  );
+}
+
+function SetPreview({ setId, characterIds }: { setId: string; characterIds: string[] }) {
+  const entry = stickCatalog.sets.find((s) => s.id === setId);
+  return (
+    <div className="flex w-[168px] shrink-0 flex-col gap-2">
+      <CastOnSet setId={setId} characterIds={characterIds} className="aspect-[9/16] w-full rounded-[10px] border border-line bg-[#0c0c0f]" />
+      <div className="flex flex-col gap-1">
+        <span className="text-[13px] font-medium text-fg">{setLabel(setId)}</span>
+        {entry?.description && <span className="text-[11px] leading-snug text-fg-muted">{entry.description}</span>}
+      </div>
     </div>
   );
 }

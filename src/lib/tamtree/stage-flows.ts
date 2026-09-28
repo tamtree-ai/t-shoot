@@ -15,7 +15,9 @@ import { z } from "zod";
 export const STUDIO_FLOWS = ["studio-script", "studio-narrate", "studio-clip", "studio-render"] as const;
 /** `stick_skit`'s flows (the `stickstage` plugin's `stage-flows/`). */
 export const STICK_FLOWS = ["stick-script", "stick-produce"] as const;
-export const STAGE_FLOWS = [...STUDIO_FLOWS, ...STICK_FLOWS] as const;
+/** One post, one platform. Tamtree owns the upload; t-shoot owns the draft. */
+export const PUBLISH_FLOWS = ["studio-publish"] as const;
+export const STAGE_FLOWS = [...STUDIO_FLOWS, ...STICK_FLOWS, ...PUBLISH_FLOWS] as const;
 export type StageFlow = (typeof STAGE_FLOWS)[number];
 
 export const Beat = z.object({
@@ -141,6 +143,8 @@ export const StickBrief = z.object({
   /** v0 extension: the workspace's allowed sets, so the model never picks another. */
   allowed_sets: z.array(z.string()).optional(),
   tone: z.string().optional(),
+  /** How long the owner hopes the skit runs. Omitted from the writer call. */
+  target_s: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60)]).optional(),
 });
 export type StickBrief = z.infer<typeof StickBrief>;
 
@@ -201,6 +205,26 @@ export const StickProduceOut = z.object({
 });
 export type StickProduceOut = z.infer<typeof StickProduceOut>;
 
+export const PublishIn = z.object({
+  platform: z.enum(["youtube", "instagram", "tiktok"]),
+  title: z.string(),
+  description: z.string(),
+  hashtags: z.string(),
+  tags: z.string(),
+  privacy: z.enum(["public", "unlisted", "private"]),
+  ai_generated: z.boolean(),
+  category_id: z.string(),
+  scheduled_at: z.string().nullable(),
+  asset_id: z.string().min(1),
+});
+export type PublishIn = z.infer<typeof PublishIn>;
+
+export const PublishOut = z.object({
+  url: z.string().nullable(),
+  result: z.string(),
+});
+export type PublishOut = z.infer<typeof PublishOut>;
+
 export type StageInput = {
   "studio-script": ScriptIn;
   "studio-narrate": NarrateIn;
@@ -208,6 +232,7 @@ export type StageInput = {
   "studio-render": RenderIn;
   "stick-script": StickScriptIn;
   "stick-produce": StickProduceIn;
+  "studio-publish": PublishIn;
 };
 export type StageOutput = {
   "studio-script": ScriptOut;
@@ -216,6 +241,7 @@ export type StageOutput = {
   "studio-render": RenderOut;
   "stick-script": StickScriptOut;
   "stick-produce": StickProduceOut;
+  "studio-publish": PublishOut;
 };
 
 export const stageOutputSchema = {
@@ -225,6 +251,7 @@ export const stageOutputSchema = {
   "studio-render": RenderOut,
   "stick-script": StickScriptOut,
   "stick-produce": StickProduceOut,
+  "studio-publish": PublishOut,
 } as const satisfies Record<StageFlow, z.ZodType>;
 
 /** The output port every stage flow writes its single result item to. */

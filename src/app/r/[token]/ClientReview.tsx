@@ -70,8 +70,8 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
   });
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-canvas-script">
-      <header className="flex flex-wrap items-center gap-4 border-b border-rule-2 px-6 py-3">
+    <div className="flex min-h-dvh flex-col bg-canvas-script lg:h-dvh lg:overflow-hidden">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-4 border-b border-rule-2 bg-canvas-script px-4 py-3 lg:px-6">
         <div className="flex flex-col gap-0.5">
           <span className="font-display text-2xl leading-none italic">{review.projectTitle}</span>
           <span className="text-xs text-fg-muted">Shared by {review.sharedBy} for your review · version {review.versionNumber} · {Math.round(duration)} seconds</span>
@@ -87,9 +87,9 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1 max-lg:flex-col">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col" style={{ background: "radial-gradient(circle at 50% 40%, #15151a 0%, #0a0a0c 70%)" }}>
-          <div ref={stage} className="relative min-h-0 flex-1">
+      <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
+        <main className="flex flex-col lg:min-h-0 lg:min-w-0 lg:flex-1" style={{ background: "radial-gradient(circle at 50% 40%, #15151a 0%, #0a0a0c 70%)" }}>
+          <div ref={stage} className="relative mx-auto aspect-[9/16] w-full max-w-[420px] max-lg:max-h-[62vh] lg:aspect-auto lg:max-h-none lg:max-w-none lg:min-h-0 lg:flex-1">
             <div className="absolute inset-0 flex items-center justify-center p-3">
               {fitted.width > 0 && (
                 <div role="img" aria-label="Preview" className="relative box-border rounded-[8%] bg-[#050506] p-[1.6%] shadow-[0_0_0_1px_#3a3a42,0_24px_60px_rgba(0,0,0,0.55)]" style={{ width: fitted.width, height: fitted.height }}>
@@ -136,7 +136,7 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
           </div>
         </main>
 
-        <aside aria-label="Comments" className="flex w-[380px] shrink-0 flex-col overflow-hidden border-l border-rule-2 bg-panel-2 max-lg:max-h-[40vh] max-lg:w-auto max-lg:border-t max-lg:border-l-0">
+        <aside aria-label="Comments" className="flex w-full shrink-0 flex-col border-t border-rule-2 bg-panel-2 lg:w-[380px] lg:overflow-hidden lg:border-t-0 lg:border-l">
           <div className="flex h-14 items-center gap-2 px-5"><h2 className="text-sm font-semibold">Comments</h2><span className="num text-xs text-fg-muted">{review.comments.length}</span></div>
           <ol className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
             {review.comments.length === 0 && <li className="px-3 py-2 text-[13px] text-fg-3">No comments yet.</li>}

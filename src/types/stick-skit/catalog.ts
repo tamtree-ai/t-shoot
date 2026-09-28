@@ -38,8 +38,29 @@ export const DEFAULT_VOICE_MAP: Record<string, string> = {
  */
 export const MULTI_SCENE_WRITER_LIVE = false;
 
-/** "cafe-1" → "Cafe", "street-night-1" → "Street night", "living-2" → "Living 2". */
+/** Names a person would say. The rest fall back to the catalog id, without the trailing "-1". */
+const SET_NAMES: Record<string, string> = {
+  "plain-1": "Plain",
+  "living-1": "Living room",
+  "living-2": "Second living room",
+  "lounge-1": "Lounge",
+  "office-1": "Office",
+  "park-1": "Sunny park",
+  "park-2": "Autumn park",
+  "street-1": "Street",
+  "street-night-1": "Night street",
+  "kitchen-1": "Kitchen",
+  "bedroom-1": "Bedroom",
+  "cafe-1": "Cafe",
+  "classroom-1": "Classroom",
+  "meeting-1": "Meeting room",
+  "beach-1": "Beach",
+  "stage-1": "Stage",
+};
+
+/** "cafe-1" → "Cafe". Ids without a friendly name drop the trailing "-1". */
 export function setLabel(id: string): string {
+  if (SET_NAMES[id]) return SET_NAMES[id];
   const words = id.replace(/-1$/, "").split("-");
   const text = words.join(" ");
   return text.charAt(0).toUpperCase() + text.slice(1);

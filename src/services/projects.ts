@@ -68,7 +68,12 @@ export type NewStickBrief = StickBrief & { limitUsd: string };
  * StickStage release cannot break its draft) and makes no paid call: writing the skit
  * (`stick-script`, `services/skit.ts`) is a separate step, so a failed write keeps the brief.
  */
-export async function createStickSkitProject(memberId: string, orgId: string, input: NewStickBrief): Promise<string> {
+export async function createStickSkitProject(
+  memberId: string,
+  orgId: string,
+  input: NewStickBrief,
+  opts?: { showId?: string; archived?: boolean; episodeNumber?: number },
+): Promise<string> {
   const brief = stickSkit.configSchema.parse(input);
   const refusal = stickBriefOutsideDefaults(brief, input.limitUsd, await getTypeDefaults(orgId, stickSkit.kind));
   if (refusal) throw new Error(refusal);
@@ -83,6 +88,9 @@ export async function createStickSkitProject(memberId: string, orgId: string, in
       step: "script",
       brief,
       limitUsd: input.limitUsd,
+      showId: opts?.showId,
+      episodeNumber: opts?.episodeNumber,
+      archivedAt: opts?.archived ? new Date() : null,
       createdBy: memberId,
     })
     .returning();

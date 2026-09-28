@@ -5,6 +5,7 @@ import type { Project } from "@/db/schema";
 import { Skit } from "@/lib/tamtree/stage-flows";
 import { getProjectComment } from "@/services/review";
 import { getProduceState, getSkitDraft } from "@/services/skit";
+import { getTypeDefaults } from "@/services/type-settings";
 import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
 import { setLabel } from "@/types/stick-skit/catalog";
@@ -19,6 +20,7 @@ import { displayTitle } from "@/lib/display-title";
  */
 export async function StickSkitScript({ project, changeFromComment }: { project: Project; changeFromComment?: string }) {
   const brief = stickSkit.configSchema.parse(project.brief);
+  const defaults = await getTypeDefaults(project.orgId, stickSkit.kind);
   const comment = changeFromComment ? await getProjectComment(project.id, changeFromComment) : null;
   const draft = await getSkitDraft(project.id);
   const produce = await getProduceState(project.id, draft);
@@ -55,8 +57,9 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           topic={brief.topic}
           skit={Skit.parse(draft.skit)}
           limitUsd={project.limitUsd}
-          catalogVersion={draft.catalogVersion}
           warnings={draft.warnings}
+          voices={defaults.voice_map}
+          targetS={brief.target_s}
           revisionNote={draft.previousSkit ? draft.revisionNote : null}
           produce={produce}
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}

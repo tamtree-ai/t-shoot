@@ -23,9 +23,21 @@ export function PhonePreview({ scene, localT, playing, onToggle, onPrev, onNext,
     <div role="img" aria-label={`Phone preview of scene ${scene.position}`} className="relative box-border h-[530px] w-[288px] rounded-[40px] bg-[#050506] p-[9px] shadow-[0_0_0_1px_#3a3a42,inset_0_0_0_1px_rgba(255,255,255,0.05),0_24px_70px_rgba(0,0,0,0.6)]">
       <div className="absolute top-[18px] left-[107px] z-[2] h-[22px] w-[74px] rounded-[11px] bg-black" />
       <div className="relative h-[512px] w-[270px] overflow-hidden rounded-[32px]" style={{ background: gradientFor(scene.position) }}>
-        <div className="absolute inset-0 flex items-center justify-center p-10 text-center text-[11px] leading-normal text-white/40">
-          {filmed ? `[footage — scene ${scene.position}, take ${scene.takes.find((t) => t.id === scene.chosenTakeId)?.number ?? 1}]` : "Not filmed yet"}
-        </div>
+        {filmed && scene.takes.find((t) => t.id === scene.chosenTakeId)?.assetId ? (
+          <video
+            key={scene.chosenTakeId}
+            src={`/api/media/${scene.takes.find((t) => t.id === scene.chosenTakeId)!.assetId}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            muted
+            playsInline
+            autoPlay={playing}
+            loop
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center p-10 text-center text-[11px] leading-normal text-white/40">
+            {filmed ? "Caption preview" : "Not filmed yet"}
+          </div>
+        )}
         {caption && (
           <div className="absolute right-[18px] bottom-[112px] left-[18px] text-center text-[23px] leading-[1.18] font-bold tracking-[-0.015em] text-white [text-shadow:0_2px_12px_rgba(0,0,0,0.6)]">
             {caption}

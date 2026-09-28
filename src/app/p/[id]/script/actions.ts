@@ -87,9 +87,10 @@ export async function saveSkitBeatsAction(
   projectId: string,
   beats: unknown,
   scenePlan?: ScenePlan[],
+  extras?: { set?: string | null; cast?: { id: string; character: string; label?: string }[] },
 ): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
   try {
-    const verdict = await saveSkitBeats(projectId, beats, scenePlan);
+    const verdict = await saveSkitBeats(projectId, beats, scenePlan, extras);
     return { ok: true, errors: verdict.check.errors };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong saving the skit." };

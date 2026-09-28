@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import type { StickSkitDefaults } from "@/types/stick-skit";
 import { DEFAULT_VOICE_MAP, setLabel, STICK_VOICES, stickCatalog } from "@/types/stick-skit/catalog";
 import { saveTypeDefaultsAction } from "./actions";
@@ -11,6 +12,8 @@ const toggleOff = "border-line bg-transparent text-fg-2";
 const toggleOn = "border-accent bg-accent-soft text-fg";
 const label = "text-[11px] font-semibold tracking-[0.08em] text-fg-muted uppercase";
 const select = "h-9 rounded-lg border border-line bg-panel px-2.5 text-[13px] text-fg";
+const card = (selected: boolean) =>
+  `relative overflow-hidden rounded-[10px] border bg-[#0c0c0f] ${selected ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-rule hover:border-line-strong"}`;
 
 const TEMPLATE_LABELS: Record<string, string> = {
   exchange: "Exchange",
@@ -59,13 +62,16 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
             const on = characters.includes(c.id);
             return (
               <div key={c.id} className="flex items-center gap-3">
+                <span className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md border border-line bg-[#0c0c0f]">
+                  <CharacterThumb id={c.id} className="absolute inset-0" />
+                </span>
                 <button type="button" aria-pressed={on} onClick={() => setCharacters((l) => toggle(l, c.id))} className={`${toggleBase} w-28 ${on ? toggleOn : toggleOff}`}>
                   {c.name}
                 </button>
                 <select aria-label={`${c.name}'s voice`} value={voices[c.id] ?? STICK_VOICES[0].id} disabled={!on} onChange={(e) => setVoices((v) => ({ ...v, [c.id]: e.target.value }))} className={`${select} disabled:opacity-50`}>
                   {STICK_VOICES.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.id} · {v.desc}
+                      {v.desc} · {v.id}
                     </option>
                   ))}
                 </select>
@@ -79,12 +85,16 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
         <span className={label}>
           Sets <span className="font-normal tracking-normal normal-case">· {sets.length} of {stickCatalog.sets.length}</span>
         </span>
-        <div className="flex flex-wrap gap-1.5">
-          {stickCatalog.sets.map((s) => (
-            <button key={s.id} type="button" title={s.description} aria-pressed={sets.includes(s.id)} onClick={() => setSets((l) => toggle(l, s.id))} className={`${toggleBase} ${sets.includes(s.id) ? toggleOn : toggleOff}`}>
-              {setLabel(s.id)}
-            </button>
-          ))}
+        <div className="grid grid-cols-6 gap-2">
+          {stickCatalog.sets.map((s) => {
+            const on = sets.includes(s.id);
+            return (
+              <button key={s.id} type="button" title={s.description} aria-pressed={on} aria-label={setLabel(s.id)} onClick={() => setSets((l) => toggle(l, s.id))} className={`${card(on)} aspect-[9/16]`}>
+                <SetThumb id={s.id} className="absolute inset-0" />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 text-left text-[10px] font-medium text-white">{setLabel(s.id)}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

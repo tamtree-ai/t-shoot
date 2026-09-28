@@ -38,6 +38,9 @@ export function Rail({ scene, model, onChooseTake, onNewTake, onPickVoice }: {
                 className="relative h-32 overflow-hidden rounded-md border p-0 disabled:opacity-50"
                 style={{ background: gradientFor(scene.position + t.number), borderColor: inUse ? "var(--color-accent)" : "var(--color-rule)", boxShadow: inUse ? "0 0 0 1px var(--color-accent)" : undefined }}
               >
+                {t.assetId && (
+                  <video src={`/api/media/${t.assetId}#t=0.1`} muted playsInline preload="metadata" className="absolute inset-0 h-full w-full object-cover" />
+                )}
                 <span className="absolute top-1 left-1 rounded-full bg-black/60 px-[5px] py-0.5 text-[9px] font-semibold tracking-[0.05em] text-fg">TAKE {t.number}</span>
                 {!t.ready && <span className="absolute inset-x-0 bottom-1 text-center text-[10px] text-fg-3">Filming…</span>}
               </button>

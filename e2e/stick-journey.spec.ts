@@ -25,15 +25,15 @@ test("stick skit: brief to a client's comment, and back to a revise", async ({ p
   // The skit: edit a line, re-checked in the browser, saved
   await expect(page.getByRole("list", { name: "Beats" })).toBeVisible();
   await page.getByLabel("Beat 2: line").fill("We saw it. We chose peace.");
-  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: /^Saved/ })).toBeVisible();
   expect(await axe(page)).toEqual([]);
 
   // Approve → Ready
-  await page.getByRole("button", { name: /approve and make the video/i }).click();
+  await page.getByRole("button", { name: /^Approve/ }).click();
   await expect(page.getByText("Version 1 is ready")).toBeVisible({ timeout: 30_000 });
 
   // Share for review
-  await page.getByRole("link", { name: "Review and share" }).click();
+  await page.getByRole("paragraph").filter({ hasText: "is ready" }).getByRole("link", { name: "Review" }).click();
   await page.getByRole("button", { name: /create a review link/i }).click();
   await expect(page.getByRole("button", { name: /copy link/i })).toBeVisible();
   const token = ((await page.locator("code").getAttribute("title")) ?? "").match(/\/r\/([\w-]+)/)?.[1];

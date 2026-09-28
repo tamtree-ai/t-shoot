@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import type { getExportModel } from "@/services/export";
+import type { StoredPost } from "@/types/social/post";
 import { clock } from "../edit/shared";
 import { renderAction } from "./actions";
+import { PublishDesk } from "./PublishDesk";
 
 type Model = NonNullable<Awaited<ReturnType<typeof getExportModel>>>;
 
-export function ExportView({ model }: { model: Model }) {
+export function ExportView({ model, pack }: { model: Model; pack?: { caption: string; hashtags: string; aiLine: string; posts: StoredPost[] } }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,17 @@ export function ExportView({ model }: { model: Model }) {
           </>
         )}
         {error && <p role="alert" className="text-[13px] text-attention">{error}</p>}
+        {pack && (
+          <div className="flex flex-col gap-2 border-t border-rule pt-4">
+            <CopyLine label="Copy caption" value={pack.caption} />
+            <CopyLine label="Copy hashtags" value={pack.hashtags} />
+            <CopyLine label="Copy AI-voice line" value={pack.aiLine} />
+            {pack.caption && <p className="text-[13px] leading-snug text-fg-2">{pack.caption}</p>}
+            {latest?.renderAssetId && (
+              <PublishDesk projectId={pid} versionId={latest.id} seed={{ title: model.project.title, description: pack.caption, hashtags: pack.hashtags }} stored={pack.posts} />
+            )}
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">
@@ -68,12 +81,29 @@ export function ExportView({ model }: { model: Model }) {
               <span className="num text-fg-muted">{clock(v.durationS)}</span>
               <span className="text-fg-muted">{new Date(v.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>
               {v.approvedBy && <span className="text-ready">Approved by {v.approvedBy}</span>}
-              <span className="num ml-auto text-xs text-fg-muted">{v.digest.slice(0, 8)}</span>
-              {v.renderAssetId ? <a href={`/api/media/${v.renderAssetId}?name=${encodeURIComponent(model.project.title)}-v${v.number}.mp4`} className="text-accent-link">Download</a> : <span className="text-fg-muted">Not rendered</span>}
+              {v.renderAssetId ? <a href={`/api/media/${v.renderAssetId}?name=${encodeURIComponent(model.project.title)}-v${v.number}.mp4`} className="ml-auto text-accent-link">Download</a> : <span className="ml-auto text-fg-muted">Not rendered</span>}
             </li>
           ))}
         </ul>
       </section>
     </main>
+  );
+}
+
+function CopyLine({ label, value }: { label: string; value: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={!value}
+      onClick={() => {
+        void navigator.clipboard.writeText(value);
+        setDone(true);
+        setTimeout(() => setDone(false), 1600);
+      }}
+      className="flex h-10 items-center justify-center rounded-lg border border-line text-[13px] font-medium disabled:opacity-40"
+    >
+      {done ? "Copied" : label}
+    </button>
   );
 }

@@ -53,11 +53,13 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   const { project, catalogVersion } = await stickProject(projectId);
   const brief = stickSkit.configSchema.parse(project.brief);
   const defaults = await getTypeDefaults(project.orgId, stickSkit.kind);
+  const forWriter = { ...brief };
+  delete forWriter.target_s;
 
   const { output } = await runAndRecordStage({
     projectId,
     flow: stickSkit.flows.script,
-    input: { mode: "draft", catalog_version: catalogVersion, brief: { ...brief, allowed_sets: defaults.allowed_sets } },
+    input: { mode: "draft", catalog_version: catalogVersion, brief: { ...forWriter, allowed_sets: defaults.allowed_sets } },
     estimateUsd: STICK_SCRIPT_PRICE_USD.toString(),
     confirmedBy: memberId,
   });
@@ -124,10 +126,32 @@ async function saveOutput(
  * The owner's edit from the beats editor: only the beats are taken (OD-12), re-checked here as
  * the browser already did. A direct edit settles any pending "Ask for a change".
  */
-export async function saveSkitBeats(projectId: string, beats: unknown, scenePlan?: ScenePlan[]): Promise<SkitVerdict> {
-  await stickProject(projectId);
+export async function saveSkitBeats(
+  projectId: string,
+  beats: unknown,
+  scenePlan?: ScenePlan[],
+  extras?: { set?: string | null; cast?: { id: string; character: string; label?: string }[] },
+): Promise<SkitVerdict> {
+  const { project } = await stickProject(projectId);
   const draft = await requireDraft(projectId);
-  const skit = withBeats(Skit.parse(draft.skit), beats, scenePlan);
+  let skit = withBeats(Skit.parse(draft.skit), beats, scenePlan);
+  if (extras?.set) skit = { ...skit, set: extras.set };
+  if (extras?.set === null) {
+    const rest = { ...skit };
+    delete rest.set;
+    skit = rest;
+  }
+  if (extras?.cast) skit = { ...skit, cast: extras.cast };
+  if (extras?.set !== undefined || extras?.cast) {
+    const brief = stickSkit.configSchema.parse(project.brief);
+    const next = {
+      ...brief,
+      ...(extras.set ? { set: extras.set } : {}),
+      ...(extras.cast ? { cast: extras.cast } : {}),
+    };
+    if (extras.set === null) delete next.set;
+    await db.update(schema.projects).set({ brief: next, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
+  }
   const verdict = judgeSkit(skit);
   await db
     .update(schema.skitDrafts)
