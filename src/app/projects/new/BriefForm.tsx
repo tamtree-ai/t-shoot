@@ -6,6 +6,7 @@ import { speakPreview } from "@/components/SpeakButton";
 import { briefOutsideDefaults, type AiClipsDefaults } from "@/types/ai-clips";
 import { BRIEF_LENGTHS, BRIEF_LOOKS as LOOKS, BRIEF_TONES as TONES, BRIEF_VOICES as VOICES } from "@/types/ai-clips/catalog";
 import { createProjectAction } from "./actions";
+import { StartPanel, StartTabs } from "./StartPanel";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px]";
 const toggleOff = "border-line bg-transparent text-fg-2";
@@ -14,6 +15,7 @@ const toggleOn = "border-accent bg-accent-soft text-fg";
 /** The `ai_clips` brief. The org's defaults preselect the voice and look and bound the length and limit. */
 export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
   const LENGTHS = BRIEF_LENGTHS.filter((s) => s <= defaults.max_length_s);
+  const [mode, setMode] = useState<"topic" | "paste" | "link">("topic");
   const [topic, setTopic] = useState("");
   const [lengthS, setLengthS] = useState<(typeof BRIEF_LENGTHS)[number]>(Math.min(45, defaults.max_length_s) as 30 | 45 | 60);
   const [tone, setTone] = useState(TONES[0]);
@@ -46,17 +48,31 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
   return (
     <div className="flex w-[760px] flex-col gap-[26px] py-12 pb-8">
       <div className="flex flex-col gap-3">
+        <StartTabs mode={mode} onChange={setMode} />
         <label htmlFor="topic" className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">
           What&rsquo;s the video about?
         </label>
-        <textarea
+        {mode !== "topic" && (
+          <StartPanel
+            mode={mode}
+            kind="ai_clips"
+            characters={[]}
+            sets={[]}
+            limitUsd={Number(limit || defaults.limit_usd).toFixed(2)}
+            onTopic={(next) => {
+              setTopic(next);
+              setMode("topic");
+            }}
+          />
+        )}
+        {mode === "topic" && <textarea
           id="topic"
           rows={3}
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="Why an octopus has three hearts, and why swimming wears it out. For curious adults, ends on a surprising fact."
           className="box-border w-full resize-none rounded-xl border border-accent bg-panel px-[18px] py-4 text-[17px] leading-normal text-fg shadow-[0_0_0_3px_rgba(255,106,61,0.16)] placeholder:text-fg-muted"
-        />
+        />}
         <span className="text-xs text-fg-muted">
           Say who it&rsquo;s for and how it should land. You&rsquo;ll read and edit every line before anything is filmed.
         </span>

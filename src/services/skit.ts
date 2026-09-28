@@ -18,6 +18,7 @@ import { requestRun } from "./dispatcher";
 import { getProject } from "./projects";
 import { getProjectComment } from "./review";
 import { runAndRecordStage } from "./runs";
+import { characterNotes, listCharacters } from "./cast";
 import { getTypeDefaults } from "./type-settings";
 
 export type SkitDraft = typeof schema.skitDrafts.$inferSelect;
@@ -55,6 +56,8 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   const defaults = await getTypeDefaults(project.orgId, stickSkit.kind);
   const forWriter = { ...brief };
   delete forWriter.target_s;
+  const notes = characterNotes(await listCharacters(project.orgId), brief.cast.map((c) => c.character));
+  if (notes) forWriter.description = [forWriter.description, notes].filter(Boolean).join("\n").slice(0, 2000);
 
   const { output } = await runAndRecordStage({
     projectId,

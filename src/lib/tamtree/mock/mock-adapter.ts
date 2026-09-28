@@ -22,6 +22,10 @@ import {
   type StickScriptIn,
   type StickScriptOut,
   type PublishIn,
+  type TopicsIn,
+  type HooksIn,
+  type TitlesIn,
+  type TranslateIn,
 } from "../stage-flows";
 import type {
   AssetContent,
@@ -34,6 +38,7 @@ import type {
   RunOutputOut,
   UsageSummaryOut,
 } from "../types";
+import { topicsFromArticle } from "@/lib/topics";
 import { MOCK_DURATIONS_MS, MOCK_PRICES_USD, THREE_HEARTS_BEATS } from "./fixtures";
 import { stickProduceFiles, stickScriptOutput, type StickRenderFiles } from "./stick";
 
@@ -376,6 +381,41 @@ export class MockTamtreeAdapter implements TamtreeAdapter {
         const host = p.platform === "youtube" ? "https://studio.youtube.com/video/mock" : "https://www.instagram.com/reel/mock";
         const audit = p.platform === "youtube" && p.privacy === "public" ? " Uploaded private until Google’s audit; flip it public in YouTube." : "";
         return { url: host, result: `Posted to ${p.platform}.${audit}` } as StageOutput[F];
+      }
+      case "studio-topics": {
+        const t = input as TopicsIn;
+        const topics = topicsFromArticle(t.text, t.heading);
+        const list = topics.length > 0 ? topics : [{ title: (t.heading || "From the link").slice(0, 80), line: t.text.slice(0, 160) || t.url }];
+        return { topics: list.slice(0, 5) } as StageOutput[F];
+      }
+      case "studio-hooks": {
+        const h = input as HooksIn;
+        const short = h.line.replace(/[.!?]$/, "");
+        const lower = short.charAt(0).toLowerCase() + short.slice(1);
+        const clipped = short.split(/\s+/).slice(0, 6).join(" ");
+        return { hooks: [`Wait — ${lower}.`, `${h.topic.trim()}: ${short}.`, `${clipped}.`] } as StageOutput[F];
+      }
+      case "studio-titles": {
+        const t = input as TitlesIn;
+        const fromLine = (t.lines[0] ?? t.title).slice(0, 70);
+        return {
+          pairs: [
+            { title: t.title, cover: "opening" },
+            { title: t.title.endsWith("?") ? t.title : `${t.title}?`, cover: "slam" },
+            { title: fromLine, cover: "end" },
+          ],
+        } as StageOutput[F];
+      }
+      case "studio-translate": {
+        const t = input as TranslateIn;
+        return {
+          language: t.language,
+          title: t.title,
+          lines: t.lines,
+          slams: t.slams,
+          hashtags: t.hashtags,
+          warning: "Mock translation: the lines are unchanged until a live writer is connected. Review them before voicing.",
+        } as StageOutput[F];
       }
     }
     throw new Error(`unknown flow ${String(flow)}`);

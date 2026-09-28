@@ -8,6 +8,7 @@ import type { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickBriefOutsideDefaults, type StickSkitDefaults } from "@/types/stick-skit";
 import { characterName, MULTI_SCENE_WRITER_LIVE, setLabel, stickCatalog } from "@/types/stick-skit/catalog";
 import { createStickProjectAction } from "./actions";
+import { StartPanel, StartTabs } from "./StartPanel";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px]";
 const toggleOff = "border-line bg-transparent text-fg-2";
@@ -43,15 +44,19 @@ export function StickBriefForm({
   showId,
   episodeNumber,
   initial,
+  saved = [],
 }: {
   defaults: StickSkitDefaults;
   showId?: string;
   episodeNumber?: number;
   initial?: { template?: TemplateId | null; cast?: string[]; set?: string; tone?: string | null; topic?: string };
+  /** Workspace characters. The picture stays the catalog body; the name and personality are theirs. */
+  saved?: { id: string; name: string; body: string }[];
 }) {
   const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id));
   const catalogSets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id));
 
+  const [mode, setMode] = useState<"topic" | "paste" | "link">("topic");
   const [topic, setTopic] = useState(initial?.topic ?? "");
   const [description, setDescription] = useState("");
   const [template, setTemplate] = useState<TemplateId | null>(initial?.template ?? defaults.default_template ?? null);
@@ -150,17 +155,33 @@ export function StickBriefForm({
   return (
     <div className="flex w-[760px] flex-col gap-[26px] py-12 pb-8">
       <div className="flex flex-col gap-3">
+        <StartTabs mode={mode} onChange={setMode} />
         <label htmlFor="topic" className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">
           What&rsquo;s the skit about?
         </label>
-        <textarea
+        {mode !== "topic" && (
+          <StartPanel
+            mode={mode}
+            kind="stick_skit"
+            characters={characters.map((c) => ({ id: c.id, name: c.name }))}
+            sets={catalogSets.map((s) => ({ id: s.id, label: setLabel(s.id) }))}
+            limitUsd={Number(limit || defaults.limit_usd).toFixed(2)}
+            showId={showId}
+            episodeNumber={episodeNumber}
+            onTopic={(next) => {
+              setTopic(next);
+              setMode("topic");
+            }}
+          />
+        )}
+        {mode === "topic" && <textarea
           id="topic"
           rows={2}
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="Replying “sounds good” to a message you didn’t read."
           className="box-border w-full resize-none rounded-xl border border-accent bg-panel px-[18px] py-4 text-[17px] leading-normal text-fg shadow-[0_0_0_3px_rgba(255,106,61,0.16)] placeholder:text-fg-muted"
-        />
+        />}
         <textarea
           aria-label="Anything else the writer should know (optional)"
           rows={2}
@@ -224,6 +245,15 @@ export function StickBriefForm({
             return (
               <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.id)} className={`${card(selected)} aspect-[9/16]`}>
                 <CharacterThumb id={c.id} className="absolute inset-0" />
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
+              </button>
+            );
+          })}
+          {saved.filter((c) => defaults.allowed_characters.includes(c.body)).map((c) => {
+            const selected = picked.includes(c.body);
+            return (
+              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.body)} className={`${card(selected)} aspect-[9/16]`}>
+                <CharacterThumb id={c.body} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
               </button>
             );

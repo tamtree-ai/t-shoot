@@ -34,6 +34,14 @@ describe("judgeSkit", () => {
 });
 
 describe("editBeat", () => {
+  it("sets or clears a sound effect and leaves the line alone", () => {
+    const next = editBeat(skit, "l2", { sfx: "whoosh" });
+    expect(beatsOf(next).find((b) => b.id === "l2")?.sfx).toBe("whoosh");
+    expect(beatsOf(next).find((b) => b.id === "l2")?.line).toBe(beatsOf(skit).find((b) => b.id === "l2")?.line);
+    const cleared = editBeat(next, "l2", { sfx: null });
+    expect(beatsOf(cleared).find((b) => b.id === "l2")?.sfx).toBeNull();
+  });
+
   it("changes only what the patch names", () => {
     const next = editBeat(skit, "l4", { expression: "smug", pauseBeforeMs: null });
     const [before, after] = [skit, next].map((s) => (s.beats as Record<string, unknown>[]).find((b) => b.id === "l4")!);

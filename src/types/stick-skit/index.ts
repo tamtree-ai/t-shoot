@@ -30,6 +30,9 @@ export const StickSkitDefaults = z
     allowed_sets: knownIds(SET_IDS, "Allow at least one set.").default(SET_IDS),
     allowed_characters: knownIds(CHARACTER_IDS, "Allow at least one character.").default(CHARACTER_IDS),
     voice_map: z.record(z.string(), z.enum(VOICE_IDS)).default({}),
+    voice_settings: z
+      .record(z.string(), z.object({ pitch: z.number().min(0.5).max(2), pace: z.number().min(0.5).max(2) }))
+      .default({}),
     default_template: z.enum(TEMPLATES).optional(),
     limit_usd: spendCap("1.00"),
     hashtags_suffix: z.string().trim().max(200).optional(),

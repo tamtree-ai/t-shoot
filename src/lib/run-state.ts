@@ -37,6 +37,10 @@ const RUNNING_WORD: Record<StageFlow, string> = {
   "stick-script": "Writing",
   "stick-produce": "Making the video",
   "studio-publish": "Posting",
+  "studio-topics": "Reading",
+  "studio-hooks": "Writing",
+  "studio-titles": "Writing",
+  "studio-translate": "Translating",
 };
 
 export function studioState(f: RunFacts): StudioState {

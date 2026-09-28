@@ -19,7 +19,8 @@
     "test:e2e": "playwright test",
     "stickstage:vendor": "bash scripts/vendor-stickstage.sh",
     "tamtree:provision": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/provision-tamtree.ts",
-    "eval:writer": "tsx --conditions=react-server --env-file=.env.local scripts/eval-stick-writer.ts"
+    "eval:writer": "tsx --conditions=react-server --env-file=.env.local scripts/eval-stick-writer.ts",
+    "mcp": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/mcp.ts"
   },
   "dependencies": {
     "@remotion/captions": "4.0.529",

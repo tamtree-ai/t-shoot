@@ -72,7 +72,7 @@ export async function createStickSkitProject(
   memberId: string,
   orgId: string,
   input: NewStickBrief,
-  opts?: { showId?: string; archived?: boolean; episodeNumber?: number },
+  opts?: { showId?: string; archived?: boolean; episodeNumber?: number; origin?: string; language?: string; sourceProjectId?: string },
 ): Promise<string> {
   const brief = stickSkit.configSchema.parse(input);
   const refusal = stickBriefOutsideDefaults(brief, input.limitUsd, await getTypeDefaults(orgId, stickSkit.kind));
@@ -91,7 +91,11 @@ export async function createStickSkitProject(
       showId: opts?.showId,
       episodeNumber: opts?.episodeNumber,
       archivedAt: opts?.archived ? new Date() : null,
+      origin: opts?.origin ?? "person",
+      language: opts?.language ?? "en",
+      sourceProjectId: opts?.sourceProjectId,
       createdBy: memberId,
+      lastTouchedBy: memberId,
     })
     .returning();
   return project.id;

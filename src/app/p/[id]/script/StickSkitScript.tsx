@@ -4,7 +4,9 @@ import { StepNav } from "@/components/StepNav";
 import type { Project } from "@/db/schema";
 import { Skit } from "@/lib/tamtree/stage-flows";
 import { getProjectComment } from "@/services/review";
+import { fontFamily } from "@/lib/brand";
 import { getProduceState, getSkitDraft } from "@/services/skit";
+import { getShow } from "@/services/shows";
 import { getTypeDefaults } from "@/services/type-settings";
 import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
@@ -27,6 +29,8 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
   const made = produce?.versionNumber != null;
   const setIds = brief.allowed_sets?.length ? brief.allowed_sets : stickCatalog.sets.map((s) => s.id);
   const setOptions = setIds.filter((id) => stickCatalog.sets.some((s) => s.id === id)).map((id) => ({ id, label: setLabel(id) }));
+  const show = project.showId ? await getShow(project.orgId, project.showId) : null;
+  const brand = show?.config.brand;
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -65,6 +69,11 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}
           setOptions={setOptions}
           focusFraction={comment && !comment.resolved && changeFromComment ? comment.fraction : null}
+          origin={project.origin}
+          musicBed={project.musicBed}
+          musicVolume={project.musicVolume}
+          previewFont={brand ? fontFamily(brand.font) : undefined}
+          brand={brand}
         />
       ) : (
         <WriteSkit projectId={project.id} topic={brief.topic} />

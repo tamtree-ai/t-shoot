@@ -108,6 +108,8 @@ export type EditableBeat = {
   slams: string[];
   /** The word each slam hits, when it is anchored to a word. */
   slamAt: ({ word: string; occurrence: number } | null)[];
+  /** The first sound effect on the beat, or none. */
+  sfx: string | null;
 };
 
 export type BeatPatch = {
@@ -122,6 +124,8 @@ export type BeatPatch = {
    * Set when the person double-taps a word, so the slam hits that occurrence.
    */
   slamAnchors?: ({ word: string; occurrence: number } | null)[];
+  /** null clears the effect. Unset leaves it. */
+  sfx?: string | null;
 };
 
 /** Which scene each beat plays in, when the skit has more than one. */
@@ -283,7 +287,15 @@ export function beatsOf(skit: Skit): EditableBeat[] {
       const at = s.at as { word?: unknown; occurrence?: unknown } | undefined;
       return at && typeof at.word === "string" ? { word: normWord(at.word), occurrence: typeof at.occurrence === "number" ? at.occurrence : 1 } : null;
     }),
+    sfx: sfxId(b),
   }));
+}
+
+function sfxId(beat: RawBeat): string | null {
+  const sfx = beat.sfx;
+  if (!Array.isArray(sfx) || sfx.length === 0) return null;
+  const id = (sfx[0] as { id?: unknown } | null)?.id;
+  return typeof id === "string" ? id : null;
 }
 
 /** The skit's cast ids, in order: who a line can be given to. */
@@ -292,9 +304,10 @@ export function castOf(skit: Skit): { id: string; character: string; label?: str
 }
 
 /**
- * A new skit with one beat changed. Everything the patch doesn't name (actions, shots, sfx)
- * is kept. A slam keeps its timing when only its words change and those words are not in the
- * line. Changing the line retargets every slam: onto its own words, or the last word.
+ * A new skit with one beat changed. Everything the patch doesn't name (actions, shots)
+ * is kept, including sfx unless the patch names one. A slam keeps its timing when only
+ * its words change and those words are not in the line. Changing the line retargets
+ * every slam: onto its own words, or the last word.
  */
 export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
   const beats = rawBeats(skit);
@@ -309,6 +322,12 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
       if (patch.expression !== undefined) next.expression = patch.expression;
       if (patch.pauseBeforeMs === null) delete next.pauseBeforeMs;
       else if (patch.pauseBeforeMs !== undefined) next.pauseBeforeMs = Math.max(0, Math.round(patch.pauseBeforeMs));
+      if (patch.sfx === null) delete next.sfx;
+      else if (patch.sfx !== undefined) {
+        const prev = Array.isArray(b.sfx) ? (b.sfx as { id?: string }[]) : [];
+        const kept = prev.find((s) => s?.id === patch.sfx);
+        next.sfx = [kept ? { ...kept, id: patch.sfx } : { id: patch.sfx, at: { ms: 0 } }];
+      }
       const line = typeof next.line === "string" ? next.line : undefined;
       if (patch.slams !== undefined) {
         const old = slamsOf(b);
@@ -458,6 +477,7 @@ export function duplicateBeat(skit: Skit, beatId: string): { skit: Skit; id: str
     ...(typeof source.expression === "string" ? { expression: source.expression } : {}),
     ...(typeof source.pauseBeforeMs === "number" ? { pauseBeforeMs: source.pauseBeforeMs } : {}),
     ...(slams.length ? { text: slams.map((s) => ({ ...s })) } : {}),
+    ...(Array.isArray(source.sfx) ? { sfx: (source.sfx as unknown[]).map((s) => ({ ...(s as object) })) } : {}),
   };
   const next = slots.slice();
   next.splice(at + 1, 0, { sceneId: slots[at]!.sceneId, beat });

@@ -17,7 +17,9 @@ export const STUDIO_FLOWS = ["studio-script", "studio-narrate", "studio-clip", "
 export const STICK_FLOWS = ["stick-script", "stick-produce"] as const;
 /** One post, one platform. Tamtree owns the upload; t-shoot owns the draft. */
 export const PUBLISH_FLOWS = ["studio-publish"] as const;
-export const STAGE_FLOWS = [...STUDIO_FLOWS, ...STICK_FLOWS, ...PUBLISH_FLOWS] as const;
+/** Short writer calls: topics, hooks, titles, translation. Not a production stage. */
+export const TEXT_FLOWS = ["studio-topics", "studio-hooks", "studio-titles", "studio-translate"] as const;
+export const STAGE_FLOWS = [...STUDIO_FLOWS, ...STICK_FLOWS, ...PUBLISH_FLOWS, ...TEXT_FLOWS] as const;
 export type StageFlow = (typeof STAGE_FLOWS)[number];
 
 export const Beat = z.object({
@@ -225,6 +227,62 @@ export const PublishOut = z.object({
 });
 export type PublishOut = z.infer<typeof PublishOut>;
 
+export const TopicsIn = z.object({
+  url: z.string().min(1),
+  text: z.string().min(1),
+  heading: z.string().optional(),
+});
+export type TopicsIn = z.infer<typeof TopicsIn>;
+
+export const TopicsOut = z.object({
+  topics: z.array(z.object({ title: z.string().min(1), line: z.string().min(1) })).min(1).max(5),
+});
+export type TopicsOut = z.infer<typeof TopicsOut>;
+
+export const HooksIn = z.object({
+  line: z.string().min(1),
+  topic: z.string().min(1),
+});
+export type HooksIn = z.infer<typeof HooksIn>;
+
+export const HooksOut = z.object({
+  hooks: z.array(z.string().min(1)).length(3),
+});
+export type HooksOut = z.infer<typeof HooksOut>;
+
+export const TitlesIn = z.object({
+  title: z.string().min(1),
+  lines: z.array(z.string()).default([]),
+});
+export type TitlesIn = z.infer<typeof TitlesIn>;
+
+export const TitlesOut = z.object({
+  pairs: z.array(z.object({
+    title: z.string().min(1),
+    cover: z.enum(["opening", "slam", "end"]),
+  })).length(3),
+});
+export type TitlesOut = z.infer<typeof TitlesOut>;
+
+export const TranslateIn = z.object({
+  language: z.string().min(2),
+  title: z.string().min(1),
+  lines: z.array(z.object({ id: z.string(), text: z.string() })).min(1),
+  slams: z.array(z.object({ beatId: z.string(), values: z.array(z.string()) })).default([]),
+  hashtags: z.array(z.string()).default([]),
+});
+export type TranslateIn = z.infer<typeof TranslateIn>;
+
+export const TranslateOut = z.object({
+  language: z.string(),
+  title: z.string(),
+  lines: z.array(z.object({ id: z.string(), text: z.string() })),
+  slams: z.array(z.object({ beatId: z.string(), values: z.array(z.string()) })),
+  hashtags: z.array(z.string()),
+  warning: z.string().optional(),
+});
+export type TranslateOut = z.infer<typeof TranslateOut>;
+
 export type StageInput = {
   "studio-script": ScriptIn;
   "studio-narrate": NarrateIn;
@@ -233,6 +291,10 @@ export type StageInput = {
   "stick-script": StickScriptIn;
   "stick-produce": StickProduceIn;
   "studio-publish": PublishIn;
+  "studio-topics": TopicsIn;
+  "studio-hooks": HooksIn;
+  "studio-titles": TitlesIn;
+  "studio-translate": TranslateIn;
 };
 export type StageOutput = {
   "studio-script": ScriptOut;
@@ -242,6 +304,10 @@ export type StageOutput = {
   "stick-script": StickScriptOut;
   "stick-produce": StickProduceOut;
   "studio-publish": PublishOut;
+  "studio-topics": TopicsOut;
+  "studio-hooks": HooksOut;
+  "studio-titles": TitlesOut;
+  "studio-translate": TranslateOut;
 };
 
 export const stageOutputSchema = {
@@ -252,6 +318,10 @@ export const stageOutputSchema = {
   "stick-script": StickScriptOut,
   "stick-produce": StickProduceOut,
   "studio-publish": PublishOut,
+  "studio-topics": TopicsOut,
+  "studio-hooks": HooksOut,
+  "studio-titles": TitlesOut,
+  "studio-translate": TranslateOut,
 } as const satisfies Record<StageFlow, z.ZodType>;
 
 /** The output port every stage flow writes its single result item to. */

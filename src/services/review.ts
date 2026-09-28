@@ -10,6 +10,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { TimelineV1 } from "@/lib/timeline";
 import { versionMedia } from "@/types/versions";
+import { notify } from "./notify";
 
 export type ReviewView = {
   linkId: string;
@@ -54,14 +55,31 @@ async function versionForToken(token: string) {
   return review;
 }
 
-export async function addComment(token: string, input: { authorName: string; timecodeS: number; body: string }) {
+export async function addComment(token: string, input: { authorName: string; timecodeS: number; body: string; authorMemberId?: string }) {
   const review = await versionForToken(token);
   const name = input.authorName.trim().slice(0, 60);
   const body = input.body.trim().slice(0, 2000);
   if (!name) throw new Error("Add your name so the team knows who wrote this.");
   if (!body) throw new Error("Write a comment first.");
   const t = Math.min(Math.max(0, input.timecodeS), review.durationS);
-  await db.insert(schema.comments).values({ versionId: review.versionId, authorName: name, timecodeS: t, body });
+  await db.insert(schema.comments).values({
+    versionId: review.versionId,
+    authorName: name,
+    timecodeS: t,
+    body,
+    ...(input.authorMemberId ? { authorMemberId: input.authorMemberId } : {}),
+  });
+  const project = await projectForVersion(review.versionId);
+  if (project) {
+    await notify(project.orgId, "comment", `${name} commented on ${project.title}`, body, `/p/${project.id}/review`);
+  }
+}
+
+async function projectForVersion(versionId: string) {
+  const [version] = await db.select().from(schema.projectVersions).where(eq(schema.projectVersions.id, versionId)).limit(1);
+  if (!version) return null;
+  const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, version.projectId)).limit(1);
+  return project ?? null;
 }
 
 /** Close a comment without asking the writer to rewrite. */
@@ -78,6 +96,10 @@ export async function approveVersion(token: string, name: string) {
     .update(schema.projectVersions)
     .set({ approvedBy: name.trim().slice(0, 60), approvedAt: new Date() })
     .where(eq(schema.projectVersions.id, review.versionId));
+  const project = await projectForVersion(review.versionId);
+  if (project) {
+    await notify(project.orgId, "approved", `${name.trim()} approved ${project.title}`, "A short was approved.", `/p/${project.id}/export`);
+  }
 }
 
 /** The owner's view: every comment across the project's versions, and whether it became a change. */

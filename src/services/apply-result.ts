@@ -14,6 +14,7 @@ import { ClipOut, NarrateOut, RenderOut, StickProduceIn, StickProduceOut } from 
 import { timelineDigest } from "@/lib/timeline";
 import { aiClips } from "@/types/ai-clips";
 import { stickSkit, type StickVersionPayload } from "@/types/stick-skit";
+import { notify } from "./notify";
 import { produceDigest } from "./skit";
 
 export async function applyRunResult(runId: string): Promise<void> {
@@ -52,9 +53,17 @@ export async function applyRunResult(runId: string): Promise<void> {
       .update(schema.projectVersions)
       .set({ renderAssetId: out.asset_id, costUsd: run.costUsd })
       .where(and(eq(schema.projectVersions.projectId, run.projectId), eq(schema.projectVersions.digest, digest)));
+    await notifyFilm(run.projectId);
   } else if (run.flow === stickSkit.flows.produce) {
     await recordStickVersion(run.projectId, StickProduceIn.parse(run.input), StickProduceOut.parse(run.output), run.costUsd);
+    await notifyFilm(run.projectId);
   }
+}
+
+async function notifyFilm(projectId: string): Promise<void> {
+  const [project] = await db.select().from(schema.projects).where(eq(schema.projects.id, projectId)).limit(1);
+  if (!project) return;
+  await notify(project.orgId, "film", `${project.title} is ready`, "The film is ready to review.", `/p/${project.id}/review`);
 }
 
 /**

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { StepNav } from "@/components/StepNav";
 import { CharacterThumb } from "@/components/stick-skit/Thumbs";
 import { getCurrentMember } from "@/lib/auth";
+import { listCharacters } from "@/services/cast";
 import { getShow, nextEpisodeNumber } from "@/services/shows";
 import { getTypeDefaults } from "@/services/type-settings";
 import { productionType } from "@/types/registry";
@@ -27,6 +28,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
   const defaults = await getTypeDefaults(member.orgId, kind);
   const { BriefForm } = typeUi(kind);
   const showRow = kind === "stick_skit" && typeof show === "string" ? await getShow(member.orgId, show) : null;
+  const saved = kind === "stick_skit" ? await listCharacters(member.orgId) : [];
   const episodeNumber = showRow ? await nextEpisodeNumber(showRow.id) : undefined;
   return (
     <>
@@ -49,17 +51,18 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
       </header>
 
       <main className="flex flex-1 justify-center bg-[radial-gradient(circle_at_50%_0%,#15151a_0%,var(--color-canvas)_60%)] px-4">
-        {showRow ? (
+        {kind === "stick_skit" ? (
           <StickBriefForm
             defaults={defaults as StickSkitDefaults}
-            showId={showRow.id}
+            saved={saved}
+            showId={showRow?.id}
             episodeNumber={episodeNumber}
-            initial={{
+            initial={showRow ? {
               template: (showRow.config.template as "exchange" | undefined) ?? null,
               cast: showRow.config.cast.map((c) => c.character),
               set: showRow.config.set,
               tone: showRow.config.tone ? showRow.config.tone[0]!.toUpperCase() + showRow.config.tone.slice(1) : null,
-            }}
+            } : undefined}
           />
         ) : (
           <BriefForm defaults={defaults} />

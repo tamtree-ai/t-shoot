@@ -4,6 +4,8 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { displayTitle } from "@/lib/display-title";
+import { languageBadges } from "@/lib/languages";
+import { statsForProjects } from "./results";
 import type { StickBrief } from "@/lib/tamtree/stage-flows";
 import { BRIEF_LOOKS } from "@/types/ai-clips/catalog";
 import { aiClips } from "@/types/ai-clips";
@@ -36,6 +38,13 @@ export type LibraryRow = {
   thumb: LibraryThumb;
   posts: LibraryPost[];
   readyToPost: boolean;
+  languages: string[];
+  views: number | null;
+  touchedBy: string | null;
+  touchedById: string | null;
+  createdBy: string | null;
+  origin: string;
+  linked: boolean;
 };
 
 async function owned(orgId: string, projectId: string) {
@@ -200,6 +209,11 @@ export async function listLibrary(orgId: string, stepLabel: (step: string, steps
     if (p.status === "confirmed" && p.delivery !== "live") ready.add(p.projectId);
   }
 
+  const members = await db.select().from(schema.members).where(eq(schema.members.orgId, orgId));
+  const nameOf = new Map(members.map((m) => [m.id, m.name ?? m.email]));
+  const stats = await statsForProjects(projects.map((p) => p.id));
+  const family = projects.map((p) => ({ id: p.id, language: p.language, sourceProjectId: p.sourceProjectId }));
+
   return projects.map((p) => {
     const type = p.kind === "stick_skit" ? stickSkit : null;
     const steps = type ? type.steps : (["brief", "script", "edit", "review", "export"] as const);
@@ -221,6 +235,13 @@ export async function listLibrary(orgId: string, stepLabel: (step: string, steps
       thumb: p.kind === "stick_skit" ? stickThumb(p.brief) : clipsThumb(p.brief, latestAsset.get(p.id) ?? null),
       posts: postsOf.get(p.id) ?? [],
       readyToPost: ready.has(p.id),
+      languages: languageBadges(family, p.id),
+      views: stats.get(p.id)?.views ?? null,
+      touchedBy: p.lastTouchedBy ? nameOf.get(p.lastTouchedBy) ?? null : null,
+      touchedById: p.lastTouchedBy,
+      createdBy: p.createdBy,
+      origin: p.origin,
+      linked: Boolean(p.sourceProjectId),
     };
   });
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { SpeakButton } from "@/components/SpeakButton";
 import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import type { StickSkitDefaults } from "@/types/stick-skit";
 import { DEFAULT_VOICE_MAP, setLabel, STICK_VOICES, stickCatalog } from "@/types/stick-skit/catalog";
@@ -32,6 +33,7 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
   const [sets, setSets] = useState(defaults.allowed_sets);
   const [characters, setCharacters] = useState(defaults.allowed_characters);
   const [voices, setVoices] = useState<Record<string, string>>({ ...DEFAULT_VOICE_MAP, ...defaults.voice_map });
+  const [voiceSettings, setVoiceSettings] = useState(defaults.voice_settings);
   const [template, setTemplate] = useState(defaults.default_template ?? "");
   const [cap, setCap] = useState(Number(defaults.limit_usd).toFixed(2));
   const [hashtags, setHashtags] = useState(defaults.hashtags_suffix ?? "");
@@ -45,6 +47,7 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
         allowed_sets: sets,
         allowed_characters: characters,
         voice_map: Object.fromEntries(characters.map((c) => [c, voices[c] ?? STICK_VOICES[0].id])),
+        voice_settings: voiceSettings,
         ...(template && { default_template: template }),
         limit_usd: cap.trim(),
         ...(hashtags.trim() && { hashtags_suffix: hashtags.trim() }),
@@ -68,6 +71,9 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
                 <button type="button" aria-pressed={on} onClick={() => setCharacters((l) => toggle(l, c.id))} className={`${toggleBase} w-28 ${on ? toggleOn : toggleOff}`}>
                   {c.name}
                 </button>
+                <SpeakButton text="This is a sample line." voiceId={voices[c.id] ?? STICK_VOICES[0].id} pitch={voiceSettings[c.id]?.pitch} rate={voiceSettings[c.id]?.pace} label="Sample" />
+                <input aria-label={`${c.name} pitch`} type="range" min={0.5} max={2} step={0.1} value={voiceSettings[c.id]?.pitch ?? 1} disabled={!on} onChange={(e) => setVoiceSettings((s) => ({ ...s, [c.id]: { pitch: Number(e.target.value), pace: s[c.id]?.pace ?? 1 } }))} />
+                <input aria-label={`${c.name} pace`} type="range" min={0.5} max={2} step={0.1} value={voiceSettings[c.id]?.pace ?? 1} disabled={!on} onChange={(e) => setVoiceSettings((s) => ({ ...s, [c.id]: { pitch: s[c.id]?.pitch ?? 1, pace: Number(e.target.value) } }))} />
                 <select aria-label={`${c.name}'s voice`} value={voices[c.id] ?? STICK_VOICES[0].id} disabled={!on} onChange={(e) => setVoices((v) => ({ ...v, [c.id]: e.target.value }))} className={`${select} disabled:opacity-50`}>
                   {STICK_VOICES.map((v) => (
                     <option key={v.id} value={v.id}>

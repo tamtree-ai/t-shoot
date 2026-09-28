@@ -3,7 +3,9 @@ import Link from "next/link";
 import { ProjectLibrary } from "@/components/ProjectLibrary";
 import { StudioMark } from "@/components/StudioMark";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
+import { signOutAction } from "@/app/horizon-actions";
 import { getCurrentMember } from "@/lib/auth";
+import { unreadCount } from "@/services/workspace";
 import { getTamtreeConnection } from "@/lib/tamtree";
 import { listLibrary } from "@/services/library";
 import { listShows, variationPriceUsd } from "@/services/shows";
@@ -25,6 +27,7 @@ const STEP_LABEL: Record<ProjectStep, string> = {
  */
 export default async function Home() {
   const [connection, member] = await Promise.all([getTamtreeConnection(), getCurrentMember()]);
+  const unread = await unreadCount(member.memberId);
   const [projects, shows] = await Promise.all([
     listLibrary(member.orgId, (step, steps) => STEP_LABEL[openStep(step as ProjectStep, steps as readonly ProjectStep[])]),
     listShows(member.orgId),
@@ -37,6 +40,13 @@ export default async function Home() {
         <span className="text-[13px] text-fg-3">Projects</span>
         <span className="ml-auto" />
         <TamtreeStatus connection={connection} />
+        <Link href="/portal" className="ml-2 text-[13px] text-fg-3 hover:text-fg">
+          Reviews{unread > 0 ? ` · ${unread}` : ""}
+        </Link>
+        <Link href="/sign-in" className="text-[13px] text-fg-3 hover:text-fg">Sign in</Link>
+        <form action={signOutAction}>
+          <button type="submit" className="text-[13px] text-fg-3 hover:text-fg">Sign out</button>
+        </form>
         <Link href="/settings" className="ml-2 text-[13px] text-fg-3 hover:text-fg">
           Settings
         </Link>
@@ -55,7 +65,7 @@ export default async function Home() {
         </main>
       ) : (
         <main className="flex-1 bg-canvas px-4 py-10">
-          <ProjectLibrary projects={projects} shows={shows} variationPrice={variationPriceUsd()} />
+          <ProjectLibrary projects={projects} shows={shows} variationPrice={variationPriceUsd()} memberId={member.memberId} />
         </main>
       )}
     </>

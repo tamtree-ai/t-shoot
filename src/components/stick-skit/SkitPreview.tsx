@@ -38,6 +38,8 @@ export function SkitPreview({
   seekTo,
   onFrame,
   onSpans,
+  audio = false,
+  fontFamily = "var(--font-sans), sans-serif",
 }: {
   skit: unknown;
   width: number;
@@ -45,6 +47,8 @@ export function SkitPreview({
   seekTo?: { frame: number; nonce: number } | null;
   onFrame?: (frame: number) => void;
   onSpans?: (spans: BeatSpan[], duration: number) => void;
+  audio?: boolean;
+  fontFamily?: string;
 }) {
   const compiled = useMemo(() => compile(skit), [skit]);
   const ref = useRef<PlayerRef>(null);
@@ -105,7 +109,7 @@ export function SkitPreview({
         key={attempt}
         ref={ref}
         component={StickStageComposition}
-        inputProps={{ program, sets: stickRegistry.sets, lib: stickRegistry.lib, safeArea: stickRegistry.safeArea, fontFamily: "var(--font-sans), sans-serif", audio: false }}
+        inputProps={{ program, sets: stickRegistry.sets, lib: stickRegistry.lib, safeArea: stickRegistry.safeArea, fontFamily, audio }}
         durationInFrames={program.durationInFrames}
         fps={program.fps}
         compositionWidth={program.width}

@@ -44,7 +44,8 @@ describe("stick_skit tenant defaults", () => {
   });
 
   it("already has a voice for the characters not vendored yet", () => {
-    expect(DEFAULT_VOICE_MAP).toMatchObject({ lila: "Zephyr", theo: "Puck", moss: "Charon", dash: "Kore" });
+    expect(DEFAULT_VOICE_MAP).toMatchObject({ lila: "Zephyr", theo: "Charon", moss: "Fenrir", dash: "Aoede" });
+    expect(new Set(Object.values(DEFAULT_VOICE_MAP)).size).toBe(Object.keys(DEFAULT_VOICE_MAP).length);
     for (const c of stickCatalog.characters) expect(DEFAULT_VOICE_MAP[c.id], c.id).toBeTruthy();
   });
 });

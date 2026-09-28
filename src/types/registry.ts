@@ -3,6 +3,7 @@
  * arrives (08, decision 5). Routes branch on a project's kind through here only: no
  * `if (kind === …)` outside `src/types/`.
  */
+import { TEXT_FLOWS } from "@/lib/tamtree/stage-flows";
 import { aiClips } from "./ai-clips";
 import { stickSkit } from "./stick-skit";
 import type { ProductionKind } from "./types";
@@ -40,6 +41,7 @@ export function typeOf(project: object) {
  * Refuses a flow the type does not own, so a run can never be filed under another type.
  */
 export function stageOf(project: object, flow: string): StageKey {
+  if ((TEXT_FLOWS as readonly string[]).includes(flow)) return "script";
   const type = typeOf(project);
   const hit = Object.entries(type.flows).find(([, f]) => f === flow);
   if (!hit) throw new Error(`"${flow}" is not a stage flow of ${type.label}.`);

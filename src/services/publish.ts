@@ -10,6 +10,7 @@ import { PLATFORMS, PostDraft, postProblem, type Platform, type StoredPost } fro
 import { versionMedia } from "@/types/versions";
 import { getProject } from "./projects";
 import { runStageSync } from "./tamtree-run";
+import { notify } from "./notify";
 import { TamtreeRunError } from "./tamtree-run";
 
 export type { StoredPost };
@@ -134,6 +135,10 @@ export async function sendPublication(projectId: string, versionId: string, plat
       .where(eq(schema.publications.id, row.id))
       .returning();
     if (!saved) throw new Error("The post was not saved.");
+    const project = await getProject(projectId);
+    if (project) {
+      await notify(project.orgId, "live", `${project.title} is live on ${platform}`, out.result, `/p/${projectId}/export`);
+    }
     return {
       id: saved.id,
       versionId: saved.versionId,

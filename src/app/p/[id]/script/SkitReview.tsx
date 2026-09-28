@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { normWord } from "stickstage";
 
+import { hooksAction, musicAction, tidyAction } from "@/app/horizon-actions";
 import { SpeakButton } from "@/components/SpeakButton";
+import { SfxChip } from "@/components/SfxChip";
+import { MUSIC_BEDS } from "@/lib/music";
 import { Face } from "@/components/stick-skit/Face";
 import { fit916 } from "@/components/stick-skit/fit";
 import { SetPicker } from "@/components/stick-skit/SetPicker";
@@ -44,6 +47,8 @@ import {
   type EditableBeat,
   type SkitScene,
 } from "@/types/stick-skit/draft";
+import { BrandFrame } from "@/components/BrandFrame";
+import type { BrandKit } from "@/lib/brand";
 import { approveSkitAction, keepSkitRevisionAction, reviseSkitAction, saveSkitBeatsAction, undoSkitRevisionAction } from "./actions";
 
 const SAVE_AFTER_MS = 600;
@@ -80,6 +85,11 @@ export function SkitReview({
   fromComment,
   setOptions,
   focusFraction,
+  origin,
+  musicBed,
+  musicVolume,
+  previewFont,
+  brand,
 }: {
   projectId: string;
   topic: string;
@@ -94,6 +104,11 @@ export function SkitReview({
   setOptions: { id: string; label: string }[];
   /** 0–1, from a review comment. Seeks the preview and opens that beat. */
   focusFraction: number | null;
+  origin?: string;
+  musicBed?: string | null;
+  musicVolume?: number | null;
+  previewFont?: string;
+  brand?: BrandKit | null;
 }) {
   const router = useRouter();
   const opened = useMemo(() => {
@@ -122,6 +137,10 @@ export function SkitReview({
   const [duration, setDuration] = useState(0);
   const [seek, setSeek] = useState<{ frame: number; nonce: number } | null>(null);
   const [undoCount, setUndoCount] = useState(0);
+  const [sound, setSound] = useState(false);
+  const [bed, setBed] = useState(musicBed ?? "");
+  const [bedVolume, setBedVolume] = useState(musicVolume ?? 0.25);
+  const [hooks, setHooks] = useState<string[] | null>(null);
   const [busy, startBusy] = useTransition();
   const [approving, startApprove] = useTransition();
 
@@ -404,6 +423,21 @@ export function SkitReview({
                     index={i + 1}
                     beat={beat}
                     cast={cast}
+                    hook={beat.id === beats.find((b) => !b.silent)?.id}
+                    hooks={hooks}
+                    onHooks={() => {
+                      if (!beat.line) return;
+                      if (!window.confirm("Try other hooks · up to $0.01?")) return;
+                      startBusy(async () => {
+                        const result = await hooksAction(projectId, beat.line!, topic);
+                        if (!result.ok) setError(result.error);
+                        else setHooks(result.hooks);
+                      });
+                    }}
+                    onPickHook={(line) => {
+                      edit(beat.id, { line });
+                      setHooks(null);
+                    }}
                     open={openId === beat.id}
                     playing={playing === beat.id}
                     onOpen={() => jump(beat.id)}
@@ -476,15 +510,61 @@ export function SkitReview({
           <div ref={stageRef} data-w={Math.round(stageSize.width)} data-h={Math.round(stageSize.height)} className="relative min-h-0 flex-1">
             <div className="absolute inset-0 flex items-center justify-center">
               {fitted.width > 0 ? (
-                <SkitPreview skit={skit} width={fitted.width} height={fitted.height} seekTo={seek} onFrame={onFrame} onSpans={onSpans} />
+                <BrandFrame brand={brand}>
+                  <SkitPreview skit={skit} width={fitted.width} height={fitted.height} seekTo={seek} onFrame={onFrame} onSpans={onSpans} audio={sound} fontFamily={previewFont} />
+                </BrandFrame>
               ) : (
                 <div className="aspect-[9/16] h-full max-w-full rounded-xl bg-panel" />
               )}
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] text-fg-muted">Silent preview · timing is estimated</p>
+            <p className="text-[11px] text-fg-muted">{sound ? "Sound on · timing is estimated" : "Silent preview · timing is estimated"}</p>
+            <button type="button" onClick={() => setSound((v) => !v)} className="text-[12px] text-fg-2">{sound ? "Mute" : "Unmute"}</button>
             <SpeakButton text={spoken} voiceId={previewVoice} label="Hear it" />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 px-1 text-[12px] text-fg-2">
+            <label className="flex items-center gap-1">
+              Music
+              <select aria-label="Music bed" value={bed} onChange={(e) => setBed(e.target.value)} className="h-7 rounded border border-line bg-panel px-1">
+                <option value="">None</option>
+                {MUSIC_BEDS.map((item) => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">
+              Duck
+              <input aria-label="Music volume" type="range" min={0} max={1} step={0.05} value={bedVolume} onChange={(e) => setBedVolume(Number(e.target.value))} />
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                startBusy(async () => {
+                  const result = await musicAction(projectId, bed || null, bedVolume);
+                  if (!result.ok) setError(result.error);
+                });
+              }}
+              className="text-accent-link"
+            >
+              Save bed
+            </button>
+            {origin === "paste" && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm("Tidy for timing · up to $0.01? Lines stay as they are.")) return;
+                  startBusy(async () => {
+                    const result = await tidyAction(projectId);
+                    if (!result.ok) setError(result.error);
+                    else router.refresh();
+                  });
+                }}
+                className="text-accent-link"
+              >
+                Tidy for timing · $0.01
+              </button>
+            )}
           </div>
           <ol aria-label="Story" className="flex gap-1 overflow-x-auto pb-1">
             {beats.map((beat, i) => (
@@ -694,6 +774,10 @@ function BeatCard({
   onDuplicate,
   onDelete,
   onMove,
+  hook,
+  hooks,
+  onHooks,
+  onPickHook,
 }: {
   index: number;
   beat: EditableBeat;
@@ -706,6 +790,10 @@ function BeatCard({
   onDuplicate: () => void;
   onDelete: () => void;
   onMove: (dir: "up" | "down") => void;
+  hook?: boolean;
+  hooks?: string[] | null;
+  onHooks?: () => void;
+  onPickHook?: (line: string) => void;
 }) {
   const member = cast.find((c) => c.id === beat.speaker);
   const name = member ? `${characterName(member.character)}${member.label ? ` · ${member.label}` : ""}` : (beat.speaker ?? "Silent");
@@ -751,6 +839,17 @@ function BeatCard({
       {!beat.silent && (
         <>
           <LineField beat={beat} what={what} onEdit={onEdit} onSplit={onSplit} />
+          {hook && hooks && hooks.length > 0 && (
+            <ul className="flex flex-col gap-1">
+              {hooks.map((line) => (
+                <li key={line}>
+                  <button type="button" onClick={() => onPickHook?.(line)} className="w-full rounded-lg border border-line px-3 py-2 text-left text-[13px] hover:border-accent">
+                    {line}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             {beat.slams.map((value, i) => (
@@ -769,6 +868,12 @@ function BeatCard({
             <button type="button" onClick={() => onEdit({ slams: [...beat.slams, "WAIT"] })} className="h-7 rounded-lg px-2 text-xs text-fg-3 hover:bg-hover">
               + Text slam
             </button>
+            <SfxChip value={beat.sfx} slam={beat.slams[0]} label={`${what}: sound`} onChange={(id) => onEdit({ sfx: id })} />
+            {hook && (
+              <button type="button" onClick={onHooks} className="h-7 rounded-lg px-2 text-xs text-accent-link hover:bg-hover">
+                Try other hooks · $0.01
+              </button>
+            )}
             <label className="ml-auto flex items-center gap-2 text-xs text-fg-muted">
               Pause
               <input

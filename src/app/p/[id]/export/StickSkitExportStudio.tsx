@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { BrandFrame } from "@/components/BrandFrame";
 import { fit916 } from "@/components/stick-skit/fit";
+import type { BrandKit } from "@/lib/brand";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
+import { ExportLabs } from "./ExportLabs";
 import { PublishDesk } from "./PublishDesk";
 import type { StoredPost } from "@/types/social/post";
 
@@ -21,14 +24,18 @@ export type ExportCut = {
   reviewUrl: string | null;
 };
 
-const AI_VOICE = "Voices are AI-generated (text-to-speech).";
+function aiVoice(consent: boolean): string {
+  return consent
+    ? "Voices are AI-generated (text-to-speech). The owner's voice was cloned with their consent."
+    : "Voices are AI-generated (text-to-speech).";
+}
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
-function parsePost(text: string): { caption: string; hashtags: string; disclosure: string } {
+function parsePost(text: string, consent: boolean): { caption: string; hashtags: string; disclosure: string } {
   const head = text.split(/\n---\n/)[0] ?? text;
   const blocks = head.split(/\n\n+/).map((s) => s.trim()).filter(Boolean);
   const hashtags = blocks.find((b) => b.split(/\s+/).every((w) => w.startsWith("#"))) ?? "";
-  const disclosure = blocks.find((b) => b.includes("AI-generated")) ?? AI_VOICE;
+  const disclosure = blocks.find((b) => b.includes("AI-generated")) ?? aiVoice(consent);
   const caption = blocks.find((b) => b !== hashtags && b !== disclosure) ?? "";
   return { caption, hashtags, disclosure };
 }
@@ -39,7 +46,7 @@ function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function StickSkitExportStudio({ projectId, title, cuts, posts }: { projectId: string; title: string; cuts: ExportCut[]; posts: StoredPost[] }) {
+export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount = 1, brand, voiceConsent = false }: { projectId: string; title: string; cuts: ExportCut[]; posts: StoredPost[]; lineCount?: number; brand?: BrandKit | null; voiceConsent?: boolean }) {
   const [id, setId] = useState(cuts[0]?.id ?? "");
   const cut = cuts.find((c) => c.id === id) ?? cuts[0];
   const video = useRef<HTMLVideoElement>(null);
@@ -58,7 +65,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts }: { proje
     void fetch(cut.txt)
       .then((r) => (r.ok ? r.text() : ""))
       .then((text) => {
-        if (!cancel && text) setPostFor({ id: cutId, ...parsePost(text) });
+        if (!cancel && text) setPostFor({ id: cutId, ...parsePost(text, voiceConsent) });
       })
       .catch(() => {});
     void fetch(cut.mp4, { headers: { Range: "bytes=0-0" } })
@@ -115,7 +122,8 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts }: { proje
   return (
     <div className="flex min-h-0 flex-1">
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex items-end justify-between gap-3 px-5 pt-4">
+        <div className="flex flex-col gap-2 px-5 pt-4">
+          <div className="flex items-end justify-between gap-3">
           <h1 className="font-display text-[32px] leading-none">Export</h1>
           {cuts.length > 1 && (
             <select aria-label="Version" value={cut.id} onChange={(e) => setId(e.target.value)} className="h-8 rounded-lg border border-line bg-panel px-2 text-[13px]">
@@ -126,10 +134,13 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts }: { proje
               ))}
             </select>
           )}
+          </div>
+          <ExportLabs projectId={projectId} title={title} lineCount={lineCount} />
         </div>
         <div ref={stage} className="relative min-h-0 flex-1">
           <div className="absolute inset-0 flex items-center justify-center">
             {fitted.width > 0 && (
+              <BrandFrame brand={brand}>
               <video
                 key={cut.mp4}
                 ref={video}
@@ -144,6 +155,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts }: { proje
                 style={{ width: fitted.width, height: fitted.height }}
                 className="bg-black object-contain"
               />
+              </BrandFrame>
             )}
           </div>
         </div>
@@ -169,7 +181,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts }: { proje
         <div className="flex flex-col gap-2">
           <CopyButton label="Copy caption" done={copied === "caption"} disabled={!post?.caption} onClick={() => post && copy("caption", post.caption)} />
           <CopyButton label="Copy hashtags" done={copied === "tags"} disabled={!post?.hashtags} onClick={() => post && copy("tags", post.hashtags)} />
-          <CopyButton label="Copy AI-voice line" done={copied === "ai"} onClick={() => copy("ai", post?.disclosure || AI_VOICE)} />
+          <CopyButton label="Copy AI-voice line" done={copied === "ai"} onClick={() => copy("ai", post?.disclosure || aiVoice(voiceConsent))} />
           <CopyButton label="Save cover frame" done={false} onClick={cover} />
           {cut.reviewUrl ? (
             <CopyButton label="Copy review link" done={copied === "link"} onClick={() => copy("link", cut.reviewUrl!)} />

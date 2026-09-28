@@ -13,6 +13,8 @@ import { notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, getBoss } from "@/lib/queue";
+import { draftAheadTick } from "@/services/show-ideas";
+import { pollPostStats } from "@/services/results";
 import { getTamtreeAdapter } from "@/lib/tamtree";
 import { applyRunResult } from "@/services/apply-result";
 import { driveRun } from "./drive-run";
@@ -34,6 +36,14 @@ async function main() {
     if (!row.tamtreeRunId) return dbRunStore.patch(row.id, { status: "cancelled" });
     // The driver following the stream sees the terminal event and finalises the row.
     await adapter.cancelRun(row.tamtreeRunId).catch(() => undefined);
+  });
+
+  await boss.createQueue("show.horizon");
+  await boss.schedule("show.horizon", "0 * * * *");
+  await boss.work("show.horizon", async () => {
+    const drafted = await draftAheadTick();
+    const stats = await pollPostStats();
+    console.log(`[worker] horizon drafted ${drafted}, stats ${stats}`);
   });
 
   const unfinished = await db

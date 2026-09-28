@@ -13,6 +13,10 @@ export const STICK_VOICES = [
   { id: "Kore", desc: "Firm · even" },
   { id: "Zephyr", desc: "Warm · light" },
   { id: "Charon", desc: "Deep · steady" },
+  { id: "Fenrir", desc: "Low · dry" },
+  { id: "Aoede", desc: "Clear · quick" },
+  { id: "Leda", desc: "Soft · close" },
+  { id: "Orus", desc: "Even · warm" },
 ] as const;
 
 /**
@@ -20,16 +24,15 @@ export const STICK_VOICES = [
  * `allowed_characters` as the whole catalog, so a character with no voice here stops
  * an org that has never saved settings from loading.
  *
- * Four TTS voices, six people. Each pair that shares a stage gets two different ones:
- * Milo/June, Lila/Theo, Moss/Dash.
+ * Eight TTS voices, six people. Each character has a voice of their own.
  */
 export const DEFAULT_VOICE_MAP: Record<string, string> = {
   milo: "Puck", // earnest
   june: "Kore", // deadpan
   lila: "Zephyr", // a child, light
-  theo: "Puck", // eager
-  moss: "Charon", // unhurried
-  dash: "Kore", // already sure
+  theo: "Charon", // eager
+  moss: "Fenrir", // unhurried
+  dash: "Aoede", // already sure
 };
 
 /**

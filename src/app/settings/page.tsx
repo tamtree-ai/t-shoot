@@ -1,7 +1,10 @@
 import Link from "next/link";
 
 import { getCurrentMember } from "@/lib/auth";
+import { listCharacters } from "@/services/cast";
 import { getTypeDefaults } from "@/services/type-settings";
+import { getOrg, memberById } from "@/services/workspace";
+import { WorkspacePanel } from "./WorkspacePanel";
 import { productionType } from "@/types/registry";
 import { PRODUCTION_KINDS } from "@/types/types";
 import { typeUi } from "@/types/ui";
@@ -12,6 +15,14 @@ export const dynamic = "force-dynamic";
 /** Workspace settings: one section per production type, what this client allows (08, decision 4). */
 export default async function SettingsPage() {
   const member = await getCurrentMember();
+  if (member.role === "client") {
+    return (
+      <main className="flex flex-1 items-center justify-center px-4">
+        <p className="text-[14px] text-fg-muted">Settings stay with the workspace owner.</p>
+      </main>
+    );
+  }
+  const [row, org, characters] = await Promise.all([memberById(member.memberId), getOrg(member.orgId), listCharacters(member.orgId)]);
   const sections = await Promise.all(
     PRODUCTION_KINDS.map(async (kind) => ({ kind, defaults: await getTypeDefaults(member.orgId, kind) })),
   );
@@ -31,6 +42,21 @@ export default async function SettingsPage() {
       <main className="flex flex-1 justify-center px-4">
         <div className="flex w-[760px] flex-col gap-10 py-12">
           <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">Settings</h1>
+          {row && (
+            <WorkspacePanel
+              role={member.role}
+              slack={org?.slackWebhook ?? ""}
+              characters={characters}
+              consent={row.voiceCloneConsent}
+              prefs={{
+                notifyComment: row.notifyComment,
+                notifyApproved: row.notifyApproved,
+                notifyFilm: row.notifyFilm,
+                notifyLive: row.notifyLive,
+                notifySlack: row.notifySlack,
+              }}
+            />
+          )}
           {sections.map(({ kind, defaults }) => {
             const { SettingsForm } = typeUi(kind);
             return (

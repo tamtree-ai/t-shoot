@@ -11,7 +11,7 @@ import type { ShowRow } from "@/services/shows";
 
 const STEPS = ["All steps", "Script", "Edit", "Review", "Export"] as const;
 
-export function ProjectLibrary({ projects, shows, variationPrice }: { projects: LibraryRow[]; shows: ShowRow[]; variationPrice: number }) {
+export function ProjectLibrary({ projects, shows, variationPrice, memberId }: { projects: LibraryRow[]; shows: ShowRow[]; variationPrice: number; memberId: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("all");
@@ -19,6 +19,7 @@ export function ProjectLibrary({ projects, shows, variationPrice }: { projects: 
   const [needs, setNeeds] = useState(false);
   const [ready, setReady] = useState(false);
   const [archived, setArchived] = useState(false);
+  const [mine, setMine] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,6 +36,8 @@ export function ProjectLibrary({ projects, shows, variationPrice }: { projects: 
     if (step !== "All steps" && p.step !== step) return false;
     if (needs && p.needsYou === 0) return false;
     if (ready && !p.readyToPost) return false;
+    if (p.linked && !q.trim()) return false;
+    if (mine && p.createdBy !== memberId && p.touchedById !== memberId) return false;
     const hay = `${p.title} ${p.lines}`.toLowerCase();
     return !q.trim() || hay.includes(q.trim().toLowerCase());
   });
@@ -75,6 +78,7 @@ export function ProjectLibrary({ projects, shows, variationPrice }: { projects: 
           {shows.map((show) => (
             <li key={show.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-rule-2 bg-panel px-4 py-3">
               <span className="font-display text-lg italic">{show.name}</span>
+              <Link href={`/shows/${show.id}`} className="text-[13px] text-fg-2">Show</Link>
               <Link href={`/projects/new?type=stick_skit&show=${show.id}`} className="text-[13px] text-accent-link">
                 New episode
               </Link>
@@ -110,6 +114,7 @@ export function ProjectLibrary({ projects, shows, variationPrice }: { projects: 
         <Filter on={needs} onClick={() => setNeeds((v) => !v)}>Needs you</Filter>
         <Filter on={ready} onClick={() => setReady((v) => !v)}>Ready to post</Filter>
         <Filter on={archived} onClick={() => setArchived((v) => !v)}>Archived</Filter>
+        <Filter on={mine} onClick={() => setMine((v) => !v)}>Mine</Filter>
       </div>
       {error && <p className="text-[13px] text-attention">{error}</p>}
 
@@ -178,6 +183,10 @@ function Row({ project: p, busy, price, onRun }: { project: LibraryRow; busy: bo
           <span className="mt-0.5 block text-xs text-fg-muted">
             {p.kindLabel}
             {p.needsYou > 0 ? ` · Needs you ${p.needsYou}` : ""}
+            {p.origin === "assistant" ? " · assistant" : ""}
+            {p.languages.length > 1 ? ` · ${p.languages.join(" · ")}` : ""}
+            {p.views != null ? ` · ${p.views} views` : ""}
+            {p.touchedBy ? ` · ${p.touchedBy}` : ""}
             {p.posts.length > 0 ? ` · ${p.posts.map((post) => post.label).join(", ")}` : ""}
           </span>
         </Link>

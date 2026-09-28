@@ -4,6 +4,7 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { db, schema } from "@/db";
+import { BrandKit } from "@/lib/brand";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
 import { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickCatalog } from "@/lib/stick/registry";
@@ -23,6 +24,10 @@ export const ShowConfig = z.object({
   hashtags: z.string().max(200).optional(),
   ai_line: z.string().max(200).optional(),
   limit_usd: z.string(),
+  brand: BrandKit.optional(),
+  cadence_per_week: z.number().int().min(1).max(21).optional(),
+  draft_ahead: z.boolean().optional(),
+  weekly_script_cap: z.number().int().min(1).max(14).optional(),
 });
 export type ShowConfig = z.infer<typeof ShowConfig>;
 
@@ -54,14 +59,13 @@ export async function saveShow(orgId: string, input: ShowConfig, showId?: string
   if (Number(config.limit_usd) > Number(defaults.limit_usd)) {
     throw new Error(`A show's cap can't be higher than the workspace cap of $${defaults.limit_usd}.`);
   }
+  const previous = showId
+    ? (await db.select({ config: schema.shows.config }).from(schema.shows).where(eq(schema.shows.id, showId)).limit(1))[0]?.config ?? {}
+    : {};
+  const { name: _name, ...rest } = config;
   const stored = {
-    template: config.template,
-    cast: config.cast,
-    set: config.set,
-    tone: config.tone,
-    hashtags: config.hashtags,
-    ai_line: config.ai_line,
-    limit_usd: config.limit_usd,
+    ...previous,
+    ...Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== undefined)),
   };
   if (showId) {
     const existing = await getShow(orgId, showId);
