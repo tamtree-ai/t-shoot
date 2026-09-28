@@ -87,6 +87,24 @@ export function ShowForm({
           ))}
         </div>
       </Field>
+      <Field label="Shape">
+        <select
+          aria-label="Shape"
+          value={aspect}
+          onChange={(e) => {
+            const next = e.target.value as Aspect;
+            setAspect(next);
+            const ids = characters.filter((c) => characterAspect(c.id) === next).map((c) => c.id);
+            setCast(ids.slice(0, 2));
+            setSetId(sets.find((s) => roomAspect(s.id) === next)?.id ?? "");
+          }}
+          className={input}
+        >
+          {ASPECTS.map((id) => (
+            <option key={id} value={id}>{ASPECT_LABEL[id]} · {FRAME[id].width}×{FRAME[id].height}</option>
+          ))}
+        </select>
+      </Field>
       <Field label="Format">
         <div role="group" aria-label="Format" className="flex flex-wrap gap-1.5">
           <Chip on={template === ""} onClick={() => setTemplate("")}>Writer’s pick</Chip>
