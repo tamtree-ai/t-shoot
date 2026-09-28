@@ -8,6 +8,7 @@ import "server-only";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { aspectOfBrief, aspectOfSkit, type Aspect } from "@/lib/stick/frame";
 import type { TimelineV1 } from "@/lib/timeline";
 import { versionMedia } from "@/types/versions";
 import { notify } from "./notify";
@@ -22,6 +23,8 @@ export type ReviewView = {
   timeline: TimelineV1 | null;
   /** A rendered video plays from `/r/<token>/video`. */
   video: boolean;
+  /** Short or widescreen. A timeline review stays a short. */
+  frame: Aspect;
   durationS: number;
   approvedBy: string | null;
   comments: { id: string; authorName: string; timecodeS: number; body: string; createdAt: string }[];
@@ -43,6 +46,7 @@ export async function getReview(token: string): Promise<ReviewView | null> {
     versionNumber: version.number,
     timeline: media.kind === "timeline" ? media.timeline : null,
     video: media.kind === "video",
+    frame: media.kind === "video" ? aspectOfSkit((version.payload as { skit?: unknown }).skit, aspectOfBrief(project.brief)) : "9:16",
     durationS: media.durationS,
     approvedBy: version.approvedBy,
     comments: comments.map((c) => ({ id: c.id, authorName: c.authorName, timecodeS: c.timecodeS, body: c.body, createdAt: c.createdAt.toISOString() })),

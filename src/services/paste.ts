@@ -21,6 +21,7 @@ export async function createStickFromPaste(
     limitUsd: string;
     showId?: string;
     episodeNumber?: number;
+    aspect?: StickBrief["aspect"];
   },
 ): Promise<string> {
   const parsed = parsePastedScript(input.script);
@@ -37,6 +38,7 @@ export async function createStickFromPaste(
   const brief: StickBrief & { limitUsd: string } = {
     topic: title,
     cast: castIds.slice(0, 2).map((character) => ({ id: character, character })),
+    ...(input.aspect ? { aspect: input.aspect } : {}),
     set: input.setId,
     limitUsd: input.limitUsd,
   };

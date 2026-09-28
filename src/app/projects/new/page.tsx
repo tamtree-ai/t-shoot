@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { MemberMark } from "@/components/MemberMark";
+import { PageHeader } from "@/components/PageHeader";
 import { StepNav } from "@/components/StepNav";
 import { CharacterThumb } from "@/components/stick-skit/Thumbs";
 import { getCurrentMember } from "@/lib/auth";
@@ -10,7 +12,6 @@ import { productionType } from "@/types/registry";
 import type { StickSkitDefaults } from "@/types/stick-skit";
 import { PRODUCTION_KINDS, type ProductionKind } from "@/types/types";
 import { typeUi } from "@/types/ui";
-import { StudioMark } from "@/components/StudioMark";
 import { StickBriefForm } from "./StickBriefForm";
 
 export const dynamic = "force-dynamic";
@@ -32,23 +33,11 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
   const episodeNumber = showRow ? await nextEpisodeNumber(showRow.id) : undefined;
   return (
     <>
-      <header className="flex h-[52px] shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
-        <div className="flex w-[440px] items-center gap-2.5">
-          <StudioMark />
-          <span className="text-[#3a3a42]">/</span>
-          <Link href="/" className="text-[13px] text-fg-3">
-            Projects
-          </Link>
-          <span className="text-[#3a3a42]">/</span>
-          <span className="text-[13px] text-fg">New short</span>
-        </div>
-        <StepNav current="brief" reachable={["brief"]} steps={productionType(kind).steps} />
-        <div className="flex w-[440px] justify-end">
-          <div aria-label="Dilhan A." className="flex size-7 items-center justify-center rounded-full bg-[#26262b] text-[11px] font-semibold text-fg-2">
-            DA
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        trail={[{ href: "/", label: "Projects" }, { label: "New short" }]}
+        center={<StepNav current="brief" reachable={["brief"]} steps={productionType(kind).steps} />}
+        trailing={<MemberMark name={member.name} email={member.email} />}
+      />
 
       <main className="flex flex-1 justify-center bg-[radial-gradient(circle_at_50%_0%,#15151a_0%,var(--color-canvas)_60%)] px-4">
         {kind === "stick_skit" ? (
@@ -62,6 +51,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
               cast: showRow.config.cast.map((c) => c.character),
               set: showRow.config.set,
               tone: showRow.config.tone ? showRow.config.tone[0]!.toUpperCase() + showRow.config.tone.slice(1) : null,
+              aspect: showRow.config.aspect,
             } : undefined}
           />
         ) : (
@@ -77,35 +67,48 @@ const TYPE_COPY: Record<ProductionKind, { blurb: string; price: string }> = {
   stick_skit: { blurb: "Voice a joke.", price: "about a cent" },
 };
 
-function TypePicker() {
+async function TypePicker() {
+  const member = await getCurrentMember();
   return (
-    <main className="flex flex-1 items-center justify-center px-4">
-      <div className="flex w-[760px] flex-col gap-6">
-        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">What are you making?</h1>
-        <div className="grid grid-cols-2 gap-3">
-          {PRODUCTION_KINDS.map((kind: ProductionKind) => (
-            <Link
-              key={kind}
-              href={`/projects/new?type=${kind}`}
-              className="flex flex-col overflow-hidden rounded-[14px] border border-rule bg-panel hover:border-accent"
-            >
-              <span className="relative h-40 bg-[#101014]">
-                {kind === "stick_skit" ? (
-                  <CharacterThumb id="milo" className="absolute inset-0" />
-                ) : (
-                  <span className="absolute inset-6 flex items-end text-[15px] font-semibold leading-snug text-white">A captioned frame, 9:16.</span>
-                )}
-              </span>
-              <span className="flex flex-col gap-1 p-5">
-                <span className="text-[17px] font-semibold">{productionType(kind).label}</span>
-                <span className="text-[13px] text-fg-muted">
-                  {TYPE_COPY[kind].blurb} {TYPE_COPY[kind].price}.
+    <>
+      <PageHeader
+        trail={[{ href: "/", label: "Projects" }, { label: "New short" }]}
+        trailing={<MemberMark name={member.name} email={member.email} />}
+      />
+      <main className="flex flex-1 justify-center bg-[radial-gradient(circle_at_50%_0%,#15151a_0%,var(--color-canvas)_60%)] px-4 py-16">
+        <div className="flex w-full max-w-[760px] flex-col gap-8">
+          <div className="flex flex-col gap-2">
+            <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">What are you making?</h1>
+            <p className="text-[13px] text-fg-muted">Pick a kind of short. You write the brief next, and nothing is spent on this page.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {PRODUCTION_KINDS.map((kind: ProductionKind) => (
+              <Link
+                key={kind}
+                href={`/projects/new?type=${kind}`}
+                className="flex h-full flex-col overflow-hidden rounded-[14px] border border-rule bg-panel transition-colors hover:border-accent"
+              >
+                <span className="relative h-44 bg-[#101014]">
+                  {kind === "stick_skit" ? (
+                    <CharacterThumb id="milo" className="absolute inset-0" />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="flex h-[72%] w-[28%] flex-col justify-end rounded-md border border-line bg-gradient-to-b from-[#1c1c22] to-[#121216] p-2">
+                        <span className="font-mono text-[11px] text-white">9:16</span>
+                      </span>
+                    </span>
+                  )}
                 </span>
-              </span>
-            </Link>
-          ))}
+                <span className="flex flex-col gap-1 p-4">
+                  <span className="text-[17px] font-semibold">{productionType(kind).label}</span>
+                  <span className="text-[13px] leading-snug text-fg-muted">{TYPE_COPY[kind].blurb}</span>
+                  <span className="mt-1 font-mono text-[12px] text-fg-3">{TYPE_COPY[kind].price}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

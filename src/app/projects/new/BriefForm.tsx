@@ -46,7 +46,7 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
   }
 
   return (
-    <div className="flex w-[760px] flex-col gap-[26px] py-12 pb-8">
+    <div className="flex w-full max-w-[880px] flex-col gap-8 py-12 pb-8">
       <div className="flex flex-col gap-3">
         <StartTabs mode={mode} onChange={setMode} />
         <label htmlFor="topic" className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">
@@ -71,7 +71,7 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="Why an octopus has three hearts, and why swimming wears it out. For curious adults, ends on a surprising fact."
-          className="box-border w-full resize-none rounded-xl border border-accent bg-panel px-[18px] py-4 text-[17px] leading-normal text-fg shadow-[0_0_0_3px_rgba(255,106,61,0.16)] placeholder:text-fg-muted"
+          className="box-border w-full resize-none rounded-xl border border-line bg-panel px-[18px] py-4 text-[17px] leading-normal text-fg placeholder:text-fg-muted focus:border-accent focus:shadow-[0_0_0_3px_rgba(255,106,61,0.16)]"
         />}
         <span className="text-xs text-fg-muted">
           Say who it&rsquo;s for and how it should land. You&rsquo;ll read and edit every line before anything is filmed.
@@ -171,7 +171,7 @@ export function BriefForm({ defaults }: { defaults: AiClipsDefaults }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 pt-1.5">
+      <div className="flex flex-wrap items-center gap-4 border-t border-rule pt-5">
         <button
           type="button"
           disabled={pending}

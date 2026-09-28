@@ -6,9 +6,10 @@ import { z } from "zod";
 import { db, schema } from "@/db";
 import { BrandKit } from "@/lib/brand";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { aspectOfBrief, ASPECTS } from "@/lib/stick/frame";
 import { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickCatalog } from "@/lib/stick/registry";
-import { stickBriefOutsideDefaults, stickSkit } from "@/types/stick-skit";
+import { characterAspect, stickBriefOutsideDefaults, stickSkit } from "@/types/stick-skit";
 import { getTypeDefaults } from "./type-settings";
 import { createStickSkitProject } from "./projects";
 import { writeSkit } from "./skit";
@@ -19,6 +20,8 @@ export const ShowConfig = z.object({
   name: z.string().trim().min(1).max(80),
   template: z.string().optional(),
   cast: z.array(StickCast).min(1).max(2),
+  /** Omitted means a short. Cast and the set must be drawn for this frame. */
+  aspect: z.enum(ASPECTS).optional(),
   set: z.string().optional(),
   tone: z.string().optional(),
   hashtags: z.string().max(200).optional(),
@@ -83,6 +86,7 @@ export function briefFromShow(config: ShowConfig, topic: string): StickBrief & {
     topic,
     ...(config.template ? { template: config.template as StickBrief["template"] } : {}),
     cast: config.cast,
+    ...(config.aspect ? { aspect: config.aspect } : {}),
     ...(config.set ? { set: config.set } : {}),
     ...(config.tone ? { tone: config.tone } : {}),
     limitUsd: config.limit_usd,
@@ -92,7 +96,10 @@ export function briefFromShow(config: ShowConfig, topic: string): StickBrief & {
 /** Three archived drafts. Nothing is voiced. Each write is the usual script price. */
 export async function writeVariations(orgId: string, memberId: string, source: { topic: string; brief: StickBrief; limitUsd: string; showId?: string }): Promise<string[]> {
   const defaults = await getTypeDefaults(orgId, stickSkit.kind);
-  const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id)).map((c) => c.id);
+  const frame = aspectOfBrief(source.brief);
+  const characters = stickCatalog.characters
+    .filter((c) => defaults.allowed_characters.includes(c.id) && characterAspect(c.id) === frame)
+    .map((c) => c.id);
   const templates = ["exchange", "interview", "pov-monologue"] as const;
   const ids: string[] = [];
   for (let i = 0; i < VARIATION_COUNT; i++) {

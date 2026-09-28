@@ -42,8 +42,9 @@ its own.
 - **`src/lib/tamtree/v1.d.ts` is vendored.** Never edit it. Re-vendor it with
   `pnpm tamtree:vendor <ref>`. D1 types in `types.ts` are hand-written and provisional.
 - **Status is a dot plus a word, never a chip.** Green means Ready and nothing else. The only
-  looping animation is the filming dot. Aspect, resolution and FPS are fixed (TimelineV1 is
-  frozen at 1080×1920 @ 30fps), so never offer controls for them.
+  looping animation is the filming dot. A stick skit is a short (9:16, 1080×1920) or widescreen
+  (16:9, 1920×1080), chosen on the brief. AI clips stay TimelineV1 at 1080×1920 @ 30fps, so that
+  editor still has no aspect, resolution, or FPS controls.
 - **The contract suite** (`tests/contract/adapter.contract.ts`) asserts only what `/v1`
   guarantees. It must stay valid for the live adapter.
 - **Git:** no `Co-Authored-By` or "Generated with" footers.

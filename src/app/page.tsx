@@ -1,7 +1,8 @@
 import Link from "next/link";
 
+import { MemberMark } from "@/components/MemberMark";
+import { PageHeader } from "@/components/PageHeader";
 import { ProjectLibrary } from "@/components/ProjectLibrary";
-import { StudioMark } from "@/components/StudioMark";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
 import { signOutAction } from "@/app/horizon-actions";
 import { getCurrentMember } from "@/lib/auth";
@@ -34,23 +35,26 @@ export default async function Home() {
   ]);
   return (
     <>
-      <header className="flex h-[52px] shrink-0 items-center gap-2.5 border-b border-rule bg-panel px-4">
-        <StudioMark />
-        <span className="text-[#3a3a42]">/</span>
-        <span className="text-[13px] text-fg-3">Projects</span>
-        <span className="ml-auto" />
-        <TamtreeStatus connection={connection} />
-        <Link href="/portal" className="ml-2 text-[13px] text-fg-3 hover:text-fg">
-          Reviews{unread > 0 ? ` · ${unread}` : ""}
-        </Link>
-        <Link href="/sign-in" className="text-[13px] text-fg-3 hover:text-fg">Sign in</Link>
-        <form action={signOutAction}>
-          <button type="submit" className="text-[13px] text-fg-3 hover:text-fg">Sign out</button>
-        </form>
-        <Link href="/settings" className="ml-2 text-[13px] text-fg-3 hover:text-fg">
-          Settings
-        </Link>
-      </header>
+      <PageHeader
+        trail={[{ label: "Projects" }]}
+        trailing={
+          <>
+            <TamtreeStatus connection={connection} />
+            <nav aria-label="Workspace" className="flex items-center gap-0.5 text-[13px]">
+              <HeaderLink href="/guide">Guide</HeaderLink>
+              <HeaderLink href="/portal">Reviews{unread > 0 ? ` · ${unread}` : ""}</HeaderLink>
+              <HeaderLink href="/settings">Settings</HeaderLink>
+              <HeaderLink href="/sign-in">Sign in</HeaderLink>
+              <form action={signOutAction}>
+                <button type="submit" className="rounded-md px-2 py-1 text-fg-3 hover:bg-hover hover:text-fg">
+                  Sign out
+                </button>
+              </form>
+            </nav>
+            <MemberMark name={member.name} email={member.email} />
+          </>
+        }
+      />
 
       {projects.length === 0 ? (
         <main className="flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_50%_0%,#15151a_0%,var(--color-canvas)_60%)] px-4">
@@ -69,6 +73,14 @@ export default async function Home() {
         </main>
       )}
     </>
+  );
+}
+
+function HeaderLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className="rounded-md px-2 py-1 text-fg-3 hover:bg-hover hover:text-fg">
+      {children}
+    </Link>
   );
 }
 

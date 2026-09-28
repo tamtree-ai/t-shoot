@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 
+import type { Aspect } from "@/lib/stick/frame";
 import { parsePastedScript } from "@/lib/paste-script";
 import { pasteClipsAction, pasteStickAction, topicsFromLinkAction } from "@/app/horizon-actions";
 
-const tab = (on: boolean) => `h-9 rounded-lg border px-3 text-[13px] ${on ? "border-accent bg-accent-soft text-fg" : "border-line text-fg-2"}`;
+const tab = (on: boolean) => `h-8 rounded-md px-3 text-[13px] ${on ? "bg-accent-soft text-fg" : "text-fg-3 hover:text-fg"}`;
 
 export function StartPanel({
   mode,
@@ -13,6 +14,7 @@ export function StartPanel({
   characters,
   sets,
   limitUsd,
+  aspect,
   showId,
   episodeNumber,
   onTopic,
@@ -22,6 +24,8 @@ export function StartPanel({
   characters: { id: string; name: string }[];
   sets: { id: string; label: string }[];
   limitUsd: string;
+  /** The brief's frame. Paste uses the same cast and rooms the topic form is showing. */
+  aspect?: Aspect;
   showId?: string;
   episodeNumber?: number;
   onTopic: (topic: string) => void;
@@ -29,6 +33,7 @@ export function StartPanel({
   const [script, setScript] = useState("");
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [setId, setSetId] = useState(sets[0]?.id ?? "plain-1");
+  const roomId = sets.some((s) => s.id === setId) ? setId : (sets[0]?.id ?? "");
   const [url, setUrl] = useState("");
   const [topics, setTopics] = useState<{ title: string; line: string }[] | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
@@ -79,7 +84,7 @@ export function StartPanel({
           {kind === "stick_skit" && (
             <label className="flex items-center gap-2 text-[13px] text-fg-2">
               Set
-              <select aria-label="Set" value={setId} onChange={(e) => setSetId(e.target.value)} className="h-9 rounded-lg border border-line bg-panel px-2">
+              <select aria-label="Set" value={roomId} onChange={(e) => setSetId(e.target.value)} className="h-9 rounded-lg border border-line bg-panel px-2">
                 {sets.map((s) => (
                   <option key={s.id} value={s.id}>{s.label}</option>
                 ))}
@@ -89,12 +94,12 @@ export function StartPanel({
           <p className="text-xs text-fg-muted">Parsing is free. It opens on the script. Nothing is voiced.</p>
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || (kind === "stick_skit" && characters.length === 0)}
             onClick={() => {
               setError(null);
               startTransition(async () => {
                 const result = kind === "stick_skit"
-                  ? await pasteStickAction({ script, mapping: speakerMap(), setId, limitUsd, showId, episodeNumber })
+                  ? await pasteStickAction({ script, mapping: speakerMap(), setId: roomId, limitUsd, showId, episodeNumber, ...(aspect ? { aspect } : {}) })
                   : await pasteClipsAction(script, limitUsd);
                 if (result && !result.ok) setError(result.error);
               });
@@ -160,7 +165,7 @@ export function StartPanel({
 
 export function StartTabs({ mode, onChange }: { mode: "topic" | "paste" | "link"; onChange: (mode: "topic" | "paste" | "link") => void }) {
   return (
-    <div role="tablist" aria-label="How to start" className="flex gap-2">
+    <div role="tablist" aria-label="How to start" className="inline-flex w-fit gap-0.5 rounded-lg border border-line bg-panel p-0.5">
       <button type="button" role="tab" aria-selected={mode === "topic"} className={tab(mode === "topic")} onClick={() => onChange("topic")}>Topic</button>
       <button type="button" role="tab" aria-selected={mode === "paste"} className={tab(mode === "paste")} onClick={() => onChange("paste")}>Paste a script</button>
       <button type="button" role="tab" aria-selected={mode === "link"} className={tab(mode === "link")} onClick={() => onChange("link")}>From a link</button>

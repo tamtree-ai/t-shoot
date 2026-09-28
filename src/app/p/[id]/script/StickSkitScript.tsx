@@ -1,6 +1,7 @@
-import Link from "next/link";
-
+import { MemberMark } from "@/components/MemberMark";
+import { PageHeader } from "@/components/PageHeader";
 import { StepNav } from "@/components/StepNav";
+import { getCurrentMember } from "@/lib/auth";
 import type { Project } from "@/db/schema";
 import { Skit } from "@/lib/tamtree/stage-flows";
 import { getProjectComment } from "@/services/review";
@@ -8,12 +9,12 @@ import { fontFamily } from "@/lib/brand";
 import { getProduceState, getSkitDraft } from "@/services/skit";
 import { getShow } from "@/services/shows";
 import { getTypeDefaults } from "@/services/type-settings";
+import { aspectOfBrief, aspectOfSkit } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
-import { setLabel } from "@/types/stick-skit/catalog";
+import { setAspect, setLabel } from "@/types/stick-skit/catalog";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
-import { StudioMark } from "@/components/StudioMark";
 import { displayTitle } from "@/lib/display-title";
 
 /**
@@ -27,30 +28,29 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
   const draft = await getSkitDraft(project.id);
   const produce = await getProduceState(project.id, draft);
   const made = produce?.versionNumber != null;
+  const frame = aspectOfSkit(draft?.skit, aspectOfBrief(brief));
   const setIds = brief.allowed_sets?.length ? brief.allowed_sets : stickCatalog.sets.map((s) => s.id);
-  const setOptions = setIds.filter((id) => stickCatalog.sets.some((s) => s.id === id)).map((id) => ({ id, label: setLabel(id) }));
+  const setOptions = setIds
+    .filter((id) => stickCatalog.sets.some((s) => s.id === id) && setAspect(id) === frame)
+    .map((id) => ({ id, label: setLabel(id) }));
   const show = project.showId ? await getShow(project.orgId, project.showId) : null;
   const brand = show?.config.brand;
+  const member = await getCurrentMember();
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-rule-2 bg-panel px-5">
-        <div className="flex w-[420px] items-center gap-2.5">
-          <StudioMark large />
-          <span className="text-lg text-[#3a3a42]">/</span>
-          <Link href="/" className="text-[13px] text-fg-3">
-            Projects
-          </Link>
-          <span className="text-lg text-[#3a3a42]">/</span>
-          <span className="truncate font-display text-[22px] text-fg italic">{displayTitle(project.title)}</span>
-        </div>
-        <StepNav current="script" reachable={made ? ["brief", "script", "review", "export"] : ["brief", "script"]} projectId={project.id} steps={stickSkit.steps} />
-        <div className="flex w-[420px] justify-end">
-          <div aria-label="Dilhan A." className="flex size-[30px] items-center justify-center rounded-full bg-[#26262b] text-[11px] font-semibold text-fg-2">
-            DA
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        trail={[{ href: "/", label: "Projects" }, { label: displayTitle(project.title), display: true }]}
+        center={
+          <StepNav
+            current="script"
+            reachable={made ? ["brief", "script", "review", "export"] : ["brief", "script"]}
+            projectId={project.id}
+            steps={stickSkit.steps}
+          />
+        }
+        trailing={<MemberMark name={member.name} email={member.email} />}
+      />
 
       {draft ? (
         <SkitReview
@@ -68,6 +68,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           produce={produce}
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}
           setOptions={setOptions}
+          shape={frame}
           focusFraction={comment && !comment.resolved && changeFromComment ? comment.fraction : null}
           origin={project.origin}
           musicBed={project.musicBed}

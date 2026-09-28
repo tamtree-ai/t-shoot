@@ -6,7 +6,7 @@ import Link from "next/link";
  */
 export function StudioMark({ large = false }: { large?: boolean }) {
   return (
-    <Link href="/" aria-label="t-shoot — all projects" className="flex items-center gap-2.5 rounded hover:opacity-85">
+    <Link href="/" aria-label="t-shoot — all projects" className="flex shrink-0 items-center gap-2.5 rounded whitespace-nowrap hover:opacity-85">
       {large ? (
         <span aria-hidden className="flex size-[22px] items-center justify-center rounded-md border border-line bg-raised-2">
           <span className="size-2 rounded-full bg-accent" />

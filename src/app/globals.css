@@ -91,3 +91,133 @@
     animation: none;
   }
 }
+
+/* Guide document. The markdown renderer emits these elements and nothing else. */
+.guide-doc {
+  font-size: 16.5px;
+  line-height: 1.7;
+  color: var(--color-fg-2);
+}
+.guide-doc > * + * {
+  margin-top: 0.85em;
+}
+.guide-doc h1 {
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: var(--color-fg);
+  margin-top: 0;
+}
+.guide-doc h2 {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: var(--color-fg);
+  margin-top: 1.7em;
+  padding-top: 0.2em;
+}
+.guide-doc h3 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-fg);
+  margin-top: 1.45em;
+}
+.guide-doc p {
+  margin: 0;
+}
+.guide-doc a {
+  color: var(--color-accent-link);
+  text-underline-offset: 3px;
+}
+.guide-doc a:hover {
+  text-decoration: underline;
+}
+.guide-doc strong {
+  color: var(--color-fg);
+  font-weight: 600;
+}
+.guide-doc ul,
+.guide-doc ol {
+  margin: 0.2em 0 0.2em;
+  padding-left: 1.3em;
+}
+.guide-doc li + li {
+  margin-top: 0.35em;
+}
+.guide-doc li::marker {
+  color: var(--color-fg-muted);
+}
+.guide-doc code {
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+  color: var(--color-fg);
+  background: var(--color-raised);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  padding: 0.08em 0.35em;
+}
+.guide-doc pre {
+  margin: 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-rule);
+  border-radius: 12px;
+  background: #070709;
+  padding: 14px 16px;
+}
+.guide-doc pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-fg-2);
+}
+.guide-doc blockquote {
+  margin: 0;
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--color-accent-soft);
+  padding: 12px 16px;
+  color: var(--color-fg);
+}
+.guide-doc blockquote p + p {
+  margin-top: 0.5em;
+}
+.guide-doc hr {
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+  margin: 1.8em 0;
+}
+.guide-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.guide-doc th,
+.guide-doc td {
+  text-align: left;
+  vertical-align: top;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.guide-doc th {
+  color: var(--color-fg-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.guide-doc tr:last-child td {
+  border-bottom: 0;
+}
+.guide-doc .table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-rule);
+  border-radius: 12px;
+  background: var(--color-panel);
+}

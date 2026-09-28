@@ -44,6 +44,17 @@ export function ProjectLibrary({ projects, shows, variationPrice, memberId }: { 
 
   const ungrouped = shown.filter((p) => !p.showId);
   const price = variationPrice.toFixed(2);
+  const filtering = Boolean(q.trim()) || kind !== "all" || step !== "All steps" || needs || ready || archived || mine;
+
+  function clearFilters() {
+    setQ("");
+    setKind("all");
+    setStep("All steps");
+    setNeeds(false);
+    setReady(false);
+    setArchived(false);
+    setMine(false);
+  }
 
   async function run(id: string, work: () => Promise<{ ok: boolean; error?: string; id?: string }>) {
     setBusy(id);
@@ -76,9 +87,9 @@ export function ProjectLibrary({ projects, shows, variationPrice, memberId }: { 
       {shows.length > 0 && (
         <ul className="flex flex-col gap-2">
           {shows.map((show) => (
-            <li key={show.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-rule-2 bg-panel px-4 py-3">
-              <span className="font-display text-lg italic">{show.name}</span>
-              <Link href={`/shows/${show.id}`} className="text-[13px] text-fg-2">Show</Link>
+            <li key={show.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-rule bg-panel px-4 py-3">
+              <span className="min-w-0 flex-1 truncate font-display text-lg italic">{show.name}</span>
+              <Link href={`/shows/${show.id}`} className="text-[13px] text-fg-2 hover:text-fg">Open</Link>
               <Link href={`/projects/new?type=stick_skit&show=${show.id}`} className="text-[13px] text-accent-link">
                 New episode
               </Link>
@@ -100,21 +111,29 @@ export function ProjectLibrary({ projects, shows, variationPrice, memberId }: { 
         </ul>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles and lines" aria-label="Search projects" className="h-10 min-w-[200px] flex-1 rounded-lg border border-line bg-panel px-3 text-[14px] text-fg placeholder:text-fg-muted" />
-        <select aria-label="Project type" value={kind} onChange={(e) => setKind(e.target.value)} className="h-10 rounded-lg border border-line bg-panel px-2 text-[13px]">
-          <option value="all">All types</option>
-          {kinds.map(([id, label]) => (
-            <option key={id} value={id}>{label}</option>
-          ))}
-        </select>
-        <select aria-label="Step" value={step} onChange={(e) => setStep(e.target.value as (typeof STEPS)[number])} className="h-10 rounded-lg border border-line bg-panel px-2 text-[13px]">
-          {STEPS.map((s) => <option key={s}>{s}</option>)}
-        </select>
-        <Filter on={needs} onClick={() => setNeeds((v) => !v)}>Needs you</Filter>
-        <Filter on={ready} onClick={() => setReady((v) => !v)}>Ready to post</Filter>
-        <Filter on={archived} onClick={() => setArchived((v) => !v)}>Archived</Filter>
-        <Filter on={mine} onClick={() => setMine((v) => !v)}>Mine</Filter>
+      <div className="flex flex-col gap-2 rounded-xl border border-rule bg-panel p-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles and lines" aria-label="Search projects" className="h-9 w-full rounded-lg bg-canvas px-3 text-[14px] text-fg placeholder:text-fg-muted" />
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-rule px-0.5 pt-2">
+          <select aria-label="Project type" value={kind} onChange={(e) => setKind(e.target.value)} className={select}>
+            <option value="all">All types</option>
+            {kinds.map(([id, label]) => (
+              <option key={id} value={id}>{label}</option>
+            ))}
+          </select>
+          <select aria-label="Step" value={step} onChange={(e) => setStep(e.target.value as (typeof STEPS)[number])} className={select}>
+            {STEPS.map((s) => <option key={s}>{s}</option>)}
+          </select>
+          <span aria-hidden className="mx-1 hidden h-4 w-px bg-line sm:block" />
+          <Filter on={needs} onClick={() => setNeeds((v) => !v)}>Needs you</Filter>
+          <Filter on={ready} onClick={() => setReady((v) => !v)}>Ready to post</Filter>
+          <Filter on={archived} onClick={() => setArchived((v) => !v)}>Archived</Filter>
+          <Filter on={mine} onClick={() => setMine((v) => !v)}>Mine</Filter>
+          {filtering && (
+            <button type="button" onClick={clearFilters} className="h-8 rounded-md px-2 text-[13px] text-fg-3 hover:text-fg">
+              Clear
+            </button>
+          )}
+        </div>
       </div>
       {error && <p className="text-[13px] text-attention">{error}</p>}
 
@@ -128,9 +147,11 @@ export function ProjectLibrary({ projects, shows, variationPrice, memberId }: { 
   );
 }
 
+const select = "h-8 rounded-md border border-line bg-canvas px-2 text-[13px] text-fg";
+
 function Filter({ on, onClick, children }: { on: boolean; onClick: () => void; children: string }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick} className={`h-10 rounded-lg border px-3 text-[13px] ${on ? "border-accent bg-accent-soft text-fg" : "border-line text-fg-2"}`}>
+    <button type="button" aria-pressed={on} onClick={onClick} className={`h-8 rounded-md border px-2.5 text-[13px] ${on ? "border-accent bg-accent-soft text-fg" : "border-transparent text-fg-2 hover:bg-hover"}`}>
       {children}
     </button>
   );

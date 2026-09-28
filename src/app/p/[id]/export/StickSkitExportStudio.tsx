@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { BrandFrame } from "@/components/BrandFrame";
-import { fit916 } from "@/components/stick-skit/fit";
+import { fitFrame } from "@/components/stick-skit/fit";
+import { ASPECT_LABEL, aspectOfSize, FRAME, type Aspect } from "@/lib/stick/frame";
 import type { BrandKit } from "@/lib/brand";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { ExportLabs } from "./ExportLabs";
@@ -26,6 +27,8 @@ export type ExportCut = {
   thumbnail?: string;
   reminder?: string;
   reviewUrl: string | null;
+  /** The cut's frame. The file's pixels replace this once they load. */
+  aspect?: Aspect;
 };
 
 function aiVoice(consent: boolean): string {
@@ -55,12 +58,13 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
   const cut = cuts.find((c) => c.id === id) ?? cuts[0];
   const video = useRef<HTMLVideoElement>(null);
   const [stage, stageSize] = useElementSize();
-  const fitted = fit916(stageSize.width, stageSize.height);
   const [postFor, setPostFor] = useState<{ id: string; caption: string; hashtags: string; disclosure: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [specsFor, setSpecsFor] = useState<{ id: string; w: number; h: number; bytes: number | null } | null>(null);
   const post = postFor?.id === cut?.id ? postFor : null;
   const specs = specsFor?.id === cut?.id ? specsFor : null;
+  const ratio: Aspect = specs && specs.w > 0 && specs.h > 0 ? aspectOfSize(specs.w, specs.h) : (cut?.aspect ?? "9:16");
+  const fitted = fitFrame(stageSize.width, stageSize.height, ratio);
 
   useEffect(() => {
     if (!cut) return;
@@ -76,7 +80,10 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
       .then((r) => {
         const total = r.headers.get("content-range")?.split("/")[1];
         const n = total ? Number(total) : Number(r.headers.get("content-length"));
-        if (!cancel && Number.isFinite(n) && n > 0) setSpecsFor((s) => ({ id: cutId, w: s?.id === cutId ? s.w : 1080, h: s?.id === cutId ? s.h : 1920, bytes: n }));
+        if (!cancel && Number.isFinite(n) && n > 0) {
+          const fallback = FRAME[cut.aspect ?? "9:16"];
+          setSpecsFor((s) => ({ id: cutId, w: s?.id === cutId ? s.w : fallback.width, h: s?.id === cutId ? s.h : fallback.height, bytes: n }));
+        }
       })
       .catch(() => {});
     return () => {
@@ -154,7 +161,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
                 preload="metadata"
                 onLoadedMetadata={(e) => {
                   const v = e.currentTarget;
-                  setSpecsFor((s) => ({ id: cut.id, w: v.videoWidth || 1080, h: v.videoHeight || 1920, bytes: s?.id === cut.id ? s.bytes : null }));
+                  setSpecsFor((s) => ({ id: cut.id, w: v.videoWidth || FRAME[cut.aspect ?? "9:16"].width, h: v.videoHeight || FRAME[cut.aspect ?? "9:16"].height, bytes: s?.id === cut.id ? s.bytes : null }));
                 }}
                 style={{ width: fitted.width, height: fitted.height }}
                 className="bg-black object-contain"
@@ -164,10 +171,13 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
           </div>
         </div>
         <p className="px-5 pb-3 text-[12px] text-fg-muted">
-          {specs ? `${specs.w}×${specs.h}` : "1080×1920"} · {clock(cut.durationS)} · version {cut.number}
+          {specs ? `${specs.w}×${specs.h}` : `${FRAME[ratio].width}×${FRAME[ratio].height}`} · {ASPECT_LABEL[ratio]} · {clock(cut.durationS)} · version {cut.number}
           {specs?.bytes ? ` · ${fileSize(specs.bytes)}` : ""}
           {cut.approvedBy ? ` · approved by ${cut.approvedBy}` : ""}
         </p>
+        {ratio === "16:9" && (
+          <p className="px-5 pb-3 text-[12px] text-fg-muted">TikTok and Instagram are built for a vertical short. This cut is widescreen, so YouTube is the one that fits.</p>
+        )}
       </section>
 
       <aside className="flex w-[380px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-rule-2 bg-panel-2 px-5 py-5">

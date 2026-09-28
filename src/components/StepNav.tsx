@@ -35,7 +35,7 @@ export function StepNav({
   return (
     <nav
       aria-label="Project steps"
-      className="flex h-full flex-grow items-center justify-center gap-1"
+      className="flex h-full items-center justify-center gap-1"
     >
       {shown.map((step, i) => {
         const isCurrent = step.key === current;
