@@ -11,6 +11,8 @@
 import { TEMPLATES } from "stickstage/schema";
 import { z } from "zod";
 
+import { ASPECTS } from "@/lib/stick/frame";
+
 /** `ai_clips`'s flows (the `shortvideo` plugin). */
 export const STUDIO_FLOWS = ["studio-script", "studio-narrate", "studio-clip", "studio-render"] as const;
 /** `stick_skit`'s flows (the `stickstage` plugin's `stage-flows/`). */
@@ -133,6 +135,12 @@ export const StickBrief = z.object({
   /** Unset: the script model picks one that fits the cast. */
   template: z.enum(TEMPLATES).optional(),
   cast: z.array(StickCast).min(1).max(2),
+  /**
+   * `9:16` short (1080×1920, the default) or `16:9` widescreen (1920×1080).
+   * Omitted means a short. Cast and rooms must be drawn for this frame.
+   * The writer call includes it only once this StickStage build accepts the field.
+   */
+  aspect: z.enum(ASPECTS).optional(),
   /** Unset: the script model picks from `allowed_sets` (or the whole catalog). */
   set: z.string().optional(),
   /**

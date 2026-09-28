@@ -8,9 +8,10 @@ import { TEMPLATES } from "stickstage/schema";
 import { z } from "zod";
 
 import { STICK_LINE_PRICE_USD } from "@/lib/estimate";
+import { ASPECT_LABEL, aspectOfBrief, isAspect, type Aspect } from "@/lib/stick/frame";
 import { Skit, StickBrief, StickLine } from "@/lib/tamtree/stage-flows";
 import { spendCap, type ProductionType } from "../types";
-import { DEFAULT_VOICE_MAP, STICK_VOICES, stickCatalog } from "./catalog";
+import { characterAspect, characterName, DEFAULT_VOICE_MAP, setAspect, setLabel, STICK_VOICES, stickCatalog } from "./catalog";
 
 const CHARACTER_IDS = stickCatalog.characters.map((c) => c.id);
 const SET_IDS = stickCatalog.sets.map((s) => s.id);
@@ -65,6 +66,8 @@ export function stickBriefOutsideDefaults(brief: StickBrief, limitUsd: string, d
     if (new Set(brief.sets).size !== brief.sets.length) return "Give each scene its own set.";
     if (brief.sets.some((s) => !d.allowed_sets.includes(s))) return "That set isn't available in this workspace.";
   }
+  const mixed = frameProblem(brief);
+  if (mixed) return mixed;
   const template = brief.template && stickCatalog.templates.find((t) => t.id === brief.template);
   if (template && template.cast !== brief.cast.length) {
     return `That format needs ${template.cast === 1 ? "one character" : "two characters"}.`;
@@ -73,6 +76,32 @@ export function stickBriefOutsideDefaults(brief: StickBrief, limitUsd: string, d
   if (brief.template === "me-vs-me" && brief.cast.some((c) => !c.label)) return "Give both sides a label, like “me” and “my brain”.";
   if (!(Number(limitUsd) > 0)) return "Set a limit for this video.";
   if (Number(limitUsd) > Number(d.limit_usd)) return `This workspace caps a video at $${d.limit_usd}.`;
+  return null;
+}
+
+function markedAspect(doc: Record<string, unknown> | undefined): Aspect | undefined {
+  return doc && isAspect(doc.aspect) ? doc.aspect : undefined;
+}
+
+/** Why cast or rooms belong to the other frame, or null when they match. A workspace character with no frame follows the skit. */
+export { characterAspect, setAspect } from "./catalog";
+
+export function frameProblem(brief: StickBrief): string | null {
+  const frame = aspectOfBrief(brief);
+  for (const member of brief.cast) {
+    const custom = brief.characters?.find((c) => c.id === member.character);
+    const marked = markedAspect(custom);
+    if (custom && !marked) continue;
+    const drawn = marked ?? characterAspect(member.character);
+    if (drawn === frame) continue;
+    const name = custom ? member.character : characterName(member.character);
+    return `${name} is drawn for ${ASPECT_LABEL[drawn].toLowerCase()} (${drawn}). This video is ${ASPECT_LABEL[frame].toLowerCase()} (${frame}).`;
+  }
+  for (const id of [brief.set, ...(brief.sets ?? [])]) {
+    if (!id || setAspect(id) === frame) continue;
+    const drawn = setAspect(id);
+    return `${setLabel(id)} is a ${ASPECT_LABEL[drawn].toLowerCase()} room (${drawn}). This video is ${ASPECT_LABEL[frame].toLowerCase()} (${frame}).`;
+  }
   return null;
 }
 

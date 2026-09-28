@@ -41,6 +41,7 @@ export async function pasteStickAction(input: {
   limitUsd: string;
   showId?: string;
   episodeNumber?: number;
+  aspect?: "9:16" | "16:9";
 }): Promise<{ ok: false; error: string } | void> {
   const member = await getCurrentMember();
   try {

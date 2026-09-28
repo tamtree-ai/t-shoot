@@ -6,6 +6,7 @@ import { getCurrentMember } from "@/lib/auth";
 import { getShow } from "@/services/shows";
 import { memberById } from "@/services/workspace";
 import { listVersions } from "@/services/versions";
+import { aspectOfBrief, aspectOfSkit, type Aspect } from "@/lib/stick/frame";
 import { stickSkit, type StickVersionPayload } from "@/types/stick-skit";
 import { StickSkitExportStudio, type ExportCut } from "./StickSkitExportStudio";
 import { listPublications } from "@/services/publish";
@@ -47,6 +48,7 @@ export async function StickSkitExport({ project }: { project: Project }) {
       ...(p.render.cover ? { cover: media(p.render.cover, file("png")) } : {}),
       ...(p.render.thumbnail ? { thumbnail: media(p.render.thumbnail, file("jpg")) } : {}),
       ...(p.reminder ? { reminder: p.reminder } : {}),
+      aspect: aspectOfSkit(p.skit, aspectOfBrief(project.brief)) satisfies Aspect,
       reviewUrl: link ? `/r/${link.token}` : null,
     };
   });

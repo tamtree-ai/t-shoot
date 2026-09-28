@@ -8,9 +8,10 @@ import { fontFamily } from "@/lib/brand";
 import { getProduceState, getSkitDraft } from "@/services/skit";
 import { getShow } from "@/services/shows";
 import { getTypeDefaults } from "@/services/type-settings";
+import { aspectOfBrief, aspectOfSkit } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
-import { setLabel } from "@/types/stick-skit/catalog";
+import { setAspect, setLabel } from "@/types/stick-skit/catalog";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
 import { StudioMark } from "@/components/StudioMark";
@@ -27,8 +28,11 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
   const draft = await getSkitDraft(project.id);
   const produce = await getProduceState(project.id, draft);
   const made = produce?.versionNumber != null;
+  const frame = aspectOfSkit(draft?.skit, aspectOfBrief(brief));
   const setIds = brief.allowed_sets?.length ? brief.allowed_sets : stickCatalog.sets.map((s) => s.id);
-  const setOptions = setIds.filter((id) => stickCatalog.sets.some((s) => s.id === id)).map((id) => ({ id, label: setLabel(id) }));
+  const setOptions = setIds
+    .filter((id) => stickCatalog.sets.some((s) => s.id === id) && setAspect(id) === frame)
+    .map((id) => ({ id, label: setLabel(id) }));
   const show = project.showId ? await getShow(project.orgId, project.showId) : null;
   const brand = show?.config.brand;
 
@@ -68,6 +72,7 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           produce={produce}
           fromComment={comment && !comment.resolved && changeFromComment ? { id: changeFromComment, note: `${comment.authorName} said: “${comment.body}”` } : null}
           setOptions={setOptions}
+          shape={frame}
           focusFraction={comment && !comment.resolved && changeFromComment ? comment.fraction : null}
           origin={project.origin}
           musicBed={project.musicBed}

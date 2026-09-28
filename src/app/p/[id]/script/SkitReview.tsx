@@ -10,7 +10,8 @@ import { SpeakButton } from "@/components/SpeakButton";
 import { SfxChip } from "@/components/SfxChip";
 import { MUSIC_BEDS } from "@/lib/music";
 import { Face } from "@/components/stick-skit/Face";
-import { fit916 } from "@/components/stick-skit/fit";
+import { fitFrame } from "@/components/stick-skit/fit";
+import { ASPECT_LABEL, FRAME, frameClass, type Aspect } from "@/lib/stick/frame";
 import { SetPicker } from "@/components/stick-skit/SetPicker";
 import { CameraStrip } from "@/components/stick-skit/CameraStrip";
 import { SkitPreview, type BeatSpan } from "@/components/stick-skit/SkitPreview";
@@ -23,7 +24,7 @@ import { isTerminal } from "@/lib/tamtree/types";
 import type { Skit } from "@/lib/tamtree/stage-flows";
 import type { ProduceState } from "@/services/skit";
 import { estimateProduce } from "@/types/stick-skit";
-import { characterName, setLabel } from "@/types/stick-skit/catalog";
+import { characterAspect, characterName, setLabel } from "@/types/stick-skit/catalog";
 import {
   addBeat,
   addScene,
@@ -85,6 +86,7 @@ export function SkitReview({
   produce,
   fromComment,
   setOptions,
+  shape,
   focusFraction,
   origin,
   musicBed,
@@ -103,6 +105,8 @@ export function SkitReview({
   produce: ProduceState | null;
   fromComment: { id: string; note: string } | null;
   setOptions: { id: string; label: string }[];
+  /** Short or widescreen. The preview box and the character menu follow it. */
+  shape: Aspect;
   /** 0–1, from a review comment. Seeks the preview and opens that beat. */
   focusFraction: number | null;
   origin?: string;
@@ -168,7 +172,7 @@ export function SkitReview({
   }, [skit, openId]);
 
   const [stageRef, stageSize] = useElementSize();
-  const fitted = fit916(stageSize.width, Math.max(0, stageSize.height));
+  const fitted = fitFrame(stageSize.width, Math.max(0, stageSize.height), shape);
 
   async function flush(): Promise<boolean> {
     if (timer.current) clearTimeout(timer.current);
@@ -341,6 +345,7 @@ export function SkitReview({
             {scenes.length > 1 ? ` · ${scenes.length} scenes` : ""}
             {scenes.length <= 1 && scenes[0]?.set ? ` · ${setLabel(scenes[0].set)}` : ""}
             {scenes.length === 0 && typeof (skit as { set?: unknown }).set === "string" ? ` · ${setLabel((skit as { set: string }).set)}` : ""}
+            {` · ${ASPECT_LABEL[shape]} ${FRAME[shape].width}×${FRAME[shape].height}`}
             {seconds != null ? ` · about ${seconds}s` : ""}
             {targetS ? ` of ${targetS}s` : ""}
           </p>
@@ -368,7 +373,7 @@ export function SkitReview({
                   }}
                   className="h-9 rounded-lg border border-line bg-panel px-2 text-[13px] text-fg"
                 >
-                  {stickCatalog.characters.map((c) => (
+                  {stickCatalog.characters.filter((c) => characterAspect(c.id) === shape || c.id === member.character).map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
@@ -515,7 +520,7 @@ export function SkitReview({
                   <SkitPreview skit={skit} width={fitted.width} height={fitted.height} seekTo={seek} onFrame={onFrame} onSpans={onSpans} audio={sound} fontFamily={previewFont} />
                 </BrandFrame>
               ) : (
-                <div className="aspect-[9/16] h-full max-w-full rounded-xl bg-panel" />
+                <div className={`${frameClass(shape)} h-full max-w-full rounded-xl bg-panel`} />
               )}
             </div>
           </div>

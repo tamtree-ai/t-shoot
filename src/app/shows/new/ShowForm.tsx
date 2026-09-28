@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { saveShowAction } from "@/app/library-actions";
+import { ASPECT_LABEL, ASPECTS, engineTakesBriefAspect, FRAME, type Aspect } from "@/lib/stick/frame";
+import { characterAspect, setAspect as roomAspect } from "@/types/stick-skit/catalog";
 
 export function ShowForm({
   characters,
@@ -24,9 +26,12 @@ export function ShowForm({
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [aspect, setAspect] = useState<Aspect>("9:16");
   const [template, setTemplate] = useState(defaultTemplate ?? "");
-  const [cast, setCast] = useState<string[]>(defaultCast);
-  const [setId, setSetId] = useState(defaultSet ?? "");
+  const people = characters.filter((c) => characterAspect(c.id) === aspect);
+  const rooms = sets.filter((s) => roomAspect(s.id) === aspect);
+  const [cast, setCast] = useState<string[]>(() => defaultCast.filter((id) => characterAspect(id) === "9:16").slice(0, 2));
+  const [setId, setSetId] = useState(defaultSet && roomAspect(defaultSet) === "9:16" ? defaultSet : "");
   const [tone, setTone] = useState("");
   const [hashtags, setHashtags] = useState("");
   const [aiLine, setAiLine] = useState("Voices are AI-generated.");
@@ -40,10 +45,15 @@ export function ShowForm({
       onSubmit={(e) => {
         e.preventDefault();
         setError(null);
+        if (aspect === "16:9" && !engineTakesBriefAspect()) {
+          setError("This StickStage build only writes shorts. Widescreen is not in the writer yet.");
+          return;
+        }
         start(async () => {
           const result = await saveShowAction({
             name: name.trim(),
             ...(template ? { template } : {}),
+            aspect,
             cast: cast.map((id, i) => ({ id: `c${i + 1}`, character: id })),
             ...(setId ? { set: setId } : {}),
             ...(tone.trim() ? { tone: tone.trim() } : {}),
@@ -58,6 +68,24 @@ export function ShowForm({
     >
       <Field label="Name">
         <input required value={name} onChange={(e) => setName(e.target.value)} className={input} />
+      </Field>
+      <Field label="Shape">
+        <select
+          aria-label="Shape"
+          value={aspect}
+          onChange={(e) => {
+            const next = e.target.value as Aspect;
+            setAspect(next);
+            const ids = characters.filter((c) => characterAspect(c.id) === next).map((c) => c.id);
+            setCast(ids.slice(0, 2));
+            setSetId(sets.find((s) => roomAspect(s.id) === next)?.id ?? "");
+          }}
+          className={input}
+        >
+          {ASPECTS.map((id) => (
+            <option key={id} value={id}>{ASPECT_LABEL[id]} · {FRAME[id].width}×{FRAME[id].height}</option>
+          ))}
+        </select>
       </Field>
       <Field label="Format">
         <select value={template} onChange={(e) => setTemplate(e.target.value)} className={input}>
@@ -83,7 +111,7 @@ export function ShowForm({
               className={input}
             >
               {i === 1 && <option value="">None</option>}
-              {characters.map((c) => (
+              {people.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
@@ -93,7 +121,7 @@ export function ShowForm({
       <Field label="Set">
         <select value={setId} onChange={(e) => setSetId(e.target.value)} className={input}>
           <option value="">Writer’s pick</option>
-          {sets.map((s) => (
+          {rooms.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
@@ -111,7 +139,10 @@ export function ShowForm({
         <input value={limit} onChange={(e) => setLimit(e.target.value)} inputMode="decimal" className={input} />
       </Field>
       {error && <p className="text-[13px] text-attention">{error}</p>}
-      <button type="submit" disabled={pending || cast.length === 0} className="h-11 rounded-lg bg-accent text-[14px] font-semibold text-accent-ink disabled:opacity-50">
+      {aspect === "16:9" && !engineTakesBriefAspect() && (
+        <p className="text-[13px] text-fg-muted">Widescreen is 1920×1080. This StickStage build still only writes shorts.</p>
+      )}
+      <button type="submit" disabled={pending || cast.length === 0 || (aspect === "16:9" && !engineTakesBriefAspect())} className="h-11 rounded-lg bg-accent text-[14px] font-semibold text-accent-ink disabled:opacity-50">
         {pending ? "Saving…" : "Save show"}
       </button>
     </form>

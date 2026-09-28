@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
-import { fit916 } from "@/components/stick-skit/fit";
+import { fitFrame } from "@/components/stick-skit/fit";
+import { aspectOfSize, type Aspect } from "@/lib/stick/frame";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { clock } from "../edit/shared";
 import { dismissCommentAction, revokeAction, shareAction } from "./actions";
@@ -12,7 +13,7 @@ import { dismissCommentAction, revokeAction, shareAction } from "./actions";
 type Version = { id: string; number: number; createdAt: string; approvedBy: string | null; durationS: number };
 type LinkRow = { id: string; token: string; versionId: string };
 type Comment = { id: string; authorName: string; timecodeS: number; body: string; versionNumber: number; scenePosition: number | null; resolved: boolean; dismissed: boolean };
-export type ReviewFilm = { id: string; number: number; durationS: number; src: string };
+export type ReviewFilm = { id: string; number: number; durationS: number; src: string; frame?: Aspect };
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
@@ -40,7 +41,8 @@ export function ReviewOwner({
   const [t, setT] = useState(0);
   const video = useRef<HTMLVideoElement>(null);
   const [stage, stageSize] = useElementSize();
-  const fitted = fit916(stageSize.width, stageSize.height);
+  const [ratio, setRatio] = useState<Aspect>(films[0]?.frame ?? "9:16");
+  const fitted = fitFrame(stageSize.width, stageSize.height, ratio);
 
   const film = films.find((f) => f.id === filmId) ?? films[0];
   const latest = versions[0];
@@ -66,7 +68,7 @@ export function ReviewOwner({
             <div className="flex items-center gap-3 px-4 pt-3">
               <h1 className="font-display text-[28px] leading-none">Review</h1>
               {films.length > 1 && (
-                <select aria-label="Version" value={film.id} onChange={(e) => { setFilmId(e.target.value); setT(0); }} className="h-8 rounded-lg border border-line bg-panel px-2 text-[13px]">
+                <select aria-label="Version" value={film.id} onChange={(e) => { setFilmId(e.target.value); setT(0); setRatio(films.find((f) => f.id === e.target.value)?.frame ?? "9:16"); }} className="h-8 rounded-lg border border-line bg-panel px-2 text-[13px]">
                   {films.map((f) => <option key={f.id} value={f.id}>Version {f.number}</option>)}
                 </select>
               )}
@@ -83,6 +85,10 @@ export function ReviewOwner({
                     controls
                     preload="metadata"
                     onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+                    onLoadedMetadata={(e) => {
+                      const v = e.currentTarget;
+                      if (v.videoWidth > 0 && v.videoHeight > 0) setRatio(aspectOfSize(v.videoWidth, v.videoHeight));
+                    }}
                     style={{ width: fitted.width, height: fitted.height }}
                     className="bg-black object-contain"
                   />

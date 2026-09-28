@@ -44,8 +44,15 @@ describe("stick_skit tenant defaults", () => {
   });
 
   it("already has a voice for the characters not vendored yet", () => {
-    expect(DEFAULT_VOICE_MAP).toMatchObject({ lila: "Zephyr", theo: "Charon", moss: "Fenrir", dash: "Aoede" });
-    expect(new Set(Object.values(DEFAULT_VOICE_MAP)).size).toBe(Object.keys(DEFAULT_VOICE_MAP).length);
+    expect(DEFAULT_VOICE_MAP).toMatchObject({
+      lila: "Zephyr",
+      theo: "Charon",
+      moss: "Fenrir",
+      dash: "Aoede",
+      reed: "Leda",
+      nell: "Orus",
+      pip: "Zephyr",
+    });
     for (const c of stickCatalog.characters) expect(DEFAULT_VOICE_MAP[c.id], c.id).toBeTruthy();
   });
 });
@@ -68,6 +75,13 @@ describe("a stick_skit brief against the defaults", () => {
     expect(stickBriefOutsideDefaults({ ...brief, template: "me-vs-me", cast: selves }, "1.00", all)).toMatch(/label/);
     selves[1]!.label = "my brain";
     expect(stickBriefOutsideDefaults({ ...brief, template: "me-vs-me", cast: selves }, "1.00", all)).toBeNull();
+  });
+
+  it("refuses a character or room drawn for the other frame", () => {
+    expect(stickBriefOutsideDefaults({ ...brief, aspect: "9:16" }, "1.00", all)).toBeNull();
+    expect(stickBriefOutsideDefaults({ ...brief, aspect: "16:9" }, "1.00", all)).toMatch(/Milo is drawn for short \(9:16\)/);
+    expect(stickBriefOutsideDefaults({ ...brief, aspect: "16:9", set: "cafe-1" }, "1.00", all)).toMatch(/Milo is drawn for short/);
+    expect(stickBriefOutsideDefaults({ ...brief, cast: [brief.cast[0]!], set: "cafe-1" }, "1.00", all)).toBeNull();
   });
 
   it("refuses a duplicate cast id, a zero limit and one past the cap", () => {

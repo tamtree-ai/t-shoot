@@ -62,6 +62,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
               cast: showRow.config.cast.map((c) => c.character),
               set: showRow.config.set,
               tone: showRow.config.tone ? showRow.config.tone[0]!.toUpperCase() + showRow.config.tone.slice(1) : null,
+              aspect: showRow.config.aspect,
             } : undefined}
           />
         ) : (

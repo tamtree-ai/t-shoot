@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import type { Aspect } from "@/lib/stick/frame";
 import { parsePastedScript } from "@/lib/paste-script";
 import { pasteClipsAction, pasteStickAction, topicsFromLinkAction } from "@/app/horizon-actions";
 
@@ -13,6 +14,7 @@ export function StartPanel({
   characters,
   sets,
   limitUsd,
+  aspect,
   showId,
   episodeNumber,
   onTopic,
@@ -22,6 +24,8 @@ export function StartPanel({
   characters: { id: string; name: string }[];
   sets: { id: string; label: string }[];
   limitUsd: string;
+  /** The brief's frame. Paste uses the same cast and rooms the topic form is showing. */
+  aspect?: Aspect;
   showId?: string;
   episodeNumber?: number;
   onTopic: (topic: string) => void;
@@ -89,12 +93,12 @@ export function StartPanel({
           <p className="text-xs text-fg-muted">Parsing is free. It opens on the script. Nothing is voiced.</p>
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || (kind === "stick_skit" && characters.length === 0)}
             onClick={() => {
               setError(null);
               startTransition(async () => {
                 const result = kind === "stick_skit"
-                  ? await pasteStickAction({ script, mapping: speakerMap(), setId, limitUsd, showId, episodeNumber })
+                  ? await pasteStickAction({ script, mapping: speakerMap(), setId, limitUsd, showId, episodeNumber, ...(aspect ? { aspect } : {}) })
                   : await pasteClipsAction(script, limitUsd);
                 if (result && !result.ok) setError(result.error);
               });

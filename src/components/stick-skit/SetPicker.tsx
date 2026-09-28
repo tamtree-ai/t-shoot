@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
+import { frameClass } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
-import { setLabel } from "@/types/stick-skit/catalog";
+import { setAspect, setLabel } from "@/types/stick-skit/catalog";
 
 import { SetThumb } from "./Thumbs";
 
@@ -80,7 +81,7 @@ export function SetPicker({
                   onChange(o.id);
                   setOpen(false);
                 }}
-                className={`relative aspect-[9/16] overflow-hidden rounded-lg border bg-[#0c0c0f] ${selected ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-line hover:border-line-strong"}`}
+                className={`relative ${frameClass(setAspect(o.id))} overflow-hidden rounded-lg border bg-[#0c0c0f] ${selected ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-line hover:border-line-strong"}`}
               >
                 <SetThumb id={o.id} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 text-left text-[10px] font-medium text-white">{o.label}</span>

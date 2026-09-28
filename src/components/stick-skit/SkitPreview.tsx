@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { checkDraft, SkitError, type Diagnostic, type PreparedVoice } from "stickstage";
 import { StickStageComposition } from "stickstage/remotion";
 
+import { skitForEngine } from "@/lib/stick/frame";
 import { stickRegistry } from "@/lib/stick/registry";
 
 export type BeatSpan = { id: string; from: number; to: number };
@@ -17,7 +18,7 @@ type Compiled = { ok: true; program: PreviewProgram; spans: BeatSpan[] } | { ok:
 
 function compile(skit: unknown, voice?: PreparedVoice): Compiled {
   try {
-    const program = checkDraft(skit, stickRegistry, voice ? { voice } : undefined).result.program;
+    const program = checkDraft(skitForEngine(skit), stickRegistry, voice ? { voice } : undefined).result.program;
     const scenes = (program as unknown as { scenes: SceneLike[] }).scenes;
     const spans = scenes.flatMap((sc) => sc.timeline.beats.map((b) => ({ id: b.id, from: sc.from + b.from, to: sc.from + b.to })));
     return { ok: true, program, spans };

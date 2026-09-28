@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { fit916 } from "@/components/stick-skit/fit";
+import { fitFrame } from "@/components/stick-skit/fit";
+import { aspectOfSize, type Aspect } from "@/lib/stick/frame";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { gradientFor } from "../../p/[id]/edit/shared";
 import type { ReviewView } from "@/services/review";
@@ -26,7 +27,8 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
 
   const video = useRef<HTMLVideoElement>(null);
   const [stage, stageSize] = useElementSize();
-  const fitted = fit916(stageSize.width, stageSize.height);
+  const [ratio, setRatio] = useState<Aspect>(review.frame);
+  const fitted = fitFrame(stageSize.width, stageSize.height, ratio);
   const duration = review.durationS;
 
   // A timeline (ai_clips) is walked on a clock; a rendered video (stick_skit) plays itself.
@@ -89,11 +91,11 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
 
       <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
         <main className="flex flex-col lg:min-h-0 lg:min-w-0 lg:flex-1" style={{ background: "radial-gradient(circle at 50% 40%, #15151a 0%, #0a0a0c 70%)" }}>
-          <div ref={stage} className="relative mx-auto aspect-[9/16] w-full max-w-[420px] max-lg:max-h-[62vh] lg:aspect-auto lg:max-h-none lg:max-w-none lg:min-h-0 lg:flex-1">
+          <div ref={stage} className={`relative mx-auto w-full max-lg:max-h-[62vh] lg:aspect-auto lg:max-h-none lg:max-w-none lg:min-h-0 lg:flex-1 ${ratio === "16:9" ? "aspect-video max-w-[840px]" : "aspect-[9/16] max-w-[420px]"}`}>
             <div className="absolute inset-0 flex items-center justify-center p-3">
               {fitted.width > 0 && (
                 <div role="img" aria-label="Preview" className="relative box-border rounded-[8%] bg-[#050506] p-[1.6%] shadow-[0_0_0_1px_#3a3a42,0_24px_60px_rgba(0,0,0,0.55)]" style={{ width: fitted.width, height: fitted.height }}>
-                  <div className="absolute top-[3%] left-1/2 z-[2] h-[4%] w-[26%] -translate-x-1/2 rounded-full bg-black" />
+                  {ratio === "9:16" && <div className="absolute top-[3%] left-1/2 z-[2] h-[4%] w-[26%] -translate-x-1/2 rounded-full bg-black" />}
                   {review.video ? (
                     <video
                       ref={video}
@@ -101,6 +103,10 @@ export function ClientReview({ token, review }: { token: string; review: ReviewV
                       playsInline
                       preload="metadata"
                       onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+                      onLoadedMetadata={(e) => {
+                        const v = e.currentTarget;
+                        if (v.videoWidth > 0 && v.videoHeight > 0) setRatio(aspectOfSize(v.videoWidth, v.videoHeight));
+                      }}
                       onEnded={() => setPlaying(false)}
                       className="h-full w-full rounded-[6%] bg-black object-contain"
                     />

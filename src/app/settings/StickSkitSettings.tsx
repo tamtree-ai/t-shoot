@@ -5,7 +5,8 @@ import { useState, useTransition } from "react";
 import { SpeakButton } from "@/components/SpeakButton";
 import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import type { StickSkitDefaults } from "@/types/stick-skit";
-import { DEFAULT_VOICE_MAP, setLabel, STICK_VOICES, stickCatalog } from "@/types/stick-skit/catalog";
+import { frameClass } from "@/lib/stick/frame";
+import { characterAspect, DEFAULT_VOICE_MAP, setAspect, setLabel, STICK_VOICES, stickCatalog } from "@/types/stick-skit/catalog";
 import { saveTypeDefaultsAction } from "./actions";
 
 const toggleBase = "flex h-9 items-center rounded-lg border px-3.5 text-[13px] disabled:cursor-not-allowed";
@@ -65,7 +66,7 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
             const on = characters.includes(c.id);
             return (
               <div key={c.id} className="flex items-center gap-3">
-                <span className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md border border-line bg-[#0c0c0f]">
+                <span className={`relative shrink-0 overflow-hidden rounded-md border border-line bg-[#0c0c0f] ${characterAspect(c.id) === "16:9" ? "h-10 w-16" : "h-14 w-10"}`}>
                   <CharacterThumb id={c.id} className="absolute inset-0" />
                 </span>
                 <button type="button" aria-pressed={on} onClick={() => setCharacters((l) => toggle(l, c.id))} className={`${toggleBase} w-28 ${on ? toggleOn : toggleOff}`}>
@@ -95,7 +96,7 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
           {stickCatalog.sets.map((s) => {
             const on = sets.includes(s.id);
             return (
-              <button key={s.id} type="button" title={s.description} aria-pressed={on} aria-label={setLabel(s.id)} onClick={() => setSets((l) => toggle(l, s.id))} className={`${card(on)} aspect-[9/16]`}>
+              <button key={s.id} type="button" title={s.description} aria-pressed={on} aria-label={setLabel(s.id)} onClick={() => setSets((l) => toggle(l, s.id))} className={`${card(on)} ${frameClass(setAspect(s.id))}`}>
                 <SetThumb id={s.id} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 text-left text-[10px] font-medium text-white">{setLabel(s.id)}</span>
               </button>

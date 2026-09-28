@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ProjectBar } from "@/components/ProjectBar";
 import { db, schema } from "@/db";
+import { aspectOfBrief, aspectOfSkit } from "@/lib/stick/frame";
 import { locate } from "@/lib/timeline";
 import { getProject } from "@/services/projects";
 import { projectComments } from "@/services/review";
@@ -25,7 +26,13 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
   const films = versions.flatMap((v) => {
     const media = versionMedia(v);
     if (media.kind !== "video") return [];
-    return [{ id: v.id, number: v.number, durationS: media.durationS, src: `/api/media/${media.mp4AssetId}?name=${encodeURIComponent(`${project.title}-v${v.number}.mp4`)}` }];
+    return [{
+      id: v.id,
+      number: v.number,
+      durationS: media.durationS,
+      src: `/api/media/${media.mp4AssetId}?name=${encodeURIComponent(`${project.title}-v${v.number}.mp4`)}`,
+      frame: aspectOfSkit((v.payload as { skit?: unknown }).skit, aspectOfBrief(project.brief)),
+    }];
   });
 
   return (

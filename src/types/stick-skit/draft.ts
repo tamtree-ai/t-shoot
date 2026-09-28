@@ -7,6 +7,7 @@
  */
 import { checkDraft, lastWordAnchor, normWord, SkitError, tokenize, type DraftCut } from "stickstage";
 
+import { skitForEngine } from "@/lib/stick/frame";
 import { stickRegistry } from "@/lib/stick/registry";
 import type { Skit, StickCheck, StickLine } from "@/lib/tamtree/stage-flows";
 
@@ -59,7 +60,7 @@ export function findingTarget(skit: unknown, path?: string): { beat: number; fie
 
 export function judgeSkit(skit: unknown): SkitVerdict {
   try {
-    const d = checkDraft(skit, stickRegistry);
+    const d = checkDraft(skitForEngine(skit), stickRegistry);
     const blank = blankLines(skit);
     const slams = slamAnchorFindings(skit);
     return {
