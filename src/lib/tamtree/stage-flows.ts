@@ -147,6 +147,8 @@ export const StickBrief = z.object({
   tone: z.string().optional(),
   /** How long the owner hopes the skit runs. Omitted from the writer call. */
   target_s: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60)]).optional(),
+  /** Workspace characters. Staging copies them onto the skit, ahead of the catalog. */
+  characters: z.array(z.record(z.string(), z.unknown())).max(4).optional(),
 });
 export type StickBrief = z.infer<typeof StickBrief>;
 
@@ -204,6 +206,9 @@ export const StickProduceOut = z.object({
   digest: z.string().min(1),
   /** The AI-voice labelling note to show before posting. */
   reminder: z.string().optional(),
+  /** The compiler's cover and thumbnail, when the render wrote them. */
+  cover_asset_id: z.string().min(1).optional(),
+  thumbnail_asset_id: z.string().min(1).optional(),
 });
 export type StickProduceOut = z.infer<typeof StickProduceOut>;
 

@@ -14,6 +14,6 @@ describe("vendored stickstage", () => {
     expect(typeof SkitSchema.safeParse).toBe("function");
     expect(PremiseSchema.shape.cast).toBeDefined();
     expect(catalog.characters.map((c) => c.id)).toEqual(expect.arrayContaining(["milo", "june"]));
-    expect(catalog.templates).toHaveLength(5);
+    expect(catalog.templates.map((t) => t.id)).toEqual(expect.arrayContaining(["exchange", "explainer", "family", "fable", "trio"]));
   });
 });

@@ -44,6 +44,8 @@ export async function StickSkitExport({ project }: { project: Project }) {
       mp4: media(p.render.mp4, file("mp4")),
       srt: media(p.render.srt, file("srt")),
       txt: media(p.render.txt, file("txt")),
+      ...(p.render.cover ? { cover: media(p.render.cover, file("png")) } : {}),
+      ...(p.render.thumbnail ? { thumbnail: media(p.render.thumbnail, file("jpg")) } : {}),
       ...(p.reminder ? { reminder: p.reminder } : {}),
       reviewUrl: link ? `/r/${link.token}` : null,
     };

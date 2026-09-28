@@ -12,6 +12,7 @@ describe("judgeSkit", () => {
     expect(v.check.errors).toBe(0);
     expect(v.lines.length).toBe(beatsOf(skit).filter((b) => !b.silent).length);
     expect(v.estimatedDurationS).toBeGreaterThan(0);
+    expect(v.cuts.length).toBeGreaterThan(0);
     expect(canApprove(v)).toBe(true);
   });
 
@@ -40,6 +41,17 @@ describe("editBeat", () => {
     expect(beatsOf(next).find((b) => b.id === "l2")?.line).toBe(beatsOf(skit).find((b) => b.id === "l2")?.line);
     const cleared = editBeat(next, "l2", { sfx: null });
     expect(beatsOf(cleared).find((b) => b.id === "l2")?.sfx).toBeNull();
+  });
+
+  it("pins a shot, turns the reaction off, and clears both", () => {
+    const pinned = editBeat(skit, "l2", { shot: { framing: "close", on: "june" }, reaction: false });
+    const beat = beatsOf(pinned).find((b) => b.id === "l2");
+    expect(beat?.shot).toEqual({ framing: "close", on: "june" });
+    expect(beat?.reaction).toBe(false);
+    const cleared = editBeat(pinned, "l2", { shot: null, reaction: null });
+    const after = beatsOf(cleared).find((b) => b.id === "l2");
+    expect(after?.shot).toBeUndefined();
+    expect(after?.reaction).toBeUndefined();
   });
 
   it("changes only what the patch names", () => {

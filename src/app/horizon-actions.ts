@@ -285,6 +285,12 @@ export async function saveCharacterAction(input: {
   hair: string;
   accessory: string;
   personality: string;
+  original?: boolean;
+  height?: number;
+  head?: number;
+  limb?: "line" | "bean";
+  shoe?: string;
+  say?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const member = await getCurrentMember();
   try {

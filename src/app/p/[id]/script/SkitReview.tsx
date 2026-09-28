@@ -12,6 +12,7 @@ import { MUSIC_BEDS } from "@/lib/music";
 import { Face } from "@/components/stick-skit/Face";
 import { fit916 } from "@/components/stick-skit/fit";
 import { SetPicker } from "@/components/stick-skit/SetPicker";
+import { CameraStrip } from "@/components/stick-skit/CameraStrip";
 import { SkitPreview, type BeatSpan } from "@/components/stick-skit/SkitPreview";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
@@ -153,7 +154,7 @@ export function SkitReview({
   const approvable = canApprove(verdict) && !making;
   const findings = (verdict.check.findings as Finding[]).filter((f) => f.level === "error" || f.level === "warning");
   const errors = findings.filter((f) => f.level === "error");
-  const playing = spans.find((s) => frame >= s.from && frame < s.to)?.id ?? null;
+  const playing = (spans.find((s) => frame >= s.from && frame < s.to) ?? [...spans].reverse().find((s) => s.from <= frame) ?? spans[0])?.id ?? null;
 
   const latest = useRef<Skit | null>(opened.changed ? opened.skit : null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -333,20 +334,18 @@ export function SkitReview({
   return (
     <div className="flex min-h-0 flex-1 bg-canvas-script">
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex items-end justify-between gap-4 px-6 pt-6 pb-3">
-          <div className="min-w-0">
-            <h1 className="truncate font-display text-[32px] leading-none tracking-[-0.01em]">{topic}</h1>
-            <p className="mt-1.5 text-[13px] text-fg-muted">
-              {beats.length} {beats.length === 1 ? "line" : "lines"}
-              {scenes.length > 1 ? ` · ${scenes.length} scenes` : ""}
-              {scenes.length <= 1 && scenes[0]?.set ? ` · ${setLabel(scenes[0].set)}` : ""}
-              {scenes.length === 0 && typeof (skit as { set?: unknown }).set === "string" ? ` · ${setLabel((skit as { set: string }).set)}` : ""}
-              {seconds != null ? ` · about ${seconds}s` : ""}
-              {targetS ? ` of ${targetS}s` : ""}
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-8 rounded-lg px-2.5 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
+        <div className="border-b border-rule px-6 pt-5 pb-3">
+          <h1 className="font-display text-[32px] leading-[1.05] tracking-[-0.01em]">{topic}</h1>
+          <p className="mt-1.5 text-[13px] text-fg-muted">
+            {beats.length} {beats.length === 1 ? "line" : "lines"}
+            {scenes.length > 1 ? ` · ${scenes.length} scenes` : ""}
+            {scenes.length <= 1 && scenes[0]?.set ? ` · ${setLabel(scenes[0].set)}` : ""}
+            {scenes.length === 0 && typeof (skit as { set?: unknown }).set === "string" ? ` · ${setLabel((skit as { set: string }).set)}` : ""}
+            {seconds != null ? ` · about ${seconds}s` : ""}
+            {targetS ? ` of ${targetS}s` : ""}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-9 rounded-lg px-2.5 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
               Undo
             </button>
             {scenes.length <= 1 && setOptions.length > 1 && (
@@ -354,13 +353,12 @@ export function SkitReview({
                 value={typeof (skit as { set?: unknown }).set === "string" ? (skit as { set: string }).set : ""}
                 options={setOptions}
                 label="Set"
-                align="end"
                 onChange={(setId) => reshape(() => ({ skit: setSceneSet(skit, null, setId) }))}
               />
             )}
             {cast.map((member) => (
-              <label key={member.id} className="flex items-center gap-1 text-[12px] text-fg-muted">
-                {member.label ?? "Cast"}
+              <label key={member.id} className="flex items-center gap-1.5 text-[12px] text-fg-muted">
+                {member.label ? <span>{member.label}</span> : null}
                 <select
                   aria-label={`Character for ${member.label ?? member.id}`}
                   value={member.character}
@@ -368,7 +366,7 @@ export function SkitReview({
                     const next = cast.map((c) => (c.id === member.id ? { ...c, character: e.target.value } : c));
                     reshape(() => ({ skit: { ...skit, cast: next } }));
                   }}
-                  className="h-8 rounded-lg border border-line bg-panel px-1 text-[12px] text-fg"
+                  className="h-9 rounded-lg border border-line bg-panel px-2 text-[13px] text-fg"
                 >
                   {stickCatalog.characters.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -376,13 +374,16 @@ export function SkitReview({
                 </select>
               </label>
             ))}
+            <span className="min-w-2 flex-1" />
             <button
               type="button"
               disabled={busy}
+              title="Ask the writer to adjust the lines for the current cast and set"
               onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
-              className="h-8 rounded-lg border border-line px-2.5 text-[12px] text-fg-2 disabled:opacity-50"
+              className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-fg-2 disabled:opacity-50"
             >
-              Ask the writer to adjust · up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}
+              Adjust lines
+              <span className="font-mono text-[11px] text-fg-muted">up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
             </button>
           </div>
         </div>
@@ -518,8 +519,38 @@ export function SkitReview({
               )}
             </div>
           </div>
+          <CameraStrip
+            cuts={verdict.cuts}
+            frame={frame}
+            beat={beats.find((b) => b.id === playing) ?? null}
+            nameOf={(id) => {
+              const member = cast.find((c) => c.id === id);
+              return member?.label ?? characterName(member?.character ?? id);
+            }}
+            onSeek={(at) => {
+              setFrame(at);
+              setSeek((prev) => ({ frame: at, nonce: (prev?.nonce ?? 0) + 1 }));
+            }}
+            onPin={(framing) => {
+              const beat = beats.find((b) => b.id === playing);
+              if (!beat) return;
+              const same = beat.shot?.framing === framing;
+              edit(beat.id, { shot: same ? null : framing === "close" && beat.speaker ? { framing, on: beat.speaker } : { framing } });
+            }}
+            onReaction={() => {
+              const beat = beats.find((b) => b.id === playing);
+              if (!beat) return;
+              edit(beat.id, { reaction: beat.reaction === false ? null : false });
+            }}
+            onPause={(delta) => {
+              const beat = beats.find((b) => b.id === playing);
+              if (!beat) return;
+              const next = Math.min(2000, Math.max(0, (beat.pauseBeforeMs ?? 0) + delta));
+              edit(beat.id, { pauseBeforeMs: next === 0 ? null : next });
+            }}
+          />
           <div className="flex items-center justify-between gap-2 px-1">
-            <p className="text-[11px] text-fg-muted">{sound ? "Sound on · timing is estimated" : "Silent preview · timing is estimated"}</p>
+            <p className="text-[11px] text-fg-muted">{sound ? "Sound on · timing follows the prepared voice when one is loaded" : "Silent preview · timing is estimated"}</p>
             <button type="button" onClick={() => setSound((v) => !v)} className="text-[12px] text-fg-2">{sound ? "Mute" : "Unmute"}</button>
             <SpeakButton text={spoken} voiceId={previewVoice} label="Hear it" />
           </div>

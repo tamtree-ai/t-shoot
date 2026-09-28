@@ -43,6 +43,21 @@ async function requireDraft(projectId: string): Promise<SkitDraft> {
   return draft;
 }
 
+/** Keep workspace character documents on the skit when a rewrite forgets them. */
+function keepCharacters(skit: Skit, sources: unknown[]): Skit {
+  const docs = sources.flatMap((source) => {
+    if (!source || typeof source !== "object") return [];
+    const list = (source as { characters?: unknown }).characters;
+    return Array.isArray(list) ? list : [];
+  });
+  if (!docs.length) return skit;
+  const prev = Array.isArray(skit.characters) ? skit.characters : [];
+  const ids = new Set(prev.flatMap((c) => (c && typeof c === "object" && typeof (c as { id?: unknown }).id === "string" ? [(c as { id: string }).id] : [])));
+  const extra = docs.filter((c) => c && typeof c === "object" && typeof (c as { id?: unknown }).id === "string" && !ids.has((c as { id: string }).id));
+  if (!extra.length) return skit;
+  return { ...skit, characters: [...prev, ...extra] };
+}
+
 const fromVerdict = (v: SkitVerdict) => ({
   lines: v.lines,
   check: v.check,
@@ -66,7 +81,8 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
     estimateUsd: STICK_SCRIPT_PRICE_USD.toString(),
     confirmedBy: memberId,
   });
-  await saveOutput(projectId, catalogVersion, output as StickScriptOut, { previousSkit: null, revisionNote: null });
+  const written = output as StickScriptOut;
+  await saveOutput(projectId, catalogVersion, { ...written, skit: keepCharacters(written.skit, [brief]) }, { previousSkit: null, revisionNote: null });
 }
 
 /**
@@ -85,7 +101,8 @@ export async function reviseSkit(projectId: string, note: string, memberId: stri
     estimateUsd: STICK_SCRIPT_PRICE_USD.toString(),
     confirmedBy: memberId,
   });
-  await saveOutput(projectId, catalogVersion, output as StickScriptOut, { previousSkit: draft.skit, revisionNote: note });
+  const written = output as StickScriptOut;
+  await saveOutput(projectId, catalogVersion, { ...written, skit: keepCharacters(written.skit, [draft.skit]) }, { previousSkit: draft.skit, revisionNote: note });
   if (sourceCommentId) await resolveComment(projectId, sourceCommentId, note, memberId);
 }
 

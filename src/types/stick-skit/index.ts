@@ -85,8 +85,8 @@ export type StickVersionPayload = {
   skit: Skit;
   voices: Record<string, string>;
   catalog_version: string;
-  /** Asset ids of the render's four files. */
-  render: { mp4: string; srt: string; txt: string; manifest: string };
+  /** Asset ids of the render's files. Cover and thumbnail are the compiler stills. */
+  render: { mp4: string; srt: string; txt: string; manifest: string; cover?: string; thumbnail?: string };
   duration_s: number;
   /** SHA-256 of the MP4, as the flow reported it. */
   mp4_digest: string;

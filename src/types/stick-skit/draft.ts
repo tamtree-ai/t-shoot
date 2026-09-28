@@ -5,7 +5,7 @@
  * so the review screen re-checks every edit in the browser and the server re-checks it on save,
  * with no run either way.
  */
-import { checkDraft, lastWordAnchor, normWord, SkitError, tokenize } from "stickstage";
+import { checkDraft, lastWordAnchor, normWord, SkitError, tokenize, type DraftCut } from "stickstage";
 
 import { stickRegistry } from "@/lib/stick/registry";
 import type { Skit, StickCheck, StickLine } from "@/lib/tamtree/stage-flows";
@@ -16,8 +16,10 @@ export type SkitVerdict = {
   check: StickCheck;
   /** Compile warnings, as the flow reports them (`path: message`). */
   warnings: string[];
-  /** On placeholder timings; null when the skit doesn't parse. */
+  /** On placeholder timings, or the prepared voice when one was passed; null when the skit doesn't parse. */
   estimatedDurationS: number | null;
+  /** Camera events in program frames. Empty when the skit doesn't parse. */
+  cuts: DraftCut[];
 };
 
 /** Every beat with its path, whether the skit keeps one list (`beats`) or one per scene (`scenes[].beats`). */
@@ -70,6 +72,7 @@ export function judgeSkit(skit: unknown): SkitVerdict {
       },
       warnings: d.warnings.map((w) => (w.path ? `${w.path}: ${w.message}` : w.message)),
       estimatedDurationS: d.estimatedDurationSec,
+      cuts: d.cuts,
     };
   } catch (e) {
     if (!(e instanceof SkitError)) throw e;
@@ -82,6 +85,7 @@ export function judgeSkit(skit: unknown): SkitVerdict {
       check: { ok: false, errors, warnings: findings.filter((f) => f.level === "warning").length, findings },
       warnings: [],
       estimatedDurationS: null,
+      cuts: [],
     };
   }
 }
@@ -110,6 +114,8 @@ export type EditableBeat = {
   slamAt: ({ word: string; occurrence: number } | null)[];
   /** The first sound effect on the beat, or none. */
   sfx: string | null;
+  shot?: { framing: "two" | "close" | "wide"; on?: string };
+  reaction?: false | string;
 };
 
 export type BeatPatch = {
@@ -126,6 +132,10 @@ export type BeatPatch = {
   slamAnchors?: ({ word: string; occurrence: number } | null)[];
   /** null clears the effect. Unset leaves it. */
   sfx?: string | null;
+  /** null clears a pinned shot. Unset leaves the director's choice. */
+  shot?: { framing: "two" | "close" | "wide"; on?: string } | null;
+  /** false turns the reaction off. null clears the override. */
+  reaction?: false | null;
 };
 
 /** Which scene each beat plays in, when the skit has more than one. */
@@ -288,7 +298,15 @@ export function beatsOf(skit: Skit): EditableBeat[] {
       return at && typeof at.word === "string" ? { word: normWord(at.word), occurrence: typeof at.occurrence === "number" ? at.occurrence : 1 } : null;
     }),
     sfx: sfxId(b),
+    ...shotOf(b),
+    ...(b.reaction === false || typeof b.reaction === "string" ? { reaction: b.reaction as false | string } : {}),
   }));
+}
+
+function shotOf(beat: RawBeat): { shot?: { framing: "two" | "close" | "wide"; on?: string } } {
+  const shot = beat.shot as { framing?: unknown; on?: unknown } | undefined;
+  if (!shot || (shot.framing !== "two" && shot.framing !== "close" && shot.framing !== "wide")) return {};
+  return { shot: { framing: shot.framing, ...(typeof shot.on === "string" ? { on: shot.on } : {}) } };
 }
 
 function sfxId(beat: RawBeat): string | null {
@@ -322,6 +340,10 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
       if (patch.expression !== undefined) next.expression = patch.expression;
       if (patch.pauseBeforeMs === null) delete next.pauseBeforeMs;
       else if (patch.pauseBeforeMs !== undefined) next.pauseBeforeMs = Math.max(0, Math.round(patch.pauseBeforeMs));
+      if (patch.shot === null) delete next.shot;
+      else if (patch.shot) next.shot = patch.shot.on ? { framing: patch.shot.framing, on: patch.shot.on } : { framing: patch.shot.framing };
+      if (patch.reaction === null) delete next.reaction;
+      else if (patch.reaction === false) next.reaction = false;
       if (patch.sfx === null) delete next.sfx;
       else if (patch.sfx !== undefined) {
         const prev = Array.isArray(b.sfx) ? (b.sfx as { id?: string }[]) : [];

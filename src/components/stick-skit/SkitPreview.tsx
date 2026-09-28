@@ -2,7 +2,7 @@
 
 import { Player, type PlayerRef } from "@remotion/player";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { checkDraft, SkitError, type Diagnostic } from "stickstage";
+import { checkDraft, SkitError, type Diagnostic, type PreparedVoice } from "stickstage";
 import { StickStageComposition } from "stickstage/remotion";
 
 import { stickRegistry } from "@/lib/stick/registry";
@@ -15,9 +15,9 @@ type SceneLike = { from: number; timeline: { beats: BeatLike[] } };
 
 type Compiled = { ok: true; program: PreviewProgram; spans: BeatSpan[] } | { ok: false; diagnostics: Diagnostic[] };
 
-function compile(skit: unknown): Compiled {
+function compile(skit: unknown, voice?: PreparedVoice): Compiled {
   try {
-    const program = checkDraft(skit, stickRegistry).result.program;
+    const program = checkDraft(skit, stickRegistry, voice ? { voice } : undefined).result.program;
     const scenes = (program as unknown as { scenes: SceneLike[] }).scenes;
     const spans = scenes.flatMap((sc) => sc.timeline.beats.map((b) => ({ id: b.id, from: sc.from + b.from, to: sc.from + b.to })));
     return { ok: true, program, spans };
@@ -39,6 +39,7 @@ export function SkitPreview({
   onFrame,
   onSpans,
   audio = false,
+  voice,
   fontFamily = "var(--font-sans), sans-serif",
 }: {
   skit: unknown;
@@ -48,9 +49,11 @@ export function SkitPreview({
   onFrame?: (frame: number) => void;
   onSpans?: (spans: BeatSpan[], duration: number) => void;
   audio?: boolean;
+  /** A prepared voice. Timing and playback follow it instead of the placeholder. */
+  voice?: PreparedVoice;
   fontFamily?: string;
 }) {
-  const compiled = useMemo(() => compile(skit), [skit]);
+  const compiled = useMemo(() => compile(skit, voice), [skit, voice]);
   const ref = useRef<PlayerRef>(null);
   const root = useRef<HTMLDivElement>(null);
   const [attempt, setAttempt] = useState(0);

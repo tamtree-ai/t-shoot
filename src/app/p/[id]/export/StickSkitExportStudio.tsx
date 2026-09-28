@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -20,6 +21,9 @@ export type ExportCut = {
   mp4: string;
   srt: string;
   txt: string;
+  /** The compiler's cover. Scrubbing the film stays the override. */
+  cover?: string;
+  thumbnail?: string;
   reminder?: string;
   reviewUrl: string | null;
 };
@@ -182,7 +186,8 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
           <CopyButton label="Copy caption" done={copied === "caption"} disabled={!post?.caption} onClick={() => post && copy("caption", post.caption)} />
           <CopyButton label="Copy hashtags" done={copied === "tags"} disabled={!post?.hashtags} onClick={() => post && copy("tags", post.hashtags)} />
           <CopyButton label="Copy AI-voice line" done={copied === "ai"} onClick={() => copy("ai", post?.disclosure || aiVoice(voiceConsent))} />
-          <CopyButton label="Save cover frame" done={false} onClick={cover} />
+          {cut.cover && <Image src={cut.cover} alt="Generated cover" width={112} height={199} unoptimized className="w-28 rounded-lg border border-rule" />}
+          <CopyButton label={cut.cover ? "Use a different frame" : "Save cover frame"} done={false} onClick={cover} />
           {cut.reviewUrl ? (
             <CopyButton label="Copy review link" done={copied === "link"} onClick={() => copy("link", cut.reviewUrl!)} />
           ) : (
@@ -194,7 +199,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
         {post?.caption && <p className="rounded-lg border border-rule bg-panel px-3 py-2 text-[13px] leading-snug text-fg-2">{post.caption}</p>}
         {post?.hashtags && <p className="font-mono text-[12px] text-fg-3">{post.hashtags}</p>}
         {cut.reminder && <p className="text-[13px] text-attention">{cut.reminder}</p>}
-        <p className="text-[12px] leading-relaxed text-fg-muted">Scrub the film and save the frame you want as the cover. Nothing here renders the video again.</p>
+        <p className="text-[12px] leading-relaxed text-fg-muted">{cut.cover ? "The generated cover is the default. Scrub the film and save a frame only when you want a different one." : "Scrub the film and save the frame you want as the cover. A generated cover replaces this once the render includes one."}</p>
         {cut && (
           <PublishDesk
             key={`${cut.id}:${post?.caption ?? ""}`}
