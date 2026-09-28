@@ -38,6 +38,29 @@ async function stickProject(projectId: string) {
   return { project, catalogVersion: project.catalogVersion };
 }
 
+/**
+ * "Move to current catalog" (free, no run): repin a project written against an older catalog
+ * to the one t-shoot ships, and re-check its skit against it. Whatever the new catalog no
+ * longer has comes back as the check's findings, so the gate stays shut until it's fixed.
+ */
+export async function moveToCurrentCatalog(projectId: string): Promise<{ errors: number }> {
+  const project = await getProject(projectId);
+  if (!project || project.kind !== stickSkit.kind) throw new Error("Project not found.");
+  const current = stickSkit.catalogVersion();
+  const draft = await getSkitDraft(projectId);
+  const verdict = draft ? judgeSkit(Skit.parse(draft.skit)) : null;
+  await db.transaction(async (tx) => {
+    await tx.update(schema.projects).set({ catalogVersion: current, updatedAt: new Date() }).where(eq(schema.projects.id, projectId));
+    if (verdict) {
+      await tx
+        .update(schema.skitDrafts)
+        .set({ ...fromVerdict(verdict), catalogVersion: current, updatedAt: new Date() })
+        .where(eq(schema.skitDrafts.projectId, projectId));
+    }
+  });
+  return { errors: verdict?.check.errors ?? 0 };
+}
+
 async function requireDraft(projectId: string): Promise<SkitDraft> {
   const draft = await getSkitDraft(projectId);
   if (!draft) throw new Error("There's no skit yet. Write it first.");

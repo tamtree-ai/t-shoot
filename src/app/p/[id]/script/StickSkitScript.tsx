@@ -13,6 +13,7 @@ import { aspectOfBrief, aspectOfSkit } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
 import { stickSkit } from "@/types/stick-skit";
 import { setAspect, setLabel } from "@/types/stick-skit/catalog";
+import { CatalogNotice } from "./CatalogNotice";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
 import { displayTitle } from "@/lib/display-title";
@@ -51,6 +52,8 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
         }
         trailing={<MemberMark name={member.name} email={member.email} />}
       />
+
+      {project.catalogVersion !== stickSkit.catalogVersion() && <CatalogNotice projectId={project.id} />}
 
       {draft ? (
         <SkitReview

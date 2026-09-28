@@ -79,6 +79,8 @@ Each row is **Problem** or **Look**, then where, then the sentence. Click it. Th
 
 If you see **Slam timing was corrected. Save to keep it.**, a slam was pointed at a word the line no longer has, and the page moved it. Press **Save**.
 
+If a strip across the top says **This skit was written against an older set of characters, sets and props**, t-shoot has updated its catalog since the skit was written. Press **Move to current catalog**. It's free. The check runs again, and anything the new catalog no longer has shows up in the list as a problem to fix.
+
 The sentence under Approve tells you the same thing in one line: “Nothing is spent until you approve. ⌘S saves.” or “Fix the problem the check found first.” or “The video is being made from the skit you approved.”
 
 ## Approve

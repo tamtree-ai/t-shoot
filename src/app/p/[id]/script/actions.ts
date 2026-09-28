@@ -13,7 +13,15 @@ import {
   undoSceneChange,
   updateSceneText,
 } from "@/services/script";
-import { approveSkit, keepSkitRevision, reviseSkit, saveSkitBeats, undoSkitRevision, writeSkit } from "@/services/skit";
+import {
+  approveSkit,
+  keepSkitRevision,
+  moveToCurrentCatalog,
+  reviseSkit,
+  saveSkitBeats,
+  undoSkitRevision,
+  writeSkit,
+} from "@/services/skit";
 import type { ScenePlan } from "@/types/stick-skit/draft";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -115,4 +123,15 @@ export async function undoSkitRevisionAction(projectId: string): Promise<ActionR
 export async function approveSkitAction(projectId: string): Promise<ActionResult> {
   const member = await getCurrentMember();
   return guarded(projectId, () => approveSkit(projectId, member.memberId));
+}
+
+/** Repins a project written against an older catalog. Returns how many problems the re-check found. */
+export async function moveToCurrentCatalogAction(projectId: string): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
+  try {
+    const { errors } = await moveToCurrentCatalog(projectId);
+    revalidatePath(path(projectId));
+    return { ok: true, errors };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong." };
+  }
 }
