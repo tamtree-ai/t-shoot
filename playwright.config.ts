@@ -24,7 +24,7 @@ export default defineConfig({
   use: { baseURL: "http://localhost:3100", trace: "retain-on-failure" },
   webServer: [
     {
-      command: "pnpm exec next dev -p 3100",
+      command: "TAMSHOOT_DIST_DIR=.next-e2e pnpm exec next dev -p 3100",
       url: "http://localhost:3100",
       reuseExistingServer: false,
       env: mockEnv,

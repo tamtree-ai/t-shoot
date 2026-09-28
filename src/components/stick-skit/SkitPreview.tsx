@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { checkDraft, SkitError, type Diagnostic, type PreparedVoice } from "stickstage";
 import { StickStageComposition } from "stickstage/remotion";
 
+import { skitForEngine } from "@/lib/stick/frame";
 import { stickRegistry } from "@/lib/stick/registry";
 
 export type BeatSpan = { id: string; from: number; to: number };
@@ -17,7 +18,7 @@ type Compiled = { ok: true; program: PreviewProgram; spans: BeatSpan[] } | { ok:
 
 function compile(skit: unknown, voice?: PreparedVoice): Compiled {
   try {
-    const program = checkDraft(skit, stickRegistry, voice ? { voice } : undefined).result.program;
+    const program = checkDraft(skitForEngine(skit), stickRegistry, voice ? { voice } : undefined).result.program;
     const scenes = (program as unknown as { scenes: SceneLike[] }).scenes;
     const spans = scenes.flatMap((sc) => sc.timeline.beats.map((b) => ({ id: b.id, from: sc.from + b.from, to: sc.from + b.to })));
     return { ok: true, program, spans };
@@ -79,21 +80,34 @@ export function SkitPreview({
 
   useEffect(() => {
     if (!compiled.ok || width < 8) return;
-    const timer = setTimeout(() => {
-      const canvas = root.current?.querySelector("canvas");
-      if (!canvas || canvas.clientWidth < 2) {
+    let stopped = false;
+    const started = Date.now();
+    const tick = () => {
+      if (stopped) return;
+      const surface = root.current?.querySelector("canvas, svg");
+      if (surface instanceof HTMLElement || surface instanceof SVGElement) {
+        let el: HTMLElement | null = surface instanceof HTMLElement ? surface : surface.parentElement;
+        let hidden = surface.clientWidth < 2;
+        while (el && el !== root.current) {
+          if (getComputedStyle(el).opacity === "0") hidden = true;
+          el = el.parentElement;
+        }
+        if (!hidden) {
+          setPaint({ attempt, ok: true });
+          return;
+        }
+      }
+      if (Date.now() - started > 4_000) {
         setPaint({ attempt, ok: false });
         return;
       }
-      let el: HTMLElement | null = canvas;
-      let hidden = false;
-      while (el && el !== root.current) {
-        if (getComputedStyle(el).opacity === "0") hidden = true;
-        el = el.parentElement;
-      }
-      setPaint({ attempt, ok: !hidden });
-    }, 900);
-    return () => clearTimeout(timer);
+      window.setTimeout(tick, 200);
+    };
+    const timer = window.setTimeout(tick, 200);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
   }, [compiled, width, height, attempt]);
 
   if (!compiled.ok) {

@@ -10,8 +10,10 @@ import { SpeakButton } from "@/components/SpeakButton";
 import { SfxChip } from "@/components/SfxChip";
 import { MUSIC_BEDS } from "@/lib/music";
 import { Face } from "@/components/stick-skit/Face";
-import { fit916 } from "@/components/stick-skit/fit";
+import { fitFrame } from "@/components/stick-skit/fit";
+import { ASPECT_LABEL, FRAME, frameClass, type Aspect } from "@/lib/stick/frame";
 import { SetPicker } from "@/components/stick-skit/SetPicker";
+import { PropChip } from "@/components/stick-skit/PropPicker";
 import { CameraStrip } from "@/components/stick-skit/CameraStrip";
 import { SkitPreview, type BeatSpan } from "@/components/stick-skit/SkitPreview";
 import { useElementSize } from "@/components/stick-skit/useElementSize";
@@ -23,7 +25,7 @@ import { isTerminal } from "@/lib/tamtree/types";
 import type { Skit } from "@/lib/tamtree/stage-flows";
 import type { ProduceState } from "@/services/skit";
 import { estimateProduce } from "@/types/stick-skit";
-import { characterName, setLabel } from "@/types/stick-skit/catalog";
+import { characterAspect, characterName, setLabel } from "@/types/stick-skit/catalog";
 import {
   addBeat,
   addScene,
@@ -44,6 +46,7 @@ import {
   scenePlanOf,
   scenesOf,
   setSceneSet,
+  splitBeat,
   type BeatPatch,
   type EditableBeat,
   type SkitScene,
@@ -85,6 +88,7 @@ export function SkitReview({
   produce,
   fromComment,
   setOptions,
+  shape,
   focusFraction,
   origin,
   musicBed,
@@ -103,6 +107,8 @@ export function SkitReview({
   produce: ProduceState | null;
   fromComment: { id: string; note: string } | null;
   setOptions: { id: string; label: string }[];
+  /** Short or widescreen. The preview box and the character menu follow it. */
+  shape: Aspect;
   /** 0–1, from a review comment. Seeks the preview and opens that beat. */
   focusFraction: number | null;
   origin?: string;
@@ -168,7 +174,7 @@ export function SkitReview({
   }, [skit, openId]);
 
   const [stageRef, stageSize] = useElementSize();
-  const fitted = fit916(stageSize.width, Math.max(0, stageSize.height));
+  const fitted = fitFrame(stageSize.width, Math.max(0, stageSize.height), shape);
 
   async function flush(): Promise<boolean> {
     if (timer.current) clearTimeout(timer.current);
@@ -334,58 +340,53 @@ export function SkitReview({
   return (
     <div className="flex min-h-0 flex-1 bg-canvas-script">
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="border-b border-rule px-6 pt-5 pb-3">
-          <h1 className="font-display text-[32px] leading-[1.05] tracking-[-0.01em]">{topic}</h1>
-          <p className="mt-1.5 text-[13px] text-fg-muted">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-rule px-4 py-1.5">
+          <p className="mr-1 shrink-0 text-[13px] whitespace-nowrap text-fg-muted">
             {beats.length} {beats.length === 1 ? "line" : "lines"}
             {scenes.length > 1 ? ` · ${scenes.length} scenes` : ""}
             {scenes.length <= 1 && scenes[0]?.set ? ` · ${setLabel(scenes[0].set)}` : ""}
             {scenes.length === 0 && typeof (skit as { set?: unknown }).set === "string" ? ` · ${setLabel((skit as { set: string }).set)}` : ""}
+            {` · ${ASPECT_LABEL[shape]} ${FRAME[shape].width}×${FRAME[shape].height}`}
             {seconds != null ? ` · about ${seconds}s` : ""}
             {targetS ? ` of ${targetS}s` : ""}
           </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-9 rounded-lg px-2.5 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
-              Undo
-            </button>
-            {scenes.length <= 1 && setOptions.length > 1 && (
-              <SetPicker
-                value={typeof (skit as { set?: unknown }).set === "string" ? (skit as { set: string }).set : ""}
-                options={setOptions}
-                label="Set"
-                onChange={(setId) => reshape(() => ({ skit: setSceneSet(skit, null, setId) }))}
-              />
-            )}
-            {cast.map((member) => (
-              <label key={member.id} className="flex items-center gap-1.5 text-[12px] text-fg-muted">
-                {member.label ? <span>{member.label}</span> : null}
-                <select
-                  aria-label={`Character for ${member.label ?? member.id}`}
-                  value={member.character}
-                  onChange={(e) => {
-                    const next = cast.map((c) => (c.id === member.id ? { ...c, character: e.target.value } : c));
-                    reshape(() => ({ skit: { ...skit, cast: next } }));
-                  }}
-                  className="h-9 rounded-lg border border-line bg-panel px-2 text-[13px] text-fg"
-                >
-                  {stickCatalog.characters.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-            ))}
-            <span className="min-w-2 flex-1" />
-            <button
-              type="button"
-              disabled={busy}
-              title="Ask the writer to adjust the lines for the current cast and set"
-              onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
-              className="flex h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-fg-2 disabled:opacity-50"
+          <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-8 shrink-0 rounded-lg px-2 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
+            Undo
+          </button>
+          {scenes.length <= 1 && setOptions.length > 1 && (
+            <SetPicker
+              value={typeof (skit as { set?: unknown }).set === "string" ? (skit as { set: string }).set : ""}
+              options={setOptions}
+              label="Set"
+              onChange={(setId) => reshape(() => ({ skit: setSceneSet(skit, null, setId) }))}
+            />
+          )}
+          {cast.map((member) => (
+            <select
+              key={member.id}
+              aria-label={`Character for ${member.label ?? member.id}`}
+              value={member.character}
+              onChange={(e) => {
+                const next = cast.map((c) => (c.id === member.id ? { ...c, character: e.target.value } : c));
+                reshape(() => ({ skit: { ...skit, cast: next } }));
+              }}
+              className="h-8 shrink-0 rounded-lg border border-line bg-panel px-2 text-[13px] text-fg"
             >
-              Adjust lines
-              <span className="font-mono text-[11px] text-fg-muted">up to ${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
-            </button>
-          </div>
+              {stickCatalog.characters.filter((c) => characterAspect(c.id) === shape || c.id === member.character).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          ))}
+          <button
+            type="button"
+            disabled={busy}
+            title="Ask the writer to adjust the lines for the current cast and set"
+            onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[13px] text-fg-2 disabled:opacity-50"
+          >
+            Adjust
+            <span className="font-mono text-[11px] text-fg-muted">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
+          </button>
         </div>
 
         {revisionNote && (
@@ -401,7 +402,7 @@ export function SkitReview({
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
           <ol aria-label="Beats" className="mx-auto flex w-full max-w-[760px] flex-col gap-2">
             {beats.map((beat, i) => {
               const sceneIndex = beat.scene !== beats[i - 1]?.scene ? scenes.findIndex((sc) => sc.id === beat.scene) : -1;
@@ -423,6 +424,7 @@ export function SkitReview({
                   <BeatCard
                     index={i + 1}
                     beat={beat}
+                    beats={beats}
                     cast={cast}
                     hook={beat.id === beats.find((b) => !b.silent)?.id}
                     hooks={hooks}
@@ -443,14 +445,7 @@ export function SkitReview({
                     playing={playing === beat.id}
                     onOpen={() => jump(beat.id)}
                     onEdit={(patch) => edit(beat.id, patch)}
-                    onSplit={(before, after) =>
-                      reshape(() => {
-                        const base = before.trim() ? editBeat(skit, beat.id, { line: before }) : skit;
-                        const added = addBeat(base, beat.id);
-                        const next = after.trim() ? editBeat(added.skit, added.id, { line: after }) : added.skit;
-                        return { skit: next, id: added.id };
-                      }, true)
-                    }
+                    onSplit={(before, after) => reshape(() => splitBeat(skit, beat.id, before, after), true)}
                     onDuplicate={() => reshape(() => duplicateBeat(skit, beat.id), true)}
                     onDelete={() => reshape(() => ({ skit: deleteBeat(skit, beat.id) }))}
                     onMove={(dir) => reshape(() => ({ skit: moveBeat(skit, beat.id, dir) }))}
@@ -515,7 +510,7 @@ export function SkitReview({
                   <SkitPreview skit={skit} width={fitted.width} height={fitted.height} seekTo={seek} onFrame={onFrame} onSpans={onSpans} audio={sound} fontFamily={previewFont} />
                 </BrandFrame>
               ) : (
-                <div className="aspect-[9/16] h-full max-w-full rounded-xl bg-panel" />
+                <div className={`${frameClass(shape)} h-full max-w-full rounded-xl bg-panel`} />
               )}
             </div>
           </div>
@@ -793,9 +788,14 @@ function IconButton({ children, label: aria, disabled, onClick }: { children: Re
   );
 }
 
+function facingOf(mark?: string): "left" | "right" {
+  return mark === "right" || mark === "off-right" ? "left" : "right";
+}
+
 function BeatCard({
   index,
   beat,
+  beats,
   cast,
   open,
   playing,
@@ -812,7 +812,8 @@ function BeatCard({
 }: {
   index: number;
   beat: EditableBeat;
-  cast: { id: string; character: string; label?: string }[];
+  beats: EditableBeat[];
+  cast: { id: string; character: string; label?: string; mark?: string }[];
   open: boolean;
   playing: boolean;
   onOpen: () => void;
@@ -900,6 +901,7 @@ function BeatCard({
               + Text slam
             </button>
             <SfxChip value={beat.sfx} slam={beat.slams[0]} label={`${what}: sound`} onChange={(id) => onEdit({ sfx: id })} />
+            <PropChip beat={beat} beats={beats} what={what} characterId={member?.character} facing={facingOf(member?.mark)} onEdit={onEdit} />
             {hook && (
               <button type="button" onClick={onHooks} className="h-7 rounded-lg px-2 text-xs text-accent-link hover:bg-hover">
                 Try other hooks · $0.01

@@ -9,6 +9,7 @@ import { and, desc, eq, like } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { prepareWriterBrief } from "@/lib/stick/writer-brief";
 import { Skit, type StickProduceIn, type StickScriptOut } from "@/lib/tamtree/stage-flows";
 import { timelineDigest } from "@/lib/timeline";
 import { estimateProduce, stickSkit } from "@/types/stick-skit";
@@ -69,7 +70,7 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   const { project, catalogVersion } = await stickProject(projectId);
   const brief = stickSkit.configSchema.parse(project.brief);
   const defaults = await getTypeDefaults(project.orgId, stickSkit.kind);
-  const forWriter = { ...brief };
+  const forWriter = prepareWriterBrief(brief, defaults.allowed_sets);
   delete forWriter.target_s;
   const notes = characterNotes(await listCharacters(project.orgId), brief.cast.map((c) => c.character));
   if (notes) forWriter.description = [forWriter.description, notes].filter(Boolean).join("\n").slice(0, 2000);
@@ -77,7 +78,7 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   const { output } = await runAndRecordStage({
     projectId,
     flow: stickSkit.flows.script,
-    input: { mode: "draft", catalog_version: catalogVersion, brief: { ...forWriter, allowed_sets: defaults.allowed_sets } },
+    input: { mode: "draft", catalog_version: catalogVersion, brief: forWriter },
     estimateUsd: STICK_SCRIPT_PRICE_USD.toString(),
     confirmedBy: memberId,
   });

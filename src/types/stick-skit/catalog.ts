@@ -2,6 +2,7 @@
  * The `stick_skit` catalog: StickStage's own (characters, sets, templates), pinned by its
  * content version, plus the TTS voices a character can be given. Client-safe.
  */
+import { isAspect, type Aspect } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
 
 export { stickCatalog };
@@ -24,7 +25,9 @@ export const STICK_VOICES = [
  * `allowed_characters` as the whole catalog, so a character with no voice here stops
  * an org that has never saved settings from loading.
  *
- * Eight TTS voices, six people. Each character has a voice of their own.
+ * Eight TTS voices. The short cast each has a voice of their own. Widescreen adds
+ * Reed and Nell on the two voices still free; Pip shares Zephyr with Lila, who
+ * is a short and cannot stand in the same video.
  */
 export const DEFAULT_VOICE_MAP: Record<string, string> = {
   milo: "Puck", // earnest
@@ -33,6 +36,9 @@ export const DEFAULT_VOICE_MAP: Record<string, string> = {
   theo: "Charon", // eager
   moss: "Fenrir", // unhurried
   dash: "Aoede", // already sure
+  reed: "Leda", // widescreen
+  nell: "Orus", // widescreen
+  pip: "Zephyr", // widescreen; a different frame from Lila
 };
 
 /**
@@ -59,7 +65,30 @@ const SET_NAMES: Record<string, string> = {
   "meeting-1": "Meeting room",
   "beach-1": "Beach",
   "stage-1": "Stage",
+  "wide-plain": "Plain",
+  "wide-living": "Living room",
+  "wide-lounge": "Lounge",
+  "wide-office": "Office",
+  "wide-park": "Park",
+  "wide-street": "Street",
+  "wide-cafe": "Cafe",
+  "wide-classroom": "Classroom",
 };
+
+function readAspect(row: object | undefined): Aspect {
+  const value = row && "aspect" in row ? (row as { aspect?: unknown }).aspect : undefined;
+  return isAspect(value) ? value : "9:16";
+}
+
+/** A catalog character with no frame is a short, matching StickStage. */
+export function characterAspect(id: string): Aspect {
+  return readAspect(stickCatalog.characters.find((c) => c.id === id));
+}
+
+/** A catalog room with no frame is a short. */
+export function setAspect(id: string): Aspect {
+  return readAspect(stickCatalog.sets.find((s) => s.id === id));
+}
 
 /** "cafe-1" → "Cafe". Ids without a friendly name drop the trailing "-1". */
 export function setLabel(id: string): string {

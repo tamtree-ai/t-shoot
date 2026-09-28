@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import groupChat from "@/lib/tamtree/mock/stick/group-chat.skit.json";
 import type { Skit } from "@/lib/tamtree/stage-flows";
-import { addBeat, alignSlams, allBeats, beatsOf, canApprove, deleteBeat, duplicateBeat, editBeat, findingTarget, judgeSkit, moveBeat, scenesOf, setSceneSet, withBeats, scenePlanOf } from "./draft";
+import { addBeat, alignSlams, allBeats, beatsOf, canApprove, deleteBeat, duplicateBeat, editBeat, findingTarget, judgeSkit, moveBeat, scenesOf, setSceneSet, splitBeat, withBeats, scenePlanOf } from "./draft";
 
 const skit = groupChat as Skit;
 
@@ -135,6 +135,78 @@ describe("reshaping the beat list", () => {
     let last = skit;
     for (const beat of beatsOf(skit).slice(0, -1)) last = deleteBeat(last, beat.id);
     expect(() => deleteBeat(last, beatsOf(last)[0]!.id)).toThrow(/spoken line/);
+  });
+});
+
+describe("props on a line", () => {
+  const cast = [
+    { id: "milo", character: "milo", mark: "left" },
+    { id: "june", character: "june", mark: "right" },
+  ];
+  const lines = (ids: string[]) =>
+    ({
+      schemaVersion: 1,
+      set: "cafe-1",
+      cast,
+      beats: ids.map((id) => ({ id, speaker: "milo", line: `${id} line` })),
+    }) as Skit;
+
+  it("derives a carry across three beats, a put-away, and a scene cut", () => {
+    const held = editBeat(lines(["a", "b", "c"]), "a", { prop: "cup" });
+    const view = beatsOf(held);
+    expect(view.find((b) => b.id === "a")?.prop).toEqual({ id: "cup", hand: "R" });
+    expect(view.find((b) => b.id === "b")?.carried).toEqual({ id: "cup", from: "a" });
+    expect(view.find((b) => b.id === "c")?.carried).toEqual({ id: "cup", from: "a" });
+
+    const away = editBeat(held, "b", { prop: null });
+    expect(beatsOf(away).find((b) => b.id === "b")?.carried).toBeNull();
+    expect(beatsOf(away).find((b) => b.id === "c")?.carried).toBeNull();
+    const put = ((away.beats as { id: string; actions?: { do: string }[] }[]).find((b) => b.id === "b")!.actions ?? []).find((a) => a.do === "putAway");
+    expect(put).toMatchObject({ do: "putAway", who: "milo", hand: "R" });
+
+    const { beats, ...rest } = held as Skit & { beats: Record<string, unknown>[] };
+    const cut = { ...rest, scenes: [{ id: "one", set: "cafe-1", beats: beats.slice(0, 2) }, { id: "two", set: "park-1", beats: beats.slice(2) }] } as Skit;
+    expect(beatsOf(cut).find((b) => b.id === "c")?.carried).toBeNull();
+    expect(beatsOf(cut).find((b) => b.id === "b")?.carried).toEqual({ id: "cup", from: "a" });
+  });
+
+  it("sets and clears a prop, moves it with the speaker, and uses the left hand under a mic", () => {
+    const next = editBeat(skit, "l2", { prop: "cup" });
+    expect(beatsOf(next).find((b) => b.id === "l2")?.prop).toEqual({ id: "cup", hand: "R" });
+    expect(judgeSkit(next).check.errors).toBe(0);
+    const cleared = editBeat(next, "l2", { prop: null });
+    expect(beatsOf(cleared).find((b) => b.id === "l2")?.prop).toBeNull();
+
+    const moved = editBeat(skit, "l1", { speaker: "june" });
+    const hold = ((moved.beats as { id: string; actions?: { who?: string; do?: string; prop?: string }[] }[]).find((b) => b.id === "l1")!.actions ?? []).find((a) => a.do === "hold");
+    expect(hold).toMatchObject({ who: "june", prop: "phone" });
+    expect(beatsOf(moved).find((b) => b.id === "l2")?.carried?.id).toBe("phone");
+
+    const interview = {
+      schemaVersion: 1,
+      set: "street-1",
+      cast: [
+        { id: "host", character: "milo", holding: { prop: "mic", hand: "R" } },
+        { id: "guest", character: "june" },
+      ],
+      beats: [{ id: "q", speaker: "host", line: "Coffee?" }],
+    } as Skit;
+    const asked = editBeat(interview, "q", { prop: "cup" });
+    expect((asked.beats as { actions: { hand: string; prop: string }[] }[])[0]!.actions[0]).toMatchObject({ do: "hold", prop: "cup", hand: "L", at: { ms: 0 } });
+  });
+
+  it("keeps a hold on a copy and on the first half of a split, and recomputes a carry after a move", () => {
+    const held = editBeat(lines(["a", "b", "c"]), "a", { prop: "cup" });
+    const copy = duplicateBeat(held, "a");
+    expect(beatsOf(copy.skit).find((b) => b.id === copy.id)?.prop).toEqual({ id: "cup", hand: "R" });
+    const split = splitBeat(held, "a", "One.", "Still.");
+    expect(beatsOf(split.skit).find((b) => b.id === "a")?.prop?.id).toBe("cup");
+    expect(beatsOf(split.skit).find((b) => b.id === split.id)?.prop).toBeNull();
+    expect(beatsOf(split.skit).find((b) => b.id === split.id)?.carried).toEqual({ id: "cup", from: "a" });
+    const moved = moveBeat(held, "a", "down");
+    expect(beatsOf(moved).map((b) => b.id).slice(0, 2)).toEqual(["b", "a"]);
+    expect(beatsOf(moved).find((b) => b.id === "b")?.carried).toBeNull();
+    expect(beatsOf(moved).find((b) => b.id === "c")?.carried).toEqual({ id: "cup", from: "a" });
   });
 });
 

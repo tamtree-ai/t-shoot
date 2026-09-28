@@ -1,12 +1,13 @@
 /**
  * The skit review's in-process half (09 §6 step 4): judging a skit exactly as StickStage's
  * `/validate` would, and the beat edits the owner may make (OD-12: line, speaker, expression,
- * pause and text slams; shots, cuts and camera stay with the director). Pure and client-safe,
+ * pause, text slams and the prop in the speaker's hand; shots, cuts and camera stay with the director). Pure and client-safe,
  * so the review screen re-checks every edit in the browser and the server re-checks it on save,
  * with no run either way.
  */
 import { checkDraft, lastWordAnchor, normWord, SkitError, tokenize, type DraftCut } from "stickstage";
 
+import { skitForEngine } from "@/lib/stick/frame";
 import { stickRegistry } from "@/lib/stick/registry";
 import type { Skit, StickCheck, StickLine } from "@/lib/tamtree/stage-flows";
 
@@ -59,7 +60,7 @@ export function findingTarget(skit: unknown, path?: string): { beat: number; fie
 
 export function judgeSkit(skit: unknown): SkitVerdict {
   try {
-    const d = checkDraft(skit, stickRegistry);
+    const d = checkDraft(skitForEngine(skit), stickRegistry);
     const blank = blankLines(skit);
     const slams = slamAnchorFindings(skit);
     return {
@@ -114,6 +115,10 @@ export type EditableBeat = {
   slamAt: ({ word: string; occurrence: number } | null)[];
   /** The first sound effect on the beat, or none. */
   sfx: string | null;
+  /** The hold this beat gives its speaker. Null when the line doesn't pick one up. */
+  prop: { id: string; hand: "L" | "R" } | null;
+  /** What that speaker is already holding when the beat starts. `from` is a beat id, or "" from the cast. */
+  carried: { id: string; from: string } | null;
   shot?: { framing: "two" | "close" | "wide"; on?: string };
   reaction?: false | string;
 };
@@ -134,6 +139,11 @@ export type BeatPatch = {
   sfx?: string | null;
   /** null clears a pinned shot. Unset leaves the director's choice. */
   shot?: { framing: "two" | "close" | "wide"; on?: string } | null;
+  /**
+   * A prop id puts it in the speaker's hand. null puts a carried prop away, or
+   * removes the hold this beat added.
+   */
+  prop?: string | null;
   /** false turns the reaction off. null clears the override. */
   reaction?: false | null;
 };
@@ -282,25 +292,135 @@ function blankBeat(id: string, speaker?: string): RawBeat {
   return { id, ...(speaker ? { speaker } : {}), line: " ", expression: "neutral" };
 }
 
+type Hand = "L" | "R";
+type Held = { id: string; hand: Hand; from: string };
+type PropAction = { do?: string; who?: string; prop?: string; hand?: string; at?: { ms?: number; fraction?: number; word?: string } };
+
+function asHand(value: unknown): Hand {
+  return value === "L" ? "L" : "R";
+}
+
+/** A hold, put-away or drop that belongs to the line: no anchor, or one at the start of the beat. */
+function isLinePropAction(action: unknown, speaker: string): action is PropAction {
+  const a = action as PropAction | null;
+  if (!a || a.who !== speaker) return false;
+  if (a.do !== "hold" && a.do !== "putAway" && a.do !== "drop") return false;
+  if (!a.at) return true;
+  if (typeof a.at.word === "string") return false;
+  if (typeof a.at.ms === "number") return a.at.ms === 0;
+  if (typeof a.at.fraction === "number") return a.at.fraction === 0;
+  return false;
+}
+
+function isPropAction(action: unknown): action is PropAction {
+  const a = action as PropAction | null;
+  return !!a && (a.do === "hold" || a.do === "putAway" || a.do === "drop") && typeof a.who === "string";
+}
+
+/** Right, unless a scene-long hold (the cast's `holding`) already has the right hand. */
+function handFor(skit: Skit, speaker: string): Hand {
+  const cast = Array.isArray(skit.cast) ? (skit.cast as { id?: string; holding?: unknown }[]) : [];
+  const holding = cast.find((c) => c.id === speaker)?.holding;
+  if (!holding) return "R";
+  if (typeof holding === "string") return "L";
+  if (typeof holding === "object" && holding && typeof (holding as { prop?: unknown }).prop === "string") {
+    return (holding as { hand?: unknown }).hand === "L" ? "R" : "L";
+  }
+  return "R";
+}
+
+function castHeld(skit: Skit): Map<string, Held> {
+  const map = new Map<string, Held>();
+  if (!Array.isArray(skit.cast)) return map;
+  for (const c of skit.cast as { id?: string; holding?: unknown }[]) {
+    if (!c?.id || !c.holding) continue;
+    if (typeof c.holding === "string") map.set(c.id, { id: c.holding, hand: "R", from: "" });
+    else if (typeof c.holding === "object" && typeof (c.holding as { prop?: unknown }).prop === "string") {
+      map.set(c.id, { id: (c.holding as { prop: string }).prop, hand: asHand((c.holding as { hand?: unknown }).hand), from: "" });
+    }
+  }
+  return map;
+}
+
+type PropView = {
+  prop: { id: string; hand: Hand } | null;
+  carried: { id: string; from: string } | null;
+  /** What each person is holding at the start of the beat. */
+  before: Map<string, Held>;
+};
+
+/**
+ * Replay hold, putAway and drop per scene. Each scene starts from the cast's `holding`,
+ * so a prop does not survive a cut. `prop` is the hold this beat adds; `carried` is what
+ * the speaker is still holding from earlier when this beat doesn't pick one up or put it away.
+ */
+function propViews(skit: Skit): Map<string, PropView> {
+  const views = new Map<string, PropView>();
+  const opening = castHeld(skit);
+  const scenes = rawScenes(skit);
+  const groups: RawBeat[][] = scenes ? scenes.map((sc) => (Array.isArray(sc.beats) ? sc.beats : [])) : [rawBeats(skit)];
+  for (const beats of groups) {
+    const held = new Map(opening);
+    for (const beat of beats) {
+      const speaker = typeof beat.speaker === "string" ? beat.speaker : "";
+      const before = new Map(held);
+      const incoming = speaker ? before.get(speaker) ?? null : null;
+      let own: { id: string; hand: Hand } | null = null;
+      let released = false;
+      const actions = Array.isArray(beat.actions) ? (beat.actions as PropAction[]) : [];
+      for (const action of actions) {
+        if (!isPropAction(action) || !action.who) continue;
+        const hand = asHand(action.hand ?? held.get(action.who)?.hand);
+        if (action.do === "hold" && typeof action.prop === "string") {
+          held.set(action.who, { id: action.prop, hand, from: beat.id });
+          if (action.who === speaker && isLinePropAction(action, speaker)) {
+            own = { id: action.prop, hand };
+            released = false;
+          }
+        } else if (action.do === "putAway" || action.do === "drop") {
+          const prev = held.get(action.who);
+          if (prev && prev.hand === hand) held.delete(action.who);
+          if (action.who === speaker && isLinePropAction(action, speaker)) {
+            own = null;
+            released = true;
+          }
+        }
+      }
+      views.set(beat.id, {
+        prop: own,
+        carried: !own && !released && incoming ? { id: incoming.id, from: incoming.from } : null,
+        before,
+      });
+    }
+  }
+  return views;
+}
+
 export function beatsOf(skit: Skit): EditableBeat[] {
   const sceneOf = new Map(scenesOf(skit).flatMap((sc) => sc.beatIds.map((id) => [id, sc.id] as const)));
-  return rawBeats(skit).map((b) => ({
-    id: b.id,
-    ...(sceneOf.has(b.id) ? { scene: sceneOf.get(b.id) } : {}),
-    silent: b.silent === true || typeof b.line !== "string",
-    speaker: typeof b.speaker === "string" ? b.speaker : undefined,
-    line: typeof b.line === "string" ? b.line : undefined,
-    expression: typeof b.expression === "string" ? b.expression : undefined,
-    pauseBeforeMs: typeof b.pauseBeforeMs === "number" ? b.pauseBeforeMs : undefined,
-    slams: slamsOf(b).map((s) => s.value),
-    slamAt: slamsOf(b).map((s) => {
-      const at = s.at as { word?: unknown; occurrence?: unknown } | undefined;
-      return at && typeof at.word === "string" ? { word: normWord(at.word), occurrence: typeof at.occurrence === "number" ? at.occurrence : 1 } : null;
-    }),
-    sfx: sfxId(b),
-    ...shotOf(b),
-    ...(b.reaction === false || typeof b.reaction === "string" ? { reaction: b.reaction as false | string } : {}),
-  }));
+  const props = propViews(skit);
+  return rawBeats(skit).map((b) => {
+    const view = props.get(b.id);
+    return {
+      id: b.id,
+      ...(sceneOf.has(b.id) ? { scene: sceneOf.get(b.id) } : {}),
+      silent: b.silent === true || typeof b.line !== "string",
+      speaker: typeof b.speaker === "string" ? b.speaker : undefined,
+      line: typeof b.line === "string" ? b.line : undefined,
+      expression: typeof b.expression === "string" ? b.expression : undefined,
+      pauseBeforeMs: typeof b.pauseBeforeMs === "number" ? b.pauseBeforeMs : undefined,
+      slams: slamsOf(b).map((s) => s.value),
+      slamAt: slamsOf(b).map((s) => {
+        const at = s.at as { word?: unknown; occurrence?: unknown } | undefined;
+        return at && typeof at.word === "string" ? { word: normWord(at.word), occurrence: typeof at.occurrence === "number" ? at.occurrence : 1 } : null;
+      }),
+      sfx: sfxId(b),
+      prop: view?.prop ?? null,
+      carried: view?.carried ?? null,
+      ...shotOf(b),
+      ...(b.reaction === false || typeof b.reaction === "string" ? { reaction: b.reaction as false | string } : {}),
+    };
+  });
 }
 
 function shotOf(beat: RawBeat): { shot?: { framing: "two" | "close" | "wide"; on?: string } } {
@@ -316,9 +436,34 @@ function sfxId(beat: RawBeat): string | null {
   return typeof id === "string" ? id : null;
 }
 
-/** The skit's cast ids, in order: who a line can be given to. */
-export function castOf(skit: Skit): { id: string; character: string; label?: string }[] {
-  return Array.isArray(skit.cast) ? (skit.cast as { id: string; character: string; label?: string }[]) : [];
+function applyProp(skit: Skit, beatId: string, speaker: string, actions: unknown, prop: string | null): unknown[] | undefined {
+  const list = Array.isArray(actions) ? (actions as PropAction[]) : [];
+  const kept = list.filter((a) => !isLinePropAction(a, speaker));
+  const view = propViews(skit).get(beatId);
+  const hadOwn = list.some((a) => isLinePropAction(a, speaker) && a.do === "hold");
+  const incoming = view?.before.get(speaker) ?? null;
+  if (prop === null) {
+    if (hadOwn || !incoming) return kept.length ? kept : undefined;
+    return [...kept, { do: "putAway", who: speaker, hand: incoming.hand, at: { ms: 0 } }];
+  }
+  if (!hadOwn && incoming?.id === prop) return list.length ? list : undefined;
+  return [...kept, { do: "hold", who: speaker, prop, hand: handFor(skit, speaker), at: { ms: 0 } }];
+}
+
+function linePropActions(beat: RawBeat): { actions?: PropAction[] } {
+  const speaker = typeof beat.speaker === "string" ? beat.speaker : "";
+  if (!speaker || !Array.isArray(beat.actions)) return {};
+  const actions = (beat.actions as PropAction[]).filter((a) => isLinePropAction(a, speaker)).map((a) => ({ ...a }));
+  return actions.length ? { actions } : {};
+}
+export function castOf(skit: Skit): { id: string; character: string; label?: string; mark?: string }[] {
+  if (!Array.isArray(skit.cast)) return [];
+  return (skit.cast as { id: string; character: string; label?: string; mark?: string }[]).map((c) => ({
+    id: c.id,
+    character: c.character,
+    ...(c.label ? { label: c.label } : {}),
+    ...(typeof c.mark === "string" ? { mark: c.mark } : {}),
+  }));
 }
 
 /**
@@ -335,7 +480,24 @@ export function editBeat(skit: Skit, beatId: string, patch: BeatPatch): Skit {
     beats.map((b) => {
       if (b.id !== beatId) return b;
       const next: RawBeat = { ...b };
-      if (patch.speaker !== undefined) next.speaker = patch.speaker;
+      const oldSpeaker = typeof b.speaker === "string" ? b.speaker : undefined;
+      if (patch.speaker !== undefined && oldSpeaker && patch.speaker !== oldSpeaker) {
+        next.speaker = patch.speaker;
+        if (Array.isArray(b.actions) && b.actions.some((a) => isLinePropAction(a, oldSpeaker))) {
+          next.actions = (b.actions as PropAction[]).map((a) => {
+            if (!isLinePropAction(a, oldSpeaker)) return a;
+            return a.do === "hold" ? { ...a, who: patch.speaker, hand: handFor(skit, patch.speaker!) } : { ...a, who: patch.speaker };
+          });
+        }
+      } else if (patch.speaker !== undefined) next.speaker = patch.speaker;
+      if (patch.prop !== undefined) {
+        const speaker = typeof next.speaker === "string" ? next.speaker : undefined;
+        if (speaker) {
+          const actions = applyProp(skit, b.id, speaker, next.actions, patch.prop);
+          if (actions) next.actions = actions;
+          else delete next.actions;
+        }
+      }
       if (patch.line !== undefined) next.line = patch.line;
       if (patch.expression !== undefined) next.expression = patch.expression;
       if (patch.pauseBeforeMs === null) delete next.pauseBeforeMs;
@@ -484,7 +646,7 @@ export function addBeat(skit: Skit, afterId: string | null): { skit: Skit; id: s
   return { skit: fromSlots(skit, scenes, next), id };
 }
 
-/** A copy of a line, without its shot, so the director stages the copy. */
+/** A copy of a line, without its shot, so the director stages the copy. The line's prop stays. */
 export function duplicateBeat(skit: Skit, beatId: string): { skit: Skit; id: string } {
   const { scenes, slots } = slotsOf(skit);
   const at = slots.findIndex((s) => s.beat.id === beatId);
@@ -500,10 +662,19 @@ export function duplicateBeat(skit: Skit, beatId: string): { skit: Skit; id: str
     ...(typeof source.pauseBeforeMs === "number" ? { pauseBeforeMs: source.pauseBeforeMs } : {}),
     ...(slams.length ? { text: slams.map((s) => ({ ...s })) } : {}),
     ...(Array.isArray(source.sfx) ? { sfx: (source.sfx as unknown[]).map((s) => ({ ...(s as object) })) } : {}),
+    ...linePropActions(source),
   };
   const next = slots.slice();
   next.splice(at + 1, 0, { sceneId: slots[at]!.sceneId, beat });
   return { skit: fromSlots(skit, scenes, next), id };
+}
+
+/** The first half keeps the line's prop. The second half is a new line, so a carry is derived. */
+export function splitBeat(skit: Skit, beatId: string, before: string, after: string): { skit: Skit; id: string } {
+  const base = before.trim() ? editBeat(skit, beatId, { line: before }) : skit;
+  const added = addBeat(base, beatId);
+  const next = after.trim() ? editBeat(added.skit, added.id, { line: after }) : added.skit;
+  return { skit: next, id: added.id };
 }
 
 /** Drop a line. The last spoken line stays, with a reason. */

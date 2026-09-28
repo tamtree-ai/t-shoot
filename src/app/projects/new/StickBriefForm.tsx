@@ -2,11 +2,14 @@
 
 import { useState, useTransition } from "react";
 
-import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
+import { CastOnSet, CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
+import { BriefProps } from "@/components/stick-skit/PropPicker";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
+import { ASPECT_LABEL, ASPECTS, engineTakesBriefAspect, FRAME, frameClass, isAspect, type Aspect } from "@/lib/stick/frame";
+import { stickRegistry } from "@/lib/stick/registry";
 import type { StickBrief, StickCast } from "@/lib/tamtree/stage-flows";
 import { stickBriefOutsideDefaults, type StickSkitDefaults } from "@/types/stick-skit";
-import { characterName, MULTI_SCENE_WRITER_LIVE, setLabel, stickCatalog } from "@/types/stick-skit/catalog";
+import { characterAspect, characterName, MULTI_SCENE_WRITER_LIVE, setAspect, setLabel, stickCatalog } from "@/types/stick-skit/catalog";
 import { createStickProjectAction } from "./actions";
 import { StartPanel, StartTabs } from "./StartPanel";
 
@@ -58,12 +61,14 @@ export function StickBriefForm({
   defaults: StickSkitDefaults;
   showId?: string;
   episodeNumber?: number;
-  initial?: { template?: TemplateId | null; cast?: string[]; set?: string; tone?: string | null; topic?: string };
+  initial?: { template?: TemplateId | null; cast?: string[]; set?: string; tone?: string | null; topic?: string; aspect?: Aspect | null };
   /** Workspace characters. A `rig` is a built character; without one, the picture stays the catalog body. */
   saved?: { id: string; name: string; body: string; rig?: Record<string, unknown> }[];
 }) {
-  const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id));
-  const catalogSets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id));
+  const [aspect, setFrame] = useState<Aspect>(isAspect(initial?.aspect) ? initial.aspect : "9:16");
+  const characters = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id) && characterAspect(c.id) === aspect);
+  const catalogSets = stickCatalog.sets.filter((s) => defaults.allowed_sets.includes(s.id) && setAspect(s.id) === aspect);
+  const widescreenClosed = aspect === "16:9" && !engineTakesBriefAspect();
 
   const [mode, setMode] = useState<"topic" | "paste" | "link">("topic");
   const [topic, setTopic] = useState(initial?.topic ?? "");
@@ -71,12 +76,16 @@ export function StickBriefForm({
   const [template, setTemplate] = useState<TemplateId | null>(initial?.template ?? defaults.default_template ?? null);
   const startTemplate = initial?.template ?? defaults.default_template ?? null;
   const startSize = !startTemplate || startTemplate === "me-vs-me" ? 1 : stickCatalog.templates.find((t) => t.id === startTemplate)!.cast;
-  const [picked, setPicked] = useState<string[]>(initial?.cast?.length ? initial.cast : characters.slice(0, startSize).map((c) => c.id));
+  const [picked, setPicked] = useState<string[]>(() => {
+    const fromShow = (initial?.cast ?? []).filter((id) => characterAspect(id) === aspect);
+    return fromShow.length > 0 ? fromShow : characters.slice(0, startSize).map((c) => c.id);
+  });
   const [selves, setSelves] = useState(["me", "my brain"]);
   const [scenes, setScenes] = useState(1);
   /** The picked sets in scene order: at most one per scene; none is the writer's pick. */
-  const [sets, setSets] = useState<string[]>(initial?.set ? [initial.set] : []);
+  const [sets, setSets] = useState<string[]>(initial?.set && setAspect(initial.set) === aspect ? [initial.set] : []);
   const [hoverSet, setHoverSet] = useState<string | null>(null);
+  const [mustShow, setMustShow] = useState<string[]>([]);
   const [tone, setTone] = useState<string | null>(initial?.tone ?? null);
   const [targetS, setTargetS] = useState<15 | 30 | 45 | 60 | null>(null);
   const [limit, setLimit] = useState(Number(defaults.limit_usd).toFixed(2));
@@ -88,6 +97,14 @@ export function StickBriefForm({
   const castSize = template ? stickCatalog.templates.find((t) => t.id === template)!.cast : 2;
   const selfMode = template === "me-vs-me";
   const maxPicked = selfMode ? 1 : castSize;
+
+  function chooseAspect(next: Aspect) {
+    setFrame(next);
+    const people = stickCatalog.characters.filter((c) => defaults.allowed_characters.includes(c.id) && characterAspect(c.id) === next);
+    const size = template === "me-vs-me" ? 1 : template ? stickCatalog.templates.find((t) => t.id === template)!.cast : 2;
+    setPicked(people.slice(0, size).map((c) => c.id));
+    setSets((prev) => prev.filter((id) => setAspect(id) === next));
+  }
 
   function chooseTemplate(next: TemplateId | null) {
     setTemplate(next);
@@ -157,17 +174,33 @@ export function StickBriefForm({
     });
   }
 
+  function stageCast(): string[] {
+    const keys = selfMode && picked[0] ? [picked[0], picked[0]] : picked;
+    return keys.flatMap((key) => {
+      const id = resolve(key).character;
+      return stickRegistry.lib.characters[id] ? [id] : [];
+    });
+  }
+
   function submit() {
+    if (widescreenClosed) {
+      setError("This StickStage build only writes shorts. Widescreen is not in the writer yet.");
+      return;
+    }
     if (!topic.trim()) {
       setError("Say what the skit is about.");
+      return;
+    }
+    if (characters.length === 0) {
+      setError("Pick a character drawn for this frame.");
       return;
     }
     if (template && !selfMode && picked.length !== castSize) {
       setError(`${templateLabel(template)} needs ${castSize === 1 ? "one character" : "two characters"}.`);
       return;
     }
-    const characters = workspaceCharacters();
-    if (characters.length > 0 && !original) {
+    const custom = workspaceCharacters();
+    if (custom.length > 0 && !original) {
       setError("Confirm these are original characters.");
       return;
     }
@@ -175,9 +208,11 @@ export function StickBriefForm({
       topic: topic.trim(),
       ...(description.trim() && { description: description.trim() }),
       ...(template && { template }),
+      aspect,
       cast: cast(),
-      ...(characters.length > 0 && { characters }),
+      ...(custom.length > 0 && { characters: custom }),
       ...(scenes === 1 ? sets[0] && { set: sets[0] } : { scenes, ...(sets.length > 0 && { sets }) }),
+      ...(mustShow.length > 0 && { props: mustShow }),
       ...(tone && { tone: tone.toLowerCase() }),
       ...(targetS && { target_s: targetS }),
     };
@@ -207,6 +242,7 @@ export function StickBriefForm({
             kind="stick_skit"
             characters={characters.map((c) => ({ id: c.id, name: c.name }))}
             sets={catalogSets.map((s) => ({ id: s.id, label: setLabel(s.id) }))}
+            aspect={aspect}
             limitUsd={Number(limit || defaults.limit_usd).toFixed(2)}
             showId={showId}
             episodeNumber={episodeNumber}
@@ -234,6 +270,25 @@ export function StickBriefForm({
           className="box-border w-full resize-none rounded-xl border border-rule bg-panel px-[18px] py-3 text-sm leading-normal text-fg placeholder:text-fg-muted"
         />
         <span className="text-xs text-fg-muted">You&rsquo;ll read and edit every line before anything is voiced.</span>
+      </div>
+
+      <div role="group" aria-label="Shape" className="flex flex-col gap-2.5">
+        <span className={label}>Shape</span>
+        <div className="flex flex-wrap gap-1.5">
+          {ASPECTS.map((id) => (
+            <button key={id} type="button" aria-pressed={aspect === id} onClick={() => chooseAspect(id)} className={`${toggleBase} ${aspect === id ? toggleOn : toggleOff}`}>
+              {ASPECT_LABEL[id]}
+              <span className="ml-1.5 font-mono text-[11px] font-normal">{id}</span>
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-fg-muted">
+          {widescreenClosed
+            ? "Widescreen is 1920×1080. This StickStage build still only writes shorts."
+            : aspect === "16:9" && characters.length === 0
+              ? "This StickStage build has no widescreen cast yet."
+              : `${ASPECT_LABEL[aspect]} · ${FRAME[aspect].width}×${FRAME[aspect].height}. Cast and rooms stay on this frame.`}
+        </span>
       </div>
 
       <div role="group" aria-label="Format" className="flex flex-col gap-2.5">
@@ -284,17 +339,17 @@ export function StickBriefForm({
           {characters.map((c) => {
             const selected = picked.includes(c.id);
             return (
-              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.id)} className={`${card(selected)} aspect-[9/16]`}>
+              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(c.id)} className={`${card(selected)} ${frameClass(aspect)}`}>
                 <CharacterThumb id={c.id} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
               </button>
             );
           })}
-          {saved.filter((c) => defaults.allowed_characters.includes(c.body)).map((c) => {
+          {saved.filter((c) => defaults.allowed_characters.includes(c.body) && (!isAspect(c.rig?.aspect) || c.rig.aspect === aspect)).map((c) => {
             const key = c.rig ? `saved:${c.id}` : c.body;
             const selected = picked.includes(key);
             return (
-              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(key)} className={`${card(selected)} aspect-[9/16]`}>
+              <button key={c.id} type="button" aria-pressed={selected} onClick={() => toggleCharacter(key)} className={`${card(selected)} ${frameClass(aspect)}`}>
                 <CharacterThumb id={c.body} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pt-6 pb-2 text-left text-xs font-medium text-white">{c.name}</span>
               </button>
@@ -338,7 +393,7 @@ export function StickBriefForm({
           )}
         </span>
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-          <button type="button" aria-pressed={sets.length === 0} onClick={() => setSets([])} className={`${card(sets.length === 0)} flex aspect-[9/16] items-center justify-center p-2 text-center text-xs leading-snug text-fg-2`}>
+          <button type="button" aria-pressed={sets.length === 0} onClick={() => setSets([])} className={`${card(sets.length === 0)} flex ${frameClass(aspect)} items-center justify-center p-2 text-center text-xs leading-snug text-fg-2`}>
             Writer&rsquo;s pick
           </button>
           {catalogSets.map((s) => {
@@ -355,7 +410,7 @@ export function StickBriefForm({
                 onFocus={() => setHoverSet(s.id)}
                 onBlur={() => setHoverSet((h) => (h === s.id ? null : h))}
                 onClick={() => toggleSet(s.id)}
-                className={`${card(order >= 0)} aspect-[9/16]`}
+                className={`${card(order >= 0)} ${frameClass(aspect)}`}
               >
                 <SetThumb id={s.id} className="absolute inset-0" />
                 {scenes > 1 && order >= 0 && (
@@ -369,6 +424,14 @@ export function StickBriefForm({
           })}
         </div>
         <SetCaption id={hoverSet ?? sets.at(-1) ?? null} />
+        <StagePreview aspect={aspect} setId={stageSetId(template, aspect, hoverSet, sets, catalogSets[0]?.id)} characterIds={stageCast()} />
+      </div>
+
+      <div role="group" aria-label="Props" className="flex flex-col gap-2.5">
+        <span className={label}>
+          Props <span className="font-normal tracking-normal normal-case">· optional, things the video has to show</span>
+        </span>
+        <BriefProps value={mustShow} onChange={setMustShow} />
       </div>
 
       <div role="group" aria-label="Length" className="flex flex-col gap-2.5">
@@ -402,7 +465,7 @@ export function StickBriefForm({
       <div className="flex flex-wrap items-center gap-4 border-t border-rule pt-5">
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || widescreenClosed}
           onClick={submit}
           className="flex h-[46px] items-center gap-2.5 rounded-[10px] bg-accent px-[22px] text-[15px] font-semibold text-accent-ink disabled:opacity-60"
         >
@@ -432,6 +495,24 @@ export function StickBriefForm({
         </span>
       </div>
       {error && <p className="text-sm text-[#ff8a64]">{error}</p>}
+    </div>
+  );
+}
+
+function stageSetId(template: TemplateId | null, aspect: Aspect, hover: string | null, picked: string[], fallback?: string): string | null {
+  const format = stickCatalog.templates.find((t) => t.id === (template ?? "exchange"));
+  const preferred = format?.defaultSets?.[aspect] ?? format?.defaultSet;
+  const id = hover ?? picked.at(-1) ?? (preferred && setAspect(preferred) === aspect ? preferred : fallback);
+  return id && stickRegistry.sets[id] ? id : null;
+}
+
+function StagePreview({ aspect, setId, characterIds }: { aspect: Aspect; setId: string | null; characterIds: string[] }) {
+  if (!setId) return null;
+  return (
+    <div className="mx-auto w-full max-w-[280px]">
+      <div role="img" aria-label="Cast on the set" className={`relative overflow-hidden rounded-xl border border-line bg-[#0c0c0f] ${frameClass(aspect)}`}>
+        <CastOnSet setId={setId} characterIds={characterIds} className="absolute inset-0" />
+      </div>
     </div>
   );
 }

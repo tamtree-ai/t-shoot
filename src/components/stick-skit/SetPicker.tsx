@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-
+import { frameClass } from "@/lib/stick/frame";
 import { stickCatalog } from "@/lib/stick/registry";
-import { setLabel } from "@/types/stick-skit/catalog";
+import { setAspect, setLabel } from "@/types/stick-skit/catalog";
 
 import { SetThumb } from "./Thumbs";
+import { usePopover } from "./usePopover";
 
 /** A set menu drawn by the engine. The closed control is a thumbnail; the open one is the grid. */
 export function SetPicker({
@@ -21,25 +21,7 @@ export function SetPicker({
   align?: "start" | "end";
   onChange: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const panelId = useId();
-
-  useEffect(() => {
-    if (!open) return;
-    function onDoc(e: MouseEvent) {
-      if (!root.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const { open, setOpen, root, panelId } = usePopover();
 
   const current = options.find((o) => o.id === value);
   const name = current?.label ?? (value ? setLabel(value) : "Set");
@@ -80,7 +62,7 @@ export function SetPicker({
                   onChange(o.id);
                   setOpen(false);
                 }}
-                className={`relative aspect-[9/16] overflow-hidden rounded-lg border bg-[#0c0c0f] ${selected ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-line hover:border-line-strong"}`}
+                className={`relative ${frameClass(setAspect(o.id))} overflow-hidden rounded-lg border bg-[#0c0c0f] ${selected ? "border-accent shadow-[0_0_0_1px_var(--color-accent)]" : "border-line hover:border-line-strong"}`}
               >
                 <SetThumb id={o.id} className="absolute inset-0" />
                 <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-4 pb-1 text-left text-[10px] font-medium text-white">{o.label}</span>

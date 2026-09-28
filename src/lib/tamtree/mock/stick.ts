@@ -9,6 +9,7 @@ import path from "node:path";
 
 import { checkDraft, placeholderVoice, SkitError } from "stickstage";
 
+import { aspectOfBrief, FRAME, skitForEngine } from "@/lib/stick/frame";
 import { stickCatalog, stickRegistry } from "@/lib/stick/registry";
 import type { Skit, StickProduceIn, StickScriptIn, StickScriptOut } from "../stage-flows";
 import premise from "./stick/group-chat.premise.json";
@@ -21,6 +22,14 @@ type Scene = { id: string; set: string; beats: Beat[] };
 type StickBrief = Extract<StickScriptIn, { mode: "draft" }>["brief"];
 
 const clone = <T>(v: T): T => structuredClone(v);
+
+/** The canned skit is a short. A widescreen brief states its pixels without the `aspect` key this build rejects. */
+function withFrame(skit: Skit, brief: { aspect?: unknown }): Skit {
+  if (aspectOfBrief(brief) !== "16:9") return skit;
+  const meta = { ...(skit.meta && typeof skit.meta === "object" ? skit.meta : {}), width: FRAME["16:9"].width, height: FRAME["16:9"].height } as Record<string, unknown>;
+  delete meta.aspect;
+  return { ...skit, meta };
+}
 
 /**
  * The committed skit cut into `brief.scenes` scenes: its beats split evenly, never opening a
@@ -51,10 +60,10 @@ function mockWrite(input: StickScriptIn): { skit: Skit; premise?: Record<string,
   if (input.mode === "draft") {
     const skit = clone(groupChat) as Skit & { set: string; beats?: Beat[] };
     const { scenes } = input.brief;
-    if (scenes) return { skit: inScenes(skit, { ...input.brief, scenes }), premise: clone(premise) };
+    if (scenes) return { skit: withFrame(inScenes(skit, { ...input.brief, scenes }), input.brief), premise: clone(premise) };
     const set = input.brief.set ?? input.brief.allowed_sets?.find((s) => s in stickRegistry.sets);
     if (set && set in stickRegistry.sets) skit.set = set;
-    return { skit, premise: clone(premise) };
+    return { skit: withFrame(skit, input.brief), premise: clone(premise) };
   }
   // Revise "applies" the note to the punchline only, and keeps every id.
   const skit = clone(input.skit) as Skit & { beats?: Beat[]; scenes?: { beats?: Beat[] }[] };
@@ -68,7 +77,7 @@ export function stickScriptOutput(input: StickScriptIn): StickScriptOut | StickM
   if (input.catalog_version !== stickCatalog.version) return "catalog_mismatch";
   const { skit, premise: written } = mockWrite(input);
   try {
-    const d = checkDraft(skit, stickRegistry);
+    const d = checkDraft(skitForEngine(skit), stickRegistry);
     return {
       ...(written ? { premise: written } : {}),
       skit,
@@ -105,7 +114,7 @@ export function stickProduceFiles(input: StickProduceIn): StickRenderFiles | Sti
   if (input.catalog_version !== stickCatalog.version) return "catalog_mismatch";
   let d: ReturnType<typeof checkDraft>;
   try {
-    d = checkDraft(input.skit, stickRegistry);
+    d = checkDraft(skitForEngine(input.skit), stickRegistry);
   } catch (e) {
     if (e instanceof SkitError) return "invalid_skit";
     throw e;
