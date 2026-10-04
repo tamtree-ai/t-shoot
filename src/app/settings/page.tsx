@@ -8,6 +8,7 @@ import { WorkspacePanel } from "./WorkspacePanel";
 import { productionType } from "@/types/registry";
 import { PRODUCTION_KINDS } from "@/types/types";
 import { typeUi } from "@/types/ui";
+import { isStandalone } from "@/lib/standalone";
 import { StudioMark } from "@/components/StudioMark";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,8 @@ export default async function SettingsPage() {
   }
   const [row, org, characters] = await Promise.all([memberById(member.memberId), getOrg(member.orgId), listCharacters(member.orgId)]);
   const sections = await Promise.all(
-    PRODUCTION_KINDS.map(async (kind) => ({ kind, defaults: await getTypeDefaults(member.orgId, kind) })),
+    // Standalone mode makes stick skits only, so AI clips have no settings to show.
+    PRODUCTION_KINDS.filter((kind) => !isStandalone() || kind === "stick_skit").map(async (kind) => ({ kind, defaults: await getTypeDefaults(member.orgId, kind) })),
   );
 
   return (
@@ -64,7 +66,7 @@ export default async function SettingsPage() {
                 <h2 id={`settings-${kind}`} className="text-[17px] font-semibold tracking-[-0.01em]">
                   {productionType(kind).label}
                 </h2>
-                <SettingsForm defaults={defaults} canEdit={member.role === "owner"} />
+                <SettingsForm defaults={defaults} canEdit={member.role === "owner"} standalone={isStandalone()} />
               </section>
             );
           })}

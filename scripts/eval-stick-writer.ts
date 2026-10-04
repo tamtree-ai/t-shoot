@@ -6,13 +6,24 @@
  *   pnpm eval:writer -- --yes --label baseline-minimax
  *
  * Needs TAMTREE_BASE_URL, TAMTREE_API_KEY and TAMTREE_FLOW_IDS (the runtime key).
+ *
+ * Standalone (plan §4): `--local` runs the same briefs through the local adapter with your own
+ * model (LOCAL_LLM_BASE_URL, LOCAL_LLM_MODEL, LOCAL_LLM_API_KEY) and the StickStage service at
+ * STICKSTAGE_URL (STICKSTAGE_API_TOKEN). Free on t-shoot's side; `--limit=N` keeps a slow local
+ * model to the first N briefs.
+ *   pnpm eval:writer -- --local --label qwen3-8b --limit=5
  * Writes eval-reports/<stamp>-<label>.md and .json.
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { stickCatalog } from "@/lib/stick/registry";
+import type { TamtreeAdapter } from "@/lib/tamtree/adapter";
 import { LiveTamtreeAdapter } from "@/lib/tamtree/live-adapter";
+import { LocalStickAdapter } from "@/lib/tamtree/local/local-adapter";
+import { StickStageClient } from "@/lib/tamtree/local/stickstage";
+import { kokoroTts } from "@/lib/tamtree/local/tts";
+import { writerConfigFromEnv, writerFromEnv } from "@/lib/tamtree/local/writer";
 import { readStageOutput } from "@/lib/tamtree/read-output";
 import type { StickBrief } from "@/lib/tamtree/stage-flows";
 import { StickScriptOut as StickScriptOutSchema, type StickScriptOut } from "@/lib/tamtree/stage-flows";
@@ -84,7 +95,9 @@ type Row = {
 
 const args = process.argv.slice(2);
 const yes = args.includes("--yes");
-const label = args.find((a, i) => args[i - 1] === "--label") ?? "baseline-minimax";
+const local = args.includes("--local");
+const limit = Number(args.find((a) => a.startsWith("--limit="))?.split("=")[1]) || undefined;
+const label = args.find((a, i) => args[i - 1] === "--label") ?? (local ? `local-${writerConfigFromEnv()?.model ?? "none"}`.replace(/[^\w.-]+/g, "-") : "baseline-minimax");
 
 const baseUrl = process.env.TAMTREE_BASE_URL;
 const apiKey = process.env.TAMTREE_API_KEY;
@@ -95,8 +108,9 @@ function die(message: string): never {
   process.exit(1);
 }
 
-if (!yes) die("This spends money on live Tamtree. Re-run with --yes.");
-if (!baseUrl || !apiKey || !flowIds) die("Set TAMTREE_BASE_URL, TAMTREE_API_KEY and TAMTREE_FLOW_IDS.");
+if (local && !writerConfigFromEnv()) die("--local needs LOCAL_LLM_BASE_URL and LOCAL_LLM_MODEL.");
+if (!local && !yes) die("This spends money on live Tamtree. Re-run with --yes.");
+if (!local && (!baseUrl || !apiKey || !flowIds)) die("Set TAMTREE_BASE_URL, TAMTREE_API_KEY and TAMTREE_FLOW_IDS.");
 
 const knownSets = new Set(stickCatalog.sets.map((s) => s.id));
 for (const { id, brief } of DRAFTS) {
@@ -105,11 +119,18 @@ for (const { id, brief } of DRAFTS) {
   }
 }
 
-const adapter = new LiveTamtreeAdapter({
-  baseUrl,
-  apiKey,
-  flowIds: Object.fromEntries(flowIds.split(",").map((p) => p.trim().split("=") as [string, string])),
-});
+const adapter: TamtreeAdapter = local
+  ? new LocalStickAdapter({
+      dir: path.join(process.env.TAMSHOOT_LOCAL_DIR ?? ".local-engine", "eval"),
+      stickstage: new StickStageClient({ baseUrl: process.env.STICKSTAGE_URL ?? "http://127.0.0.1:8787", token: process.env.STICKSTAGE_API_TOKEN }),
+      tts: kokoroTts(),
+      writer: writerFromEnv(),
+    })
+  : new LiveTamtreeAdapter({
+      baseUrl: baseUrl!,
+      apiKey: apiKey!,
+      flowIds: Object.fromEntries(flowIds!.split(",").map((p) => p.trim().split("=") as [string, string])),
+    });
 
 const allowedSets = stickCatalog.sets.map((s) => s.id);
 
@@ -153,9 +174,11 @@ async function main(): Promise<void> {
 const rows: Row[] = [];
 const skits = new Map<string, Record<string, unknown>>();
 
-console.log(`eval-stick-writer: ${DRAFTS.length} drafts + ${CHANGES.length} changes, catalog ${stickCatalog.version}, label ${label}`);
+const drafts = limit ? DRAFTS.slice(0, limit) : DRAFTS;
+const changes = limit ? CHANGES.slice(0, Math.max(1, Math.ceil(limit / 2))) : CHANGES;
+console.log(`eval-stick-writer: ${drafts.length} drafts + ${changes.length} changes, catalog ${stickCatalog.version}, label ${label}`);
 
-for (const { id, brief } of DRAFTS) {
+for (const { id, brief } of drafts) {
   const asked = brief.scenes ? `${brief.scenes} scenes` : "1 scene";
   process.stdout.write(`${id} ${asked} … `);
   try {
@@ -202,9 +225,9 @@ if (!base || !baseSkit) {
   console.log("No draft parsed, so the change requests were not sent.");
 } else {
   console.log(`Change requests start from ${base.id}.`);
-  for (let i = 0; i < CHANGES.length; i++) {
+  for (let i = 0; i < changes.length; i++) {
     const id = `c${String(i + 1).padStart(2, "0")}`;
-    const note = CHANGES[i]!;
+    const note = changes[i]!;
     process.stdout.write(`${id} ${note} … `);
     try {
       const { run, out, parseError, ms } = await runFlow({

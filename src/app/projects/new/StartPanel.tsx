@@ -163,12 +163,14 @@ export function StartPanel({
   );
 }
 
-export function StartTabs({ mode, onChange }: { mode: "topic" | "paste" | "link"; onChange: (mode: "topic" | "paste" | "link") => void }) {
+export function StartTabs({ mode, onChange, link = true }: { mode: "topic" | "paste" | "link"; onChange: (mode: "topic" | "paste" | "link") => void; link?: boolean }) {
   return (
     <div role="tablist" aria-label="How to start" className="inline-flex w-fit gap-0.5 rounded-lg border border-line bg-panel p-0.5">
       <button type="button" role="tab" aria-selected={mode === "topic"} className={tab(mode === "topic")} onClick={() => onChange("topic")}>Topic</button>
       <button type="button" role="tab" aria-selected={mode === "paste"} className={tab(mode === "paste")} onClick={() => onChange("paste")}>Paste a script</button>
-      <button type="button" role="tab" aria-selected={mode === "link"} className={tab(mode === "link")} onClick={() => onChange("link")}>From a link</button>
+      {link && (
+        <button type="button" role="tab" aria-selected={mode === "link"} className={tab(mode === "link")} onClick={() => onChange("link")}>From a link</button>
+      )}
     </div>
   );
 }

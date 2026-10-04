@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "lines": [
+    {
+      "id": "b1",
+      "speaker": "milo",
+      "text": "Hey. You okay?",
+      "audio": "voice/b1.wav",
+      "durationMs": 1525
+    },
+    {
+      "id": "b2",
+      "speaker": "june",
+      "text": "I'm fine. Totally fine.",
+      "audio": "voice/b2.wav",
+      "durationMs": 2075
+    },
+    {
+      "id": "b4",
+      "speaker": "milo",
+      "text": "Right. Sure.",
+      "audio": "voice/b4.wav",
+      "durationMs": 1375
+    }
+  ]
+}

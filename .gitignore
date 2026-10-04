@@ -48,3 +48,6 @@ next-env.d.ts
 
 # scripts/start.sh logs and pids
 /.run/
+
+# standalone mode: local runs and assets (TAMSHOOT_LOCAL_DIR)
+/.local-engine/

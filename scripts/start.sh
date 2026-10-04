@@ -4,6 +4,10 @@
 # Tamtree is reached only over HTTP, per .env.local.
 #
 #   scripts/start.sh            then scripts/stop.sh
+#   scripts/start.sh --standalone
+#       no Tamtree: StickStage's render service from a sibling clone ($STICKSTAGE_DIR, default
+#       ../stickstage; run pnpm install && pnpm bootstrap there once), Kokoro voices, local
+#       sign-in, and the standalone demo seed. Writes a standalone .env.local if there is none.
 #
 # Logs and pids: .run/
 set -euo pipefail
@@ -13,7 +17,24 @@ cd "$(dirname "$0")/.."
 PORT=${PORT:-3007}
 mkdir -p .run
 
+STANDALONE=0
+[ "${1:-}" = "--standalone" ] && STANDALONE=1
+STICKSTAGE_DIR=${STICKSTAGE_DIR:-../stickstage}
+
+if [ "$STANDALONE" = 1 ] && [ ! -f .env.local ]; then
+  cat >.env.local <<ENV
+DATABASE_URL=postgres://tamshoot:tamshoot@localhost:5433/tamshoot
+TAMTREE_ADAPTER=local
+TAMSHOOT_AUTH=local
+STICKSTAGE_URL=http://127.0.0.1:8787
+ENV
+  echo "Wrote a standalone .env.local"
+fi
 [ -f .env.local ] || { echo "No .env.local — cp .env.example .env.local first." >&2; exit 1; }
+if [ "$STANDALONE" = 1 ]; then
+  grep -q '^TAMTREE_ADAPTER=local' .env.local || { echo ".env.local is not standalone (TAMTREE_ADAPTER=local). Move it aside, or set that line." >&2; exit 1; }
+  [ -f "$STICKSTAGE_DIR/package.json" ] || { echo "No StickStage clone at $STICKSTAGE_DIR. Clone it there, or set STICKSTAGE_DIR." >&2; exit 1; }
+fi
 docker info >/dev/null 2>&1 || { echo "Docker is not running. Start Docker Desktop first." >&2; exit 1; }
 
 running() { [ -f ".run/$1.pid" ] && kill -0 "$(cat ".run/$1.pid")" 2>/dev/null; }
@@ -41,8 +62,20 @@ launch() {
 echo "Database"
 pnpm --silent db:up >.run/db.log 2>&1 || { echo "  pnpm db:up failed — see .run/db.log" >&2; exit 1; }
 pnpm --silent db:migrate >>.run/db.log 2>&1 || { echo "  pnpm db:migrate failed — see .run/db.log" >&2; exit 1; }
-pnpm --silent db:seed >>.run/db.log 2>&1 || { echo "  pnpm db:seed failed — see .run/db.log" >&2; exit 1; }
-echo "  Postgres on :5433, migrated and seeded"
+if [ "$STANDALONE" = 1 ]; then
+  echo "  Postgres on :5433, migrated"
+  echo "StickStage"
+  if running stickstage || curl -fsS -o /dev/null http://127.0.0.1:8787/healthz 2>/dev/null; then
+    echo "  already running on :8787 — left alone"
+  else
+    launch stickstage pnpm -C "$STICKSTAGE_DIR" serve --insecure-local
+  fi
+  # The finished demo waits for StickStage and renders once; the app does not wait for it.
+  launch seed pnpm db:seed:standalone
+else
+  pnpm --silent db:seed >>.run/db.log 2>&1 || { echo "  pnpm db:seed failed — see .run/db.log" >&2; exit 1; }
+  echo "  Postgres on :5433, migrated and seeded"
+fi
 
 echo "App"
 other=$(existing_next_port)

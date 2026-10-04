@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import type { TamtreeConnection } from "@/lib/tamtree";
 
 /**
- * The Tamtree connection pill for the home header. Connected: a quiet green pill. Otherwise
- * (mock, or live but failing) it is a button that opens the steps to connect.
+ * The Tamtree connection pill for the home header. Connected: a quiet green pill. Standalone
+ * (no Tamtree, StickStage + Kokoro on this computer): a quiet neutral pill. Otherwise (mock, or
+ * live or standalone but failing) it is a button that opens the steps to fix it.
  */
 export function TamtreeStatus({ connection }: { connection: TamtreeConnection }) {
   const [open, setOpen] = useState(false);
+
+  if (connection.state === "standalone") {
+    const title = `StickStage at ${connection.stickstageUrl}. Voices: ${connection.voices}. Writer: ${connection.writer ?? "you (no model set)"}.`;
+    return (
+      <span className="flex items-center gap-2 rounded-full border border-rule px-3 py-1 text-[12px] text-fg-3" title={title}>
+        <span aria-hidden className="size-2 rounded-full bg-fg-muted" />
+        Standalone · {connection.voices}
+      </span>
+    );
+  }
 
   if (connection.state === "connected") {
     return (
@@ -20,7 +31,8 @@ export function TamtreeStatus({ connection }: { connection: TamtreeConnection })
     );
   }
 
-  const label = connection.state === "mock" ? "Tamtree not connected · mock" : "Tamtree connection failed";
+  const label =
+    connection.state === "mock" ? "Tamtree not connected · mock" : connection.state === "error" && connection.standalone ? "StickStage not reachable" : "Tamtree connection failed";
   return (
     <>
       <button
@@ -37,7 +49,7 @@ export function TamtreeStatus({ connection }: { connection: TamtreeConnection })
   );
 }
 
-function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConnection, { state: "connected" }>; onClose: () => void }) {
+function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConnection, { state: "connected" | "standalone" }>; onClose: () => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     ref.current?.focus();
@@ -47,6 +59,7 @@ function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConne
   }, [onClose]);
 
   const base = (connection.state === "error" && connection.baseUrl) || "http://localhost:8000";
+  if (connection.state === "error" && connection.standalone) return <StandaloneDialog problem={connection.problem} url={base} onClose={onClose} closeRef={ref} />;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -100,6 +113,31 @@ function SetupDialog({ connection, onClose }: { connection: Exclude<TamtreeConne
 
         <div className="flex justify-end">
           <button ref={ref} type="button" onClick={onClose} className="h-10 rounded-lg border border-line px-[18px] text-sm font-medium text-fg-2">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Standalone mode: only StickStage can be down. One line says which part, then how to start it. */
+function StandaloneDialog({ problem, url, onClose, closeRef }: { problem: string; url: string; onClose: () => void; closeRef: RefObject<HTMLButtonElement | null> }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-labelledby="standalone-setup-title" className="flex w-[520px] flex-col gap-4 rounded-[14px] border border-line bg-panel p-6 text-left shadow-2xl">
+        <h2 id="standalone-setup-title" className="text-[17px] font-semibold tracking-[-0.01em]">StickStage isn&rsquo;t answering</h2>
+        <p role="alert" className="rounded-lg border border-attention-line bg-attention-soft px-4 py-3 text-[13px] text-attention">
+          {problem}
+        </p>
+        <p className="text-[13px] leading-relaxed text-fg-2">
+          Standalone mode draws every video with StickStage at <code>{url}</code>. With Docker it starts with the app:
+        </p>
+        <Code>{"docker compose -f compose.standalone.yml up"}</Code>
+        <p className="text-[13px] leading-relaxed text-fg-2">Without Docker, start it from a StickStage clone:</p>
+        <Code>{"pnpm install && pnpm bootstrap && pnpm serve --insecure-local"}</Code>
+        <div className="flex justify-end">
+          <button ref={closeRef} type="button" onClick={onClose} className="h-10 rounded-lg border border-line px-[18px] text-sm font-medium text-fg-2">
             Close
           </button>
         </div>

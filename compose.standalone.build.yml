@@ -1,0 +1,10 @@
+# Build both images from source instead of pulling them (until they are published, or to try a
+# change). STICKSTAGE_DIR is a StickStage checkout next to this one.
+#   STICKSTAGE_DIR=../stickstage docker compose -f compose.standalone.yml -f compose.standalone.build.yml up --build
+services:
+  stickstage:
+    image: stickstage-render:local
+    build: ${STICKSTAGE_DIR:-../stickstage}
+  app:
+    image: t-shoot:local
+    build: .

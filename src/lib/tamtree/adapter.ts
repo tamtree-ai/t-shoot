@@ -3,7 +3,8 @@
  *
  * Only services and the worker call this. The UI never imports it. Track F runs on
  * MockTamtreeAdapter; Track W adds LiveTamtreeAdapter, which must pass the same
- * contract suite (tests/contract/adapter.contract.ts).
+ * contract suite (tests/contract/adapter.contract.ts). Standalone mode adds
+ * LocalStickAdapter (`local/`), which runs the stick flows itself, without Tamtree.
  *
  * Method → live call:
  *   triggerRun      POST /v1/flows/{flow_id}/run            (Idempotency-Key header)
@@ -36,7 +37,7 @@ export type TriggerOptions = {
 };
 
 export interface TamtreeAdapter {
-  readonly kind: "mock" | "live";
+  readonly kind: "mock" | "live" | "local";
 
   triggerRun<F extends StageFlow>(flow: F, input: StageInput[F], opts: TriggerOptions): Promise<RunDetail>;
   getRun(runId: string): Promise<RunOut>;

@@ -1,0 +1,14 @@
+node_modules
+.next
+.next-*
+.run
+.local-engine
+.kokoro
+.env
+.env.*
+.git
+test-results
+playwright-report
+eval-reports
+tsconfig.tsbuildinfo
+**/.DS_Store

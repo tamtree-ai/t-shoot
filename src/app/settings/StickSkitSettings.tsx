@@ -6,7 +6,7 @@ import { SpeakButton } from "@/components/SpeakButton";
 import { CharacterThumb, SetThumb } from "@/components/stick-skit/Thumbs";
 import type { StickSkitDefaults } from "@/types/stick-skit";
 import { frameClass } from "@/lib/stick/frame";
-import { characterAspect, DEFAULT_VOICE_MAP, setAspect, setLabel, STICK_VOICES, stickCatalog } from "@/types/stick-skit/catalog";
+import { characterAspect, DEFAULT_VOICE_MAP, KOKORO_FOR, setAspect, setLabel, STICK_VOICES, STICK_VOICES_LOCAL, stickCatalog } from "@/types/stick-skit/catalog";
 import { setSuggestPropsEnabled, subscribeSuggestProps, suggestPropsEnabled } from "@/lib/stick/prop-search";
 import { saveTypeDefaultsAction } from "./actions";
 
@@ -31,10 +31,15 @@ function toggle(list: string[], id: string): string[] {
 }
 
 /** What this workspace allows for stick-figure skits (09 §4). Every new skit brief starts from it. */
-export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDefaults; canEdit: boolean }) {
+export function StickSkitSettings({ defaults, canEdit, standalone = false }: { defaults: StickSkitDefaults; canEdit: boolean; standalone?: boolean }) {
   const [sets, setSets] = useState(defaults.allowed_sets);
   const [characters, setCharacters] = useState(defaults.allowed_characters);
-  const [voices, setVoices] = useState<Record<string, string>>({ ...DEFAULT_VOICE_MAP, ...defaults.voice_map });
+  // Standalone mode picks from Kokoro's voices; a voice saved under Tamtree shows as its stand-in.
+  const voiceList: readonly { id: string; desc: string }[] = standalone ? STICK_VOICES_LOCAL : STICK_VOICES;
+  const shown = (v: string) => (standalone ? (KOKORO_FOR[v] ?? v) : v);
+  const [voices, setVoices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries({ ...DEFAULT_VOICE_MAP, ...defaults.voice_map }).map(([c, v]) => [c, shown(v)])),
+  );
   const [voiceSettings, setVoiceSettings] = useState(defaults.voice_settings);
   const [template, setTemplate] = useState(defaults.default_template ?? "");
   const [cap, setCap] = useState(Number(defaults.limit_usd).toFixed(2));
@@ -49,7 +54,7 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
       const r = await saveTypeDefaultsAction("stick_skit", {
         allowed_sets: sets,
         allowed_characters: characters,
-        voice_map: Object.fromEntries(characters.map((c) => [c, voices[c] ?? STICK_VOICES[0].id])),
+        voice_map: Object.fromEntries(characters.map((c) => [c, voices[c] ?? voiceList[0]!.id])),
         voice_settings: voiceSettings,
         ...(template && { default_template: template }),
         limit_usd: cap.trim(),
@@ -75,11 +80,11 @@ export function StickSkitSettings({ defaults, canEdit }: { defaults: StickSkitDe
                 <button type="button" aria-pressed={on} onClick={() => setCharacters((l) => toggle(l, c.id))} className={`${toggleBase} w-28 ${on ? toggleOn : toggleOff}`}>
                   {c.name}
                 </button>
-                <SpeakButton text="This is a sample line." voiceId={voices[c.id] ?? STICK_VOICES[0].id} pitch={voiceSettings[c.id]?.pitch} rate={voiceSettings[c.id]?.pace} label="Sample" />
+                <SpeakButton text="This is a sample line." voiceId={voices[c.id] ?? voiceList[0]!.id} pitch={voiceSettings[c.id]?.pitch} rate={voiceSettings[c.id]?.pace} label="Sample" />
                 <input aria-label={`${c.name} pitch`} type="range" min={0.5} max={2} step={0.1} value={voiceSettings[c.id]?.pitch ?? 1} disabled={!on} onChange={(e) => setVoiceSettings((s) => ({ ...s, [c.id]: { pitch: Number(e.target.value), pace: s[c.id]?.pace ?? 1 } }))} />
                 <input aria-label={`${c.name} pace`} type="range" min={0.5} max={2} step={0.1} value={voiceSettings[c.id]?.pace ?? 1} disabled={!on} onChange={(e) => setVoiceSettings((s) => ({ ...s, [c.id]: { pitch: s[c.id]?.pitch ?? 1, pace: Number(e.target.value) } }))} />
-                <select aria-label={`${c.name}'s voice`} value={voices[c.id] ?? STICK_VOICES[0].id} disabled={!on} onChange={(e) => setVoices((v) => ({ ...v, [c.id]: e.target.value }))} className={`${select} disabled:opacity-50`}>
-                  {STICK_VOICES.map((v) => (
+                <select aria-label={`${c.name}'s voice`} value={voices[c.id] ?? voiceList[0]!.id} disabled={!on} onChange={(e) => setVoices((v) => ({ ...v, [c.id]: e.target.value }))} className={`${select} disabled:opacity-50`}>
+                  {voiceList.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.desc} · {v.id}
                     </option>

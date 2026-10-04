@@ -17,11 +17,14 @@ import {
   approveSkit,
   keepSkitRevision,
   moveToCurrentCatalog,
+  recoverSkitRun,
   reviseSkit,
   saveSkitBeats,
   undoSkitRevision,
   writeSkit,
 } from "@/services/skit";
+import { chatbotPrompt, chatbotReply } from "@/services/skit-chatbot";
+import { TamtreeRunError } from "@/services/tamtree-run";
 import type { ScenePlan } from "@/types/stick-skit/draft";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -82,9 +85,26 @@ export async function approveScriptAction(projectId: string): Promise<ActionResu
 
 // stick_skit (09 §6 steps 3–4) ─────────────────────────────────────────────────
 
-export async function writeSkitAction(projectId: string): Promise<ActionResult> {
+/** A write that outlives the wait comes back with its run, so the screen can offer to fetch it. */
+export async function writeSkitAction(projectId: string): Promise<ActionResult | { ok: false; error: string; runId: string }> {
   const member = await getCurrentMember();
-  return guarded(projectId, () => writeSkit(projectId, member.memberId));
+  try {
+    await writeSkit(projectId, member.memberId);
+    revalidatePath(path(projectId));
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof TamtreeRunError && err.runId) {
+      return { ok: false, error: "It's taking longer than usual, but it's still writing. Fetch it once it's done.", runId: err.runId };
+    }
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong." };
+  }
+}
+
+/** Fetch a finished `stick-script` run by ID or link, without running it again. Free. */
+export async function recoverSkitRunAction(projectId: string, runRef: string): Promise<ActionResult> {
+  if (!runRef.trim()) return { ok: false, error: "Paste the run ID or its link." };
+  const member = await getCurrentMember();
+  return guarded(projectId, () => recoverSkitRun(projectId, runRef.trim(), member.memberId));
 }
 
 /**
@@ -135,3 +155,29 @@ export async function moveToCurrentCatalogAction(projectId: string): Promise<{ o
     return { ok: false, error: err instanceof Error ? err.message : "Something went wrong." };
   }
 }
+
+/** The copy-paste writer, step 1: the words to paste into any chatbot. Free; no model is called. */
+export async function chatbotPromptAction(projectId: string): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  await getCurrentMember();
+  try {
+    return { ok: true, ...(await chatbotPrompt(projectId)) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong getting the prompt." };
+  }
+}
+
+/** Step 2: the chatbot's reply. Staged into the draft, or the next words to paste. */
+export async function chatbotReplyAction(
+  projectId: string,
+  reply: string,
+): Promise<{ ok: true } | { ok: false; repair: string; problems: string[] } | { ok: false; error: string }> {
+  await getCurrentMember();
+  try {
+    const result = await chatbotReply(projectId, reply);
+    if (result.ok) revalidatePath(path(projectId));
+    return result;
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Something went wrong reading the reply." };
+  }
+}
+

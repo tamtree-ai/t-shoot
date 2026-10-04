@@ -11,11 +11,12 @@ import { STICK_LINE_PRICE_USD } from "@/lib/estimate";
 import { ASPECT_LABEL, aspectOfBrief, isAspect, type Aspect } from "@/lib/stick/frame";
 import { Skit, StickBrief, StickLine } from "@/lib/tamtree/stage-flows";
 import { spendCap, type ProductionType } from "../types";
-import { characterAspect, characterName, DEFAULT_VOICE_MAP, setAspect, setLabel, STICK_VOICES, stickCatalog } from "./catalog";
+import { characterAspect, characterName, DEFAULT_VOICE_MAP, setAspect, setLabel, STICK_VOICES, STICK_VOICES_LOCAL, stickCatalog } from "./catalog";
 
 const CHARACTER_IDS = stickCatalog.characters.map((c) => c.id);
 const SET_IDS = stickCatalog.sets.map((s) => s.id);
-const VOICE_IDS = STICK_VOICES.map((v) => v.id) as [string, ...string[]];
+// Tamtree's voices, and standalone mode's Kokoro voices (STICK_VOICES_LOCAL), which a local workspace saves.
+const VOICE_IDS = [...STICK_VOICES, ...STICK_VOICES_LOCAL].map((v) => v.id) as [string, ...string[]];
 
 /** Keeps only ids the pinned catalog still has, so settings saved before a catalog change still parse. */
 const knownIds = (known: string[], none: string) =>

@@ -6,7 +6,7 @@
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
-for name in web worker; do
+for name in web worker stickstage seed; do
   pidfile=.run/$name.pid
   [ -f "$pidfile" ] || continue
   pgid=$(cat "$pidfile")

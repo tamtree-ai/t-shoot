@@ -1,0 +1,71 @@
+# t-shoot standalone: no Tamtree, no account, no key, no .env.
+#   docker compose -f compose.standalone.yml up -d
+# then open http://localhost:3007 (signed in, with a finished sample video).
+# The team's docker-compose.yml (Postgres only) is separate and unchanged.
+#
+# Images: the StickStage render service, tagged by the catalog version this t-shoot pins
+# (vendor/STICKSTAGE), and t-shoot itself. To build them from source instead:
+#   docker compose -f compose.standalone.yml -f compose.standalone.build.yml up --build
+name: t-shoot-standalone
+
+services:
+  # A random token for t-shoot → StickStage, made once and kept in a volume.
+  token:
+    image: busybox:1.37
+    command: ["sh", "-c", "[ -s /secrets/stickstage-token ] || tr -dc a-f0-9 < /dev/urandom | head -c 48 > /secrets/stickstage-token; chmod 444 /secrets/stickstage-token"]
+    volumes:
+      - secrets:/secrets
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tamshoot
+      POSTGRES_PASSWORD: tamshoot
+      POSTGRES_DB: tamshoot
+    volumes:
+      - pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tamshoot"]
+      interval: 2s
+      retries: 30
+
+  stickstage:
+    image: ghcr.io/tamtree-ai/stickstage-render:${STICKSTAGE_TAG:-c1-84bec2c99cf49e3e}
+    command: ["sh", "-c", "STICKSTAGE_API_TOKEN=$$(cat /secrets/stickstage-token) exec node_modules/.bin/tsx scripts/serve.ts"]
+    depends_on:
+      token:
+        condition: service_completed_successfully
+    volumes:
+      - secrets:/secrets:ro
+      - stickstage-jobs:/app/public/skits/_jobs
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/tamtree-ai/t-shoot:${TSHOOT_TAG:-latest}
+    environment:
+      DATABASE_URL: postgres://tamshoot:tamshoot@postgres:5432/tamshoot
+      STICKSTAGE_URL: http://stickstage:8787
+      # Optional: your own writer model (README, "Your own model"). Unset, you write or paste the lines.
+      LOCAL_LLM_BASE_URL: ${LOCAL_LLM_BASE_URL:-}
+      LOCAL_LLM_MODEL: ${LOCAL_LLM_MODEL:-}
+      LOCAL_LLM_API_KEY: ${LOCAL_LLM_API_KEY:-}
+    # Local sign-in means anyone who can reach the port is the owner: this computer only.
+    ports:
+      - "127.0.0.1:${TSHOOT_PORT:-3007}:3000"
+    depends_on:
+      token:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      stickstage:
+        condition: service_started
+    volumes:
+      - secrets:/secrets:ro
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  secrets:
+  pg:
+  stickstage-jobs:
+  data:

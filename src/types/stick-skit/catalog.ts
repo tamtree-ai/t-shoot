@@ -21,6 +21,33 @@ export const STICK_VOICES = [
 ] as const;
 
 /**
+ * Standalone mode's voices: Kokoro (kokoro-js), on this computer. English voices only; the
+ * descriptions are Kokoro's own (accent · gender). Listen before choosing.
+ */
+export const STICK_VOICES_LOCAL = [
+  ...["af_heart", "af_bella", "af_nicole", "af_kore", "af_aoede", "af_sarah", "af_jessica", "af_nova", "af_river", "af_sky", "af_alloy"].map((id) => ({ id, desc: "US · female" })),
+  ...["am_puck", "am_michael", "am_fenrir", "am_echo", "am_eric", "am_liam", "am_adam", "am_onyx"].map((id) => ({ id, desc: "US · male" })),
+  ...["bf_emma", "bf_isabella", "bf_alice", "bf_lily"].map((id) => ({ id, desc: "UK · female" })),
+  ...["bm_george", "bm_lewis", "bm_daniel", "bm_fable"].map((id) => ({ id, desc: "UK · male" })),
+] as const;
+
+/**
+ * Saved (Gemini, Tamtree's) voice → its Kokoro stand-in, so settings saved under Tamtree keep
+ * working in standalone mode. Four share the name; Zephyr, Charon, Leda and Orus are picked by
+ * ear (listen before freezing). The local adapter's TTS reads this.
+ */
+export const KOKORO_FOR: Readonly<Record<string, string>> = {
+  Puck: "am_puck",
+  Kore: "af_kore",
+  Aoede: "af_aoede",
+  Fenrir: "am_fenrir",
+  Zephyr: "af_sky",
+  Charon: "am_onyx",
+  Leda: "af_nicole",
+  Orus: "am_michael",
+};
+
+/**
  * A voice for every character the catalog has or is about to have. Settings parse
  * `allowed_characters` as the whole catalog, so a character with no voice here stops
  * an org that has never saved settings from loading.

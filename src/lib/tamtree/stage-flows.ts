@@ -165,6 +165,18 @@ export type StickBrief = z.infer<typeof StickBrief>;
 export const StickScriptIn = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("draft"), catalog_version: z.string().min(1), brief: StickBrief }),
   z.object({ mode: z.literal("revise"), catalog_version: z.string().min(1), skit: Skit, note: z.string().min(1) }),
+  /**
+   * Standalone v0 extension (D2): the words to paste into any chatbot, for a draft (`brief`) or a
+   * change (`skit` + `note`). No model is called; the output is `StickPromptOut`. Only the local
+   * adapter serves it until the plugin adds the branch; live never advertises it before then.
+   */
+  z.object({ mode: z.literal("prompt"), catalog_version: z.string().min(1), brief: StickBrief.optional(), skit: Skit.optional(), note: z.string().min(1).optional() }),
+  /**
+   * Standalone v0 extension (D2): a chatbot's reply, pasted back, with the brief or the skit it
+   * answers. Staged like a model's reply (`StickScriptOut`); a reply that can't be used comes
+   * back as `StickRepairOut`, the next words to paste. No second try is made for the user.
+   */
+  z.object({ mode: z.literal("reply"), catalog_version: z.string().min(1), reply: z.string().min(1), brief: StickBrief.optional(), skit: Skit.optional() }),
 ]);
 export type StickScriptIn = z.infer<typeof StickScriptIn>;
 
@@ -196,6 +208,25 @@ export const StickScriptOut = z.object({
   warnings: z.array(z.string()),
 });
 export type StickScriptOut = z.infer<typeof StickScriptOut>;
+
+/** `stick-script` in `prompt` mode: what to paste into a chatbot (`system` first, then `prompt`). */
+export const StickPromptOut = z.object({
+  system: z.string().min(1),
+  prompt: z.string().min(1),
+  writer: z.string(),
+});
+export type StickPromptOut = z.infer<typeof StickPromptOut>;
+
+/** `stick-script` in `reply` mode when the reply can't be used: the next words to paste. */
+export const StickRepairOut = z.object({
+  repair_prompt: z.string().min(1),
+  problems: z.array(z.string()),
+});
+export type StickRepairOut = z.infer<typeof StickRepairOut>;
+
+/** Everything `stick-script` can return. `draft` and `revise` only ever return `StickScriptOut`. */
+export const StickScriptResult = z.union([StickScriptOut, StickPromptOut, StickRepairOut]);
+export type StickScriptResult = z.infer<typeof StickScriptResult>;
 
 export const StickProduceIn = z.object({
   catalog_version: z.string().min(1),
@@ -316,7 +347,7 @@ export type StageOutput = {
   "studio-narrate": NarrateOut;
   "studio-clip": ClipOut;
   "studio-render": RenderOut;
-  "stick-script": StickScriptOut;
+  "stick-script": StickScriptResult;
   "stick-produce": StickProduceOut;
   "studio-publish": PublishOut;
   "studio-topics": TopicsOut;
@@ -330,7 +361,7 @@ export const stageOutputSchema = {
   "studio-narrate": NarrateOut,
   "studio-clip": ClipOut,
   "studio-render": RenderOut,
-  "stick-script": StickScriptOut,
+  "stick-script": StickScriptResult,
   "stick-produce": StickProduceOut,
   "studio-publish": PublishOut,
   "studio-topics": TopicsOut,

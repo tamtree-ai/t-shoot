@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { ProjectLibrary } from "@/components/ProjectLibrary";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
 import { signOutAction } from "@/app/horizon-actions";
+import { isLocalAuth } from "@/lib/standalone";
 import { getCurrentMember } from "@/lib/auth";
 import { unreadCount } from "@/services/workspace";
 import { getTamtreeConnection } from "@/lib/tamtree";
@@ -44,12 +45,17 @@ export default async function Home() {
               <HeaderLink href="/guide">Guide</HeaderLink>
               <HeaderLink href="/portal">Reviews{unread > 0 ? ` · ${unread}` : ""}</HeaderLink>
               <HeaderLink href="/settings">Settings</HeaderLink>
-              <HeaderLink href="/sign-in">Sign in</HeaderLink>
-              <form action={signOutAction}>
-                <button type="submit" className="rounded-md px-2 py-1 text-fg-3 hover:bg-hover hover:text-fg">
-                  Sign out
-                </button>
-              </form>
+              {/* Local sign-in has one owner and no email: there is nothing to sign in or out of. */}
+              {!isLocalAuth() && (
+                <>
+                  <HeaderLink href="/sign-in">Sign in</HeaderLink>
+                  <form action={signOutAction}>
+                    <button type="submit" className="rounded-md px-2 py-1 text-fg-3 hover:bg-hover hover:text-fg">
+                      Sign out
+                    </button>
+                  </form>
+                </>
+              )}
             </nav>
             <MemberMark name={member.name} email={member.email} />
           </>

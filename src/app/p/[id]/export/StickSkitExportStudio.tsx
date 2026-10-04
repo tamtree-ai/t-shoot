@@ -53,7 +53,29 @@ function fileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount = 1, brand, voiceConsent = false }: { projectId: string; title: string; cuts: ExportCut[]; posts: StoredPost[]; lineCount?: number; brand?: BrandKit | null; voiceConsent?: boolean }) {
+export function StickSkitExportStudio({
+  projectId,
+  title,
+  cuts,
+  posts,
+  lineCount = 1,
+  brand,
+  voiceConsent = false,
+  helpers = true,
+  publish = true,
+}: {
+  projectId: string;
+  title: string;
+  cuts: ExportCut[];
+  posts: StoredPost[];
+  lineCount?: number;
+  brand?: BrandKit | null;
+  voiceConsent?: boolean;
+  /** Title and translation helpers. Standalone mode without a writer model hides them. */
+  helpers?: boolean;
+  /** Posting to platforms is Tamtree's; standalone mode hides it. Downloads stay. */
+  publish?: boolean;
+}) {
   const [id, setId] = useState(cuts[0]?.id ?? "");
   const cut = cuts.find((c) => c.id === id) ?? cuts[0];
   const video = useRef<HTMLVideoElement>(null);
@@ -146,7 +168,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
             </select>
           )}
           </div>
-          <ExportLabs projectId={projectId} title={title} lineCount={lineCount} />
+          {helpers && <ExportLabs projectId={projectId} title={title} lineCount={lineCount} />}
         </div>
         <div ref={stage} className="relative min-h-0 flex-1">
           <div className="absolute inset-0 flex items-center justify-center">
@@ -210,7 +232,7 @@ export function StickSkitExportStudio({ projectId, title, cuts, posts, lineCount
         {post?.hashtags && <p className="font-mono text-[12px] text-fg-3">{post.hashtags}</p>}
         {cut.reminder && <p className="text-[13px] text-attention">{cut.reminder}</p>}
         <p className="text-[12px] leading-relaxed text-fg-muted">{cut.cover ? "The generated cover is the default. Scrub the film and save a frame only when you want a different one." : "Scrub the film and save the frame you want as the cover. A generated cover replaces this once the render includes one."}</p>
-        {cut && (
+        {cut && publish && (
           <PublishDesk
             key={`${cut.id}:${post?.caption ?? ""}`}
             projectId={projectId}

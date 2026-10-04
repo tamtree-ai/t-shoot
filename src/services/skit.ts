@@ -10,8 +10,12 @@ import { and, desc, eq, like } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { STICK_SCRIPT_PRICE_USD } from "@/lib/estimate";
 import { prepareWriterBrief } from "@/lib/stick/writer-brief";
-import { Skit, type StickProduceIn, type StickScriptOut } from "@/lib/tamtree/stage-flows";
+import { getTamtreeAdapter } from "@/lib/tamtree";
+import { readStageOutput } from "@/lib/tamtree/read-output";
+import { Skit, StickScriptOut, type StickProduceIn } from "@/lib/tamtree/stage-flows";
+import { isTerminal } from "@/lib/tamtree/types";
 import { timelineDigest } from "@/lib/timeline";
+import { stageOf } from "@/types/registry";
 import { estimateProduce, stickSkit } from "@/types/stick-skit";
 import { characterName } from "@/types/stick-skit/catalog";
 import { canApprove, castOf, judgeSkit, withBeats, type ScenePlan, type SkitVerdict } from "@/types/stick-skit/draft";
@@ -68,7 +72,7 @@ async function requireDraft(projectId: string): Promise<SkitDraft> {
 }
 
 /** Keep workspace character documents on the skit when a rewrite forgets them. */
-function keepCharacters(skit: Skit, sources: unknown[]): Skit {
+export function keepCharacters(skit: Skit, sources: unknown[]): Skit {
   const docs = sources.flatMap((source) => {
     if (!source || typeof source !== "object") return [];
     const list = (source as { characters?: unknown }).characters;
@@ -88,8 +92,8 @@ const fromVerdict = (v: SkitVerdict) => ({
   estimatedDurationS: v.estimatedDurationS,
 });
 
-/** "Write the skit" (~$0.01): `stick-script` in draft mode, kept inside the workspace's sets. */
-export async function writeSkit(projectId: string, memberId: string): Promise<void> {
+/** The brief as the writer sees it: inside the workspace's sets, with the cast's notes. */
+export async function writerBrief(projectId: string) {
   const { project, catalogVersion } = await stickProject(projectId);
   const brief = stickSkit.configSchema.parse(project.brief);
   const defaults = await getTypeDefaults(project.orgId, stickSkit.kind);
@@ -97,6 +101,12 @@ export async function writeSkit(projectId: string, memberId: string): Promise<vo
   delete forWriter.target_s;
   const notes = characterNotes(await listCharacters(project.orgId), brief.cast.map((c) => c.character));
   if (notes) forWriter.description = [forWriter.description, notes].filter(Boolean).join("\n").slice(0, 2000);
+  return { brief, forWriter, catalogVersion };
+}
+
+/** "Write the skit" (~$0.01): `stick-script` in draft mode, kept inside the workspace's sets. */
+export async function writeSkit(projectId: string, memberId: string): Promise<void> {
+  const { brief, forWriter, catalogVersion } = await writerBrief(projectId);
 
   const { output } = await runAndRecordStage({
     projectId,
@@ -130,6 +140,58 @@ export async function reviseSkit(projectId: string, note: string, memberId: stri
   if (sourceCommentId) await resolveComment(projectId, sourceCommentId, note, memberId);
 }
 
+const RUN_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * "Fetch a finished run" (free, no new run): a `stick-script` write that outlived t-shoot's
+ * wait keeps going on Tamtree. Read its output by run ID (or a Tamtree run URL) and stage it
+ * like any write. Over an existing draft it lands as a revision, so the owner can undo it.
+ */
+export async function recoverSkitRun(projectId: string, runRef: string, memberId: string): Promise<void> {
+  const tamtreeRunId = runRef.match(RUN_ID)?.[0].toLowerCase();
+  if (!tamtreeRunId) throw new Error("That isn't a run ID. Paste the ID or the run's link.");
+  const { project, catalogVersion } = await stickProject(projectId);
+  const adapter = getTamtreeAdapter();
+
+  const run = await adapter.getRun(tamtreeRunId);
+  if (!isTerminal(run.status)) throw new Error("That run is still going. Try again in a minute.");
+  if (run.status !== "completed") {
+    const message = typeof run.error?.message === "string" ? run.error.message : `That run ${run.status}.`;
+    throw new Error(`Nothing to fetch: ${message}`);
+  }
+  const parsed = StickScriptOut.safeParse(readStageOutput(stickSkit.flows.script, await adapter.getRunOutput(tamtreeRunId)));
+  if (!parsed.success) throw new Error("That run didn't write a skit.");
+
+  const [recorded] = await db.select({ id: schema.runs.id }).from(schema.runs).where(eq(schema.runs.tamtreeRunId, tamtreeRunId)).limit(1);
+  if (!recorded) {
+    await db.insert(schema.runs).values({
+      projectId,
+      flow: stickSkit.flows.script,
+      stage: stageOf(project, stickSkit.flows.script),
+      tamtreeRunId,
+      // The original trigger's key was never stored; this one only has to be unique.
+      idempotencyKey: `recovered:${tamtreeRunId}`,
+      status: "completed",
+      estimateUsd: STICK_SCRIPT_PRICE_USD.toString(),
+      costUsd: Number(run.total_cost_usd).toFixed(6),
+      meteredSteps: run.metered_steps,
+      unpricedSteps: run.unpriced_steps,
+      input: { recovered: true },
+      confirmedBy: memberId,
+    });
+  }
+
+  const draft = await getSkitDraft(projectId);
+  const { brief } = await writerBrief(projectId);
+  const written = parsed.data;
+  await saveOutput(
+    projectId,
+    catalogVersion,
+    { ...written, skit: keepCharacters(written.skit, [draft?.skit ?? brief]) },
+    draft ? { previousSkit: draft.skit, revisionNote: `Fetched from run ${tamtreeRunId}` } : { previousSkit: null, revisionNote: null },
+  );
+}
+
 async function resolveComment(projectId: string, commentId: string, note: string, memberId: string): Promise<void> {
   const comment = await getProjectComment(projectId, commentId);
   if (!comment || comment.resolved) return;
@@ -142,7 +204,7 @@ async function resolveComment(projectId: string, commentId: string, note: string
   });
 }
 
-async function saveOutput(
+export async function saveOutput(
   projectId: string,
   catalogVersion: string,
   out: StickScriptOut,

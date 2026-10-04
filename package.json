@@ -14,19 +14,24 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
+    "db:seed:standalone": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/seed-standalone.ts",
     "tamtree:vendor": "bash scripts/vendor-tamtree-types.sh",
     "worker": "tsx --conditions=react-server --env-file=.env.local src/worker/index.ts",
     "test:e2e": "playwright test",
+    "test:standalone": "playwright test -c playwright.standalone.config.ts",
     "stickstage:vendor": "bash scripts/vendor-stickstage.sh",
     "tamtree:provision": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/provision-tamtree.ts",
-    "eval:writer": "tsx --conditions=react-server --env-file=.env.local scripts/eval-stick-writer.ts",
+    "eval:writer": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/eval-stick-writer.ts",
     "mcp": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/mcp.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.69",
+    "@ai-sdk/openai-compatible": "^3.0.60",
     "@remotion/captions": "4.0.529",
     "@remotion/noise": "4.0.529",
     "@remotion/player": "4.0.529",
     "@remotion/transitions": "4.0.529",
+    "ai": "^7.0.123",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.6",
     "pg": "^8.23.0",
@@ -55,5 +60,9 @@
     "vitest": "^5.0.1",
     "yaml": "^2.9.1"
   },
-  "packageManager": "pnpm@11.17.0"
+  "packageManager": "pnpm@11.17.0",
+  "optionalDependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "kokoro-js": "^1.2.1"
+  }
 }

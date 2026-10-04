@@ -49,7 +49,7 @@ describe.skipIf(!enabled)("live stick flows", () => {
     expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i + 1));
     const done = await settle(run.id);
     expect(done.status).toBe("completed");
-    const out = readStageOutput("stick-script", await a().getRunOutput(run.id));
+    const out = StickScriptOut.parse(readStageOutput("stick-script", await a().getRunOutput(run.id)));
     expect(StickScriptOut.parse(out)).toEqual(out);
     expect(out.lines.length).toBeGreaterThanOrEqual(11);
   }, 300_000);

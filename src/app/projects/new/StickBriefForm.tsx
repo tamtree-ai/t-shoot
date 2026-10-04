@@ -57,7 +57,10 @@ export function StickBriefForm({
   episodeNumber,
   initial,
   saved = [],
+  helpers = true,
 }: {
+  /** "From a link" needs a writer model (topics). Standalone mode without one hides it. */
+  helpers?: boolean;
   defaults: StickSkitDefaults;
   showId?: string;
   episodeNumber?: number;
@@ -232,7 +235,7 @@ export function StickBriefForm({
   return (
     <div className="flex w-full max-w-[880px] flex-col gap-8 py-12 pb-8">
       <div className="flex flex-col gap-3">
-        <StartTabs mode={mode} onChange={setMode} />
+        <StartTabs mode={mode} onChange={setMode} link={helpers} />
         <label htmlFor="topic" className="font-display text-[40px] leading-[1.05] tracking-[-0.01em]">
           What&rsquo;s the skit about?
         </label>

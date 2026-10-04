@@ -95,6 +95,7 @@ export function SkitReview({
   musicVolume,
   previewFont,
   brand,
+  standalone = null,
 }: {
   projectId: string;
   topic: string;
@@ -116,7 +117,11 @@ export function SkitReview({
   musicVolume?: number | null;
   previewFont?: string;
   brand?: BrandKit | null;
+  /** Standalone mode: voicing and rendering are free; the writer is the owner's own model, if any. */
+  standalone?: { writer: string | null } | null;
 }) {
+  const canAskWriter = !standalone || !!standalone.writer;
+  const writerPrice = standalone ? "your model" : `$${STICK_SCRIPT_PRICE_USD.toFixed(2)}`;
   const router = useRouter();
   const opened = useMemo(() => {
     const aligned = alignSlams(initial);
@@ -148,6 +153,7 @@ export function SkitReview({
   const [bed, setBed] = useState(musicBed ?? "");
   const [bedVolume, setBedVolume] = useState(musicVolume ?? 0.25);
   const [hooks, setHooks] = useState<string[] | null>(null);
+  const [copied, setCopied] = useState(false);
   const [busy, startBusy] = useTransition();
   const [approving, startApprove] = useTransition();
 
@@ -353,6 +359,23 @@ export function SkitReview({
           <button type="button" disabled={undoCount === 0} onClick={undoLocal} className="h-8 shrink-0 rounded-lg px-2 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30">
             Undo
           </button>
+          <button
+            type="button"
+            disabled={!beats.some((b) => b.line?.trim())}
+            title="Copy every spoken line, with who says it"
+            onClick={() => {
+              void navigator.clipboard.writeText(dialogText(beats, scenes, cast)).then(
+                () => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                },
+                () => setError("Couldn’t copy. Your browser blocked the clipboard."),
+              );
+            }}
+            className="h-8 shrink-0 rounded-lg px-2 text-[13px] text-fg-2 hover:bg-hover disabled:opacity-30"
+          >
+            {copied ? "Copied" : "Copy script"}
+          </button>
           {scenes.length <= 1 && setOptions.length > 1 && (
             <SetPicker
               value={typeof (skit as { set?: unknown }).set === "string" ? (skit as { set: string }).set : ""}
@@ -377,16 +400,18 @@ export function SkitReview({
               ))}
             </select>
           ))}
-          <button
-            type="button"
-            disabled={busy}
-            title="Ask the writer to adjust the lines for the current cast and set"
-            onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[13px] text-fg-2 disabled:opacity-50"
-          >
-            Adjust
-            <span className="font-mono text-[11px] text-fg-muted">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span>
-          </button>
+          {canAskWriter && (
+            <button
+              type="button"
+              disabled={busy}
+              title="Ask the writer to adjust the lines for the current cast and set"
+              onClick={() => run(() => reviseSkitAction(projectId, "Adjust the lines for the current cast and set.", sourceComment))}
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[13px] text-fg-2 disabled:opacity-50"
+            >
+              Adjust
+              <span className="font-mono text-[11px] text-fg-muted">{writerPrice}</span>
+            </button>
+          )}
         </div>
 
         {revisionNote && (
@@ -428,7 +453,7 @@ export function SkitReview({
                     cast={cast}
                     hook={beat.id === beats.find((b) => !b.silent)?.id}
                     hooks={hooks}
-                    onHooks={() => {
+                    onHooks={!canAskWriter ? undefined : () => {
                       if (!beat.line) return;
                       if (!window.confirm("Try other hooks · up to $0.01?")) return;
                       startBusy(async () => {
@@ -464,6 +489,7 @@ export function SkitReview({
             </button>
           </div>
 
+          {canAskWriter && (
           <div className="mx-auto mt-8 flex w-full max-w-[760px] flex-col gap-2.5 border-t border-rule pt-6 pb-8">
             <label htmlFor="skit-note" className="text-[13px] font-medium text-fg-2">
               Ask for a change
@@ -478,7 +504,7 @@ export function SkitReview({
             />
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-fg-muted">
-                Rewrites the joke · up to <span className="font-mono">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span> · you can undo it
+                Rewrites the joke · {standalone ? "uses your model key; we can't price it" : <>up to <span className="font-mono">${STICK_SCRIPT_PRICE_USD.toFixed(2)}</span></>} · you can undo it
               </span>
               <button
                 type="button"
@@ -498,6 +524,7 @@ export function SkitReview({
               </button>
             </div>
           </div>
+          )}
         </div>
       </main>
 
@@ -575,7 +602,7 @@ export function SkitReview({
             >
               Save bed
             </button>
-            {origin === "paste" && (
+            {origin === "paste" && canAskWriter && (
               <button
                 type="button"
                 onClick={() => {
@@ -690,14 +717,16 @@ export function SkitReview({
             className="flex h-11 items-center gap-2 rounded-[10px] bg-accent px-3.5 text-[14px] font-semibold text-accent-ink disabled:opacity-50"
           >
             {approving ? "Starting…" : "Approve"}
-            <span className="font-mono text-[12px] font-medium">~${estimate.totalUsd.toFixed(2)}</span>
+            <span className="font-mono text-[12px] font-medium">{standalone ? "Free" : `~$${estimate.totalUsd.toFixed(2)}`}</span>
           </button>
         </div>
         <p id="approve-blocked" className="px-4 pb-3 text-[11px] leading-snug text-fg-muted">
           {making
             ? "The video is being made from the skit you approved."
             : approvable
-              ? "Nothing is spent until you approve. ⌘S saves."
+              ? standalone
+                ? "Free: voiced and rendered on this computer. ⌘S saves."
+                : "Nothing is spent until you approve. ⌘S saves."
               : `Fix ${verdict.check.errors === 1 ? "the problem" : `the ${verdict.check.errors} problems`} the check found first.`}
         </p>
       </aside>
@@ -744,6 +773,25 @@ function ProducePanel({ projectId, produce, limitUsd }: { projectId: string; pro
       {state.word === "Queued" ? "Waiting to start…" : "Voicing the lines and drawing the video…"}
     </p>
   );
+}
+
+/** The skit's dialog as plain text: "Name: line", with scene headings when there are several scenes. */
+function dialogText(beats: EditableBeat[], scenes: SkitScene[], cast: { id: string; character: string; label?: string }[]): string {
+  const nameOf = (id?: string) => {
+    const member = cast.find((c) => c.id === id);
+    return member ? `${characterName(member.character)}${member.label ? ` (${member.label})` : ""}` : (id ?? "Narrator");
+  };
+  const out: string[] = [];
+  beats.forEach((beat, i) => {
+    if (scenes.length > 1 && beat.scene !== beats[i - 1]?.scene) {
+      const n = scenes.findIndex((sc) => sc.id === beat.scene);
+      const scene = scenes[n];
+      if (scene) out.push(`${out.length ? "\n" : ""}SCENE ${n + 1}${scene.set ? ` · ${setLabel(scene.set)}` : ""}`);
+    }
+    const line = beat.line?.trim();
+    if (line) out.push(`${nameOf(beat.speaker)}: ${stripEmphasis(line)}`);
+  });
+  return out.join("\n");
 }
 
 function SceneHeading({
@@ -902,7 +950,7 @@ function BeatCard({
             </button>
             <SfxChip value={beat.sfx} slam={beat.slams[0]} label={`${what}: sound`} onChange={(id) => onEdit({ sfx: id })} />
             <PropChip beat={beat} beats={beats} what={what} characterId={member?.character} facing={facingOf(member?.mark)} onEdit={onEdit} />
-            {hook && (
+            {hook && onHooks && (
               <button type="button" onClick={onHooks} className="h-7 rounded-lg px-2 text-xs text-accent-link hover:bg-hover">
                 Try other hooks · $0.01
               </button>

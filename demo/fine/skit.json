@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "meta": { "title": "Not being sarcastic", "description": "When they say they're fine. (Pipeline demo.)", "hashtags": ["stickfigure", "relatable"] },
+  "set": "office-1",
+  "cast": [
+    { "id": "milo", "character": "milo", "mark": "left", "seated": true },
+    { "id": "june", "character": "june", "mark": "right" }
+  ],
+  "overlay": { "pov": "POV: your coworker says they're fine" },
+  "beats": [
+    { "id": "b1", "speaker": "milo", "line": "Hey. You okay?", "expression": "neutral",
+      "actions": [ { "who": "milo", "do": "look", "to": "june" } ] },
+    { "id": "b2", "speaker": "june", "line": "I'm fine. Totally fine.", "expression": "deadpan",
+      "actions": [ { "who": "june", "do": "pose", "pose": "arms-crossed", "at": { "word": "fine" } },
+                   { "who": "june", "do": "symbol", "symbol": "anger", "at": { "word": "fine", "occurrence": 2 }, "durationMs": 1200 } ] },
+    { "id": "b3", "silent": true, "durationMs": 900,
+      "actions": [ { "who": "milo", "do": "expression", "expression": "cringe", "at": { "ms": 0 } },
+                   { "who": "milo", "do": "symbol", "symbol": "sweat", "at": { "ms": 60 } } ],
+      "sfx": [ { "id": "record-scratch", "at": { "ms": 0 } } ] },
+    { "id": "b4", "speaker": "milo", "line": "Right. Sure.", "expression": "sarcastic", "pauseBeforeMs": 300, "holdAfterMs": 400,
+      "actions": [ { "who": "milo", "do": "pose", "pose": "shrug", "at": { "word": "Sure" } } ],
+      "text": [ { "type": "slam", "value": "SURE.", "at": { "word": "Sure" } } ] }
+  ]
+}

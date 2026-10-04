@@ -9,12 +9,20 @@ import { describe, expect, it } from "vitest";
 
 import type { TamtreeAdapter } from "@/lib/tamtree/adapter";
 import { readStageOutput } from "@/lib/tamtree/read-output";
-import { isTerminal, type RunEventOut, type RunOut } from "@/lib/tamtree/types";
+import type { StageFlow, StageInput } from "@/lib/tamtree/stage-flows";
+import { isTerminal, type RunEventOut, type RunOut, type RunOutputOut } from "@/lib/tamtree/types";
 
 export type ContractContext = {
   adapter: () => TamtreeAdapter;
   /** Upper bound for a clip run to finish in this environment. */
   timeoutMs: number;
+  /**
+   * The run the generic tests trigger. Default: a `studio-clip` (mock, live). The local
+   * adapter runs only the stick flows, so it passes one of those.
+   */
+  sample?: { flow: StageFlow; input: () => StageInput[StageFlow]; check: (output: RunOutputOut, assets: string[]) => void };
+  /** Whether the adapter reuses an identical clip input for free (`shortvideo.reuse`). Default true. */
+  reuse?: boolean;
 };
 
 async function waitTerminal(adapter: TamtreeAdapter, runId: string, timeoutMs: number): Promise<RunOut> {
@@ -36,30 +44,39 @@ const clip = (scene: string, take = 1) => ({
 });
 
 export function adapterContract(name: string, ctx: ContractContext): void {
+  const sample = ctx.sample ?? {
+    flow: "studio-clip" as const,
+    input: () => clip(`s-${key()}`),
+    check: (output: RunOutputOut, assets: string[]) => {
+      const out = readStageOutput("studio-clip", output);
+      expect(out.duration_s).toBeGreaterThan(0);
+      expect(assets).toContain(out.asset_id);
+    },
+  };
+  const trigger = (a: TamtreeAdapter, input = sample.input(), k = key()) => a.triggerRun(sample.flow, input, { idempotencyKey: k });
+
   describe(`TamtreeAdapter contract — ${name}`, () => {
     it("runs a stage flow to completion with a contract-valid output and a cost", async () => {
       const a = ctx.adapter();
-      const { run } = await a.triggerRun("studio-clip", clip(`s-${key()}`), { idempotencyKey: key() });
+      const { run } = await trigger(a);
       expect(run.id).toBeTruthy();
       const done = await waitTerminal(a, run.id, ctx.timeoutMs);
       expect(done.status).toBe("completed");
       expect(done.total_cost_usd).toBeGreaterThanOrEqual(0);
-      const out = readStageOutput("studio-clip", await a.getRunOutput(run.id));
-      expect(out.duration_s).toBeGreaterThan(0);
       const assets = await a.listRunAssets(run.id);
-      expect(assets.map((x) => x.id)).toContain(out.asset_id);
+      sample.check(await a.getRunOutput(run.id), assets.map((x) => x.id));
     });
 
     it("replays the same run for a repeated Idempotency-Key", async () => {
       const a = ctx.adapter();
       const k = key();
-      const input = clip(`s-${key()}`);
-      const first = await a.triggerRun("studio-clip", input, { idempotencyKey: k });
-      const second = await a.triggerRun("studio-clip", input, { idempotencyKey: k });
+      const input = sample.input();
+      const first = await trigger(a, input, k);
+      const second = await trigger(a, input, k);
       expect(second.run.id).toBe(first.run.id);
     });
 
-    it("reuses an identical input for free, and a new take is a new clip", async () => {
+    it.skipIf(ctx.reuse === false)("reuses an identical input for free, and a new take is a new clip", async () => {
       const a = ctx.adapter();
       const scene = `s-${key()}`;
       const first = await a.triggerRun("studio-clip", clip(scene), { idempotencyKey: key() });
@@ -79,7 +96,7 @@ export function adapterContract(name: string, ctx: ContractContext): void {
 
     it("streams events in seq order ending in a terminal event, and lists the same events", async () => {
       const a = ctx.adapter();
-      const { run } = await a.triggerRun("studio-clip", clip(`s-${key()}`), { idempotencyKey: key() });
+      const { run } = await trigger(a);
       const streamed: RunEventOut[] = [];
       for await (const e of a.streamRunEvents(run.id)) streamed.push(e);
       expect(streamed.map((e) => e.seq)).toEqual(streamed.map((_, i) => i + 1));
@@ -93,7 +110,7 @@ export function adapterContract(name: string, ctx: ContractContext): void {
 
     it("cancels a running run, and refuses to cancel a finished one", async () => {
       const a = ctx.adapter();
-      const { run } = await a.triggerRun("studio-clip", clip(`s-${key()}`), { idempotencyKey: key() });
+      const { run } = await trigger(a);
       const accepted = await a.cancelRun(run.id);
       expect(accepted.run_id).toBe(run.id);
       const done = await waitTerminal(a, run.id, ctx.timeoutMs);

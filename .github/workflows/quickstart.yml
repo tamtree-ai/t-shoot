@@ -1,0 +1,78 @@
+# The README's standalone quickstart, from a fresh clone, on amd64 and arm64 (standalone plan §7):
+# the compose stack comes up, the seeded sample plays, and Approve on "Your first video" makes a
+# real Kokoro-voiced video. Linux only: macOS runners have no Docker. A red run blocks the release.
+name: quickstart
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [README.md, Dockerfile, "compose.standalone*.yml", "scripts/**", "src/lib/tamtree/**", "src/lib/standalone.ts", "e2e-standalone/**", ".github/**"]
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone:
+    name: docker compose (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-latest }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # Until the images are published, build them here under the names compose pulls, so the
+      # README's command still runs as written. Drop these two steps once GHCR has them.
+      - uses: actions/checkout@v4
+        with:
+          repository: tamtree-ai/stick-stage
+          path: stickstage
+      - name: Build the images compose expects
+        run: |
+          catalog=$(sed -n 's/^catalog //p' vendor/STICKSTAGE)
+          docker build -t "ghcr.io/tamtree-ai/stickstage-render:$catalog" stickstage
+          docker build -t ghcr.io/tamtree-ai/t-shoot:latest .
+          docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep ghcr.io
+      - name: README quickstart, verbatim
+        run: bash .github/scripts/quickstart.sh README.md
+      - name: Wait for the app
+        run: for i in $(seq 120); do curl -fsS http://localhost:3007/api/health && exit 0; sleep 2; done; exit 1
+      - uses: pnpm/action-setup@v4
+        with: { version: 11.17.0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:standalone
+      - if: failure()
+        run: docker compose -f compose.standalone.yml logs --tail=200
+      - name: Push (release tags only, after the quickstart passed)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          image=ghcr.io/${{ github.repository_owner }}/t-shoot
+          docker tag ghcr.io/tamtree-ai/t-shoot:latest "$image:${GITHUB_REF_NAME}-${{ matrix.arch }}"
+          docker push "$image:${GITHUB_REF_NAME}-${{ matrix.arch }}"
+
+  manifest:
+    name: multi-arch manifest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: standalone
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          image=ghcr.io/${{ github.repository_owner }}/t-shoot
+          docker buildx imagetools create -t "$image:${GITHUB_REF_NAME}" -t "$image:latest" "$image:${GITHUB_REF_NAME}-amd64" "$image:${GITHUB_REF_NAME}-arm64"

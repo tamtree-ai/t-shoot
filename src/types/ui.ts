@@ -28,7 +28,7 @@ export type ProductionTypeUi<K extends ProductionKind = ProductionKind> = {
   /** The `export` step: downloading versions. */
   ExportScreen: ComponentType<{ project: Project }>;
   /** This type's section of Settings; read-only unless the viewer is the owner. */
-  SettingsForm: ComponentType<{ defaults: TypeDefaults<K>; canEdit: boolean }>;
+  SettingsForm: ComponentType<{ defaults: TypeDefaults<K>; canEdit: boolean; standalone?: boolean }>;
 };
 
 const UI: { [K in ProductionKind]: ProductionTypeUi<K> } = {

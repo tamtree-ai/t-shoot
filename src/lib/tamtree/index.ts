@@ -4,16 +4,31 @@ import { z } from "zod";
 
 import type { TamtreeAdapter } from "./adapter";
 import { LiveTamtreeAdapter } from "./live-adapter";
+import { LocalStickAdapter } from "./local/local-adapter";
+import { StickStageClient } from "./local/stickstage";
+import { ttsFromEnv } from "./local/tts";
+import { writerConfigFromEnv, writerFromEnv } from "./local/writer";
 import { MOCK_SCENARIOS, MockTamtreeAdapter } from "./mock/mock-adapter";
 
 const Env = z.object({
-  TAMTREE_ADAPTER: z.enum(["mock", "live"]).default("mock"),
+  /** mock (dev + e2e) | live (Tamtree) | local (standalone: StickStage + Kokoro, no Tamtree). */
+  TAMTREE_ADAPTER: z.enum(["mock", "live", "local"]).default("mock"),
   TAMSHOOT_MOCK_SCENARIO: z.enum(MOCK_SCENARIOS).default("three-hearts"),
   TAMSHOOT_MOCK_SPEED: z.coerce.number().positive().default(1),
   TAMTREE_BASE_URL: z.url().optional(),
   TAMTREE_API_KEY: z.string().min(1).optional(),
   /** `stick-script=<uuid>,stick-produce=<uuid>`, as `pnpm tamtree:provision` prints it. */
   TAMTREE_FLOW_IDS: z.string().optional(),
+  /** local only: the StickStage render service and where runs and assets are kept. */
+  STICKSTAGE_URL: z.url().default("http://127.0.0.1:8787"),
+  STICKSTAGE_API_TOKEN: z.string().optional(),
+  TAMSHOOT_LOCAL_DIR: z.string().default(".local-engine"),
+  /** local only: voices and the optional writer model (read by local/tts.ts and local/writer.ts). */
+  LOCAL_TTS_BASE_URL: z.string().optional(),
+  LOCAL_LLM_BASE_URL: z.string().optional(),
+  LOCAL_LLM_MODEL: z.string().optional(),
+  LOCAL_LLM_API_KEY: z.string().optional(),
+  LOCAL_LLM_PROVIDER: z.string().optional(),
 });
 
 function parseFlowIds(raw: string | undefined): Record<string, string> | undefined {
@@ -30,7 +45,7 @@ const globalForAdapter = globalThis as unknown as { __tamtreeAdapter?: { key: st
 export function getTamtreeAdapter(): TamtreeAdapter {
   const env = Env.parse(process.env);
   if (process.env.TAMSHOOT_E2E === "1" && env.TAMTREE_ADAPTER !== "mock") {
-    throw new Error("Playwright is running with TAMSHOOT_E2E=1, which refuses a live Tamtree adapter.");
+    throw new Error(`Playwright is running with TAMSHOOT_E2E=1, which refuses the ${env.TAMTREE_ADAPTER} adapter.`);
   }
   // Next hot-reloads .env.local without a restart; rebuild when it changes, or runs stay on the
   // old adapter while the connection pill (which re-reads the env) already reports the new one.
@@ -46,6 +61,13 @@ export function getTamtreeAdapter(): TamtreeAdapter {
       apiKey: env.TAMTREE_API_KEY,
       flowIds: parseFlowIds(env.TAMTREE_FLOW_IDS),
     });
+  } else if (env.TAMTREE_ADAPTER === "local") {
+    adapter = new LocalStickAdapter({
+      dir: env.TAMSHOOT_LOCAL_DIR,
+      stickstage: stickstageClient(env),
+      tts: ttsFromEnv(),
+      writer: writerFromEnv(),
+    });
   } else {
     adapter = new MockTamtreeAdapter({ scenario: env.TAMSHOOT_MOCK_SCENARIO, speed: env.TAMSHOOT_MOCK_SPEED });
   }
@@ -53,10 +75,14 @@ export function getTamtreeAdapter(): TamtreeAdapter {
   return adapter;
 }
 
+const stickstageClient = (env: z.infer<typeof Env>) => new StickStageClient({ baseUrl: env.STICKSTAGE_URL, token: env.STICKSTAGE_API_TOKEN });
+
 export type TamtreeConnection =
   | { state: "mock"; scenario: string }
   | { state: "connected"; baseUrl: string }
-  | { state: "error"; baseUrl?: string; problem: string };
+  /** No Tamtree: StickStage renders, Kokoro (or LOCAL_TTS_BASE_URL) voices, the writer is the user's. */
+  | { state: "standalone"; stickstageUrl: string; voices: string; writer: string | null }
+  | { state: "error"; baseUrl?: string; problem: string; standalone?: boolean };
 
 const REQUIRED_FLOWS = ["stick-script", "stick-produce"] as const;
 
@@ -69,6 +95,13 @@ export async function getTamtreeConnection(): Promise<TamtreeConnection> {
   if (!parsed.success) return { state: "error", problem: `.env.local is invalid: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}.` };
   const env = parsed.data;
   if (env.TAMTREE_ADAPTER === "mock") return { state: "mock", scenario: env.TAMSHOOT_MOCK_SCENARIO };
+  if (env.TAMTREE_ADAPTER === "local") {
+    const health = await stickstageClient(env).health();
+    if (!health.ok) return { state: "error", baseUrl: env.STICKSTAGE_URL, problem: health.problem, standalone: true };
+    if (health.body.bundle === "failed") return { state: "error", baseUrl: env.STICKSTAGE_URL, problem: "StickStage is up, but its video bundle failed to build. Read its log.", standalone: true };
+    const writer = writerConfigFromEnv();
+    return { state: "standalone", stickstageUrl: env.STICKSTAGE_URL, voices: env.LOCAL_TTS_BASE_URL ? "speech endpoint" : "Kokoro", writer: writer ? writer.model : null };
+  }
   if (!env.TAMTREE_BASE_URL || !env.TAMTREE_API_KEY) {
     return { state: "error", baseUrl: env.TAMTREE_BASE_URL, problem: "TAMTREE_ADAPTER=live needs TAMTREE_BASE_URL and TAMTREE_API_KEY." };
   }

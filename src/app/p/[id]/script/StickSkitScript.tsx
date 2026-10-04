@@ -17,6 +17,7 @@ import { CatalogNotice } from "./CatalogNotice";
 import { SkitReview } from "./SkitReview";
 import { WriteSkit } from "./WriteSkit";
 import { displayTitle } from "@/lib/display-title";
+import { isStandalone, localWriterName } from "@/lib/standalone";
 
 /**
  * The `stick_skit` script step (09 §6 steps 3–4): writing the skit if the brief's run didn't,
@@ -78,9 +79,10 @@ export async function StickSkitScript({ project, changeFromComment }: { project:
           musicVolume={project.musicVolume}
           previewFont={brand ? fontFamily(brand.font) : undefined}
           brand={brand}
+          standalone={isStandalone() ? { writer: localWriterName() } : null}
         />
       ) : (
-        <WriteSkit projectId={project.id} topic={brief.topic} />
+        <WriteSkit projectId={project.id} topic={brief.topic} standalone={isStandalone() ? { writer: localWriterName() } : null} />
       )}
     </div>
   );

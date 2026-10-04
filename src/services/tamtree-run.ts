@@ -19,6 +19,8 @@ export class TamtreeRunError extends Error {
   constructor(
     message: string,
     readonly code: string,
+    /** The Tamtree run, when one was started: a timed-out run keeps going and can be fetched later. */
+    readonly runId?: string,
   ) {
     super(message);
     this.name = "TamtreeRunError";
@@ -34,6 +36,8 @@ export type StageRunResult<F extends StageFlow> = {
 
 const POLL_MS = 150;
 const TIMEOUT_MS = 30_000;
+/** Standalone mode writes with the owner's own model, often a local one: give it time. */
+const LOCAL_TIMEOUT_MS = 300_000;
 
 export async function runStageSync<F extends StageFlow>(
   flow: F,
@@ -45,9 +49,11 @@ export async function runStageSync<F extends StageFlow>(
   const { run } = await adapter.triggerRun(flow, input, { idempotencyKey, metadata: opts.metadata });
 
   let current = run;
-  const deadline = Date.now() + TIMEOUT_MS;
+  const deadline = Date.now() + (adapter.kind === "local" ? LOCAL_TIMEOUT_MS : TIMEOUT_MS);
   while (!isTerminal(current.status)) {
-    if (Date.now() > deadline) throw new TamtreeRunError(`${flow} run timed out.`, "timeout");
+    if (Date.now() > deadline) {
+      throw new TamtreeRunError(`${flow} is still running (run ${current.id}). Fetch its result once it finishes.`, "timeout", current.id);
+    }
     await sleep(POLL_MS);
     current = await adapter.getRun(current.id);
   }

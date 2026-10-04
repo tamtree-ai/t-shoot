@@ -12,6 +12,7 @@ import { productionType } from "@/types/registry";
 import type { StickSkitDefaults } from "@/types/stick-skit";
 import { PRODUCTION_KINDS, type ProductionKind } from "@/types/types";
 import { typeUi } from "@/types/ui";
+import { hasLocalWriter, isStandalone } from "@/lib/standalone";
 import { StickBriefForm } from "./StickBriefForm";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function NewProjectPage({ searchParams }: PageProps<"/projects/new">) {
   const { type, show } = await searchParams;
-  const kind = PRODUCTION_KINDS.find((k) => k === type);
+  // Standalone mode makes stick skits only (AI clips need a video model Tamtree runs): no picker.
+  const kinds = offeredKinds();
+  const kind = kinds.length === 1 ? kinds[0] : kinds.find((k) => k === type);
   if (!kind) return <TypePicker />;
 
   const member = await getCurrentMember();
@@ -46,6 +49,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
             saved={saved}
             showId={showRow?.id}
             episodeNumber={episodeNumber}
+            helpers={!isStandalone() || hasLocalWriter()}
             initial={showRow ? {
               template: (showRow.config.template as "exchange" | undefined) ?? null,
               cast: showRow.config.cast.map((c) => c.character),
@@ -62,9 +66,16 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/proje
   );
 }
 
+const offeredKinds = (): readonly ProductionKind[] => (isStandalone() ? ["stick_skit"] : PRODUCTION_KINDS);
+
 const TYPE_COPY: Record<ProductionKind, { blurb: string; price: string }> = {
   ai_clips: { blurb: "Film a short. The price is shown before you start.", price: "a few dollars" },
   stick_skit: { blurb: "Voice a joke.", price: "about a cent" },
+};
+
+/** Standalone mode: voiced and rendered on this computer. */
+const STANDALONE_PRICE: Partial<Record<ProductionKind, string>> = {
+  stick_skit: "Free, on this computer",
 };
 
 async function TypePicker() {
@@ -82,7 +93,7 @@ async function TypePicker() {
             <p className="text-[13px] text-fg-muted">Pick a kind of short. You write the brief next, and nothing is spent on this page.</p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {PRODUCTION_KINDS.map((kind: ProductionKind) => (
+            {offeredKinds().map((kind: ProductionKind) => (
               <Link
                 key={kind}
                 href={`/projects/new?type=${kind}`}
@@ -102,7 +113,7 @@ async function TypePicker() {
                 <span className="flex flex-col gap-1 p-4">
                   <span className="text-[17px] font-semibold">{productionType(kind).label}</span>
                   <span className="text-[13px] leading-snug text-fg-muted">{TYPE_COPY[kind].blurb}</span>
-                  <span className="mt-1 font-mono text-[12px] text-fg-3">{TYPE_COPY[kind].price}</span>
+                  <span className="mt-1 font-mono text-[12px] text-fg-3">{(isStandalone() && STANDALONE_PRICE[kind]) || TYPE_COPY[kind].price}</span>
                 </span>
               </Link>
             ))}

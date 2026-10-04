@@ -28,7 +28,7 @@ describe("mock stick-script", () => {
     const a = fast();
     const r = await run(a, "stick-script", { mode: "draft", catalog_version: version, brief: { ...brief, scenes: 3, sets: ["office-1"] } }, "ms1");
     expect(r.status).toBe("completed");
-    const out = readStageOutput("stick-script", await a.getRunOutput(r.id));
+    const out = StickScriptOut.parse(readStageOutput("stick-script", await a.getRunOutput(r.id)));
     const scenes = (out.skit as { scenes: { set: string; beats: { line?: string }[] }[] }).scenes;
     expect(scenes.map((sc) => sc.set)).toEqual(["office-1", "cafe-1", expect.any(String)]);
     expect(new Set(scenes.map((sc) => sc.set)).size).toBe(3);
@@ -43,7 +43,7 @@ describe("mock stick-script", () => {
     const r = await run(a, "stick-script", { mode: "draft", catalog_version: version, brief }, "d1");
     expect(r.status).toBe("completed");
     expect(Number(r.total_cost_usd)).toBeGreaterThan(0);
-    const out = readStageOutput("stick-script", await a.getRunOutput(r.id));
+    const out = StickScriptOut.parse(readStageOutput("stick-script", await a.getRunOutput(r.id)));
     expect(StickScriptOut.parse(out)).toEqual(out);
     expect(out.premise).toMatchObject({ template: "exchange" });
     expect(out.skit).toMatchObject({ set: "cafe-1" }); // the first allowed set
@@ -55,9 +55,9 @@ describe("mock stick-script", () => {
 
   it("revises the punchline only and keeps every beat id", async () => {
     const a = fast();
-    const draft = readStageOutput("stick-script", await a.getRunOutput((await run(a, "stick-script", { mode: "draft", catalog_version: version, brief }, "d")).id));
+    const draft = StickScriptOut.parse(readStageOutput("stick-script", await a.getRunOutput((await run(a, "stick-script", { mode: "draft", catalog_version: version, brief }, "d")).id)));
     const r = await run(a, "stick-script", { mode: "revise", catalog_version: version, skit: draft.skit, note: "Land it harder." }, "r");
-    const out = readStageOutput("stick-script", await a.getRunOutput(r.id));
+    const out = StickScriptOut.parse(readStageOutput("stick-script", await a.getRunOutput(r.id)));
     expect(out.premise).toBeUndefined();
     expect(out.lines.map((l) => l.id)).toEqual(draft.lines.map((l) => l.id));
     expect(out.lines.at(-1)!.text).toBe("Your mom. Obviously.");
@@ -78,7 +78,7 @@ describe("mock stick-produce", () => {
 
   async function draftSkit(a: MockTamtreeAdapter) {
     const r = await run(a, "stick-script", { mode: "draft", catalog_version: version, brief }, "draft");
-    return readStageOutput("stick-script", await a.getRunOutput(r.id)).skit;
+    return StickScriptOut.parse(readStageOutput("stick-script", await a.getRunOutput(r.id))).skit;
   }
 
   it("returns four real assets and a digest; a double Approve (same key) is one run", async () => {

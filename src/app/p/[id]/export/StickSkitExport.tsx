@@ -11,6 +11,7 @@ import { stickSkit, type StickVersionPayload } from "@/types/stick-skit";
 import { StickSkitExportStudio, type ExportCut } from "./StickSkitExportStudio";
 import { listPublications } from "@/services/publish";
 import { getSkitDraft } from "@/services/skit";
+import { hasLocalWriter, isStandalone } from "@/lib/standalone";
 
 const media = (assetId: string, name: string) => `/api/media/${assetId}?name=${encodeURIComponent(name)}`;
 
@@ -56,7 +57,7 @@ export async function StickSkitExport({ project }: { project: Project }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
       <ProjectBar projectId={project.id} title={project.title} current="export" steps={stickSkit.steps} />
-      <StickSkitExportStudio projectId={project.id} title={title} cuts={cuts} posts={stored} lineCount={lineCount} brand={show?.config.brand} voiceConsent={viewer?.voiceCloneConsent ?? false} />
+      <StickSkitExportStudio projectId={project.id} title={title} cuts={cuts} posts={stored} lineCount={lineCount} brand={show?.config.brand} voiceConsent={viewer?.voiceCloneConsent ?? false} helpers={!isStandalone() || hasLocalWriter()} publish={!isStandalone()} />
     </div>
   );
 }
