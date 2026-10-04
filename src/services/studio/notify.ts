@@ -95,19 +95,30 @@ async function versionInfo(versionIds: string[]) {
 const studioLink = (i: { assetId: string; variationId: string }, versionId: string) => absoluteUrl(`/studio/assets/${i.assetId}?option=${i.variationId}&v=${versionId}`);
 const str = (v: unknown) => (typeof v === "string" ? v : "");
 
-async function unnotified(types: string[], since: number, shareId?: string): Promise<EventRow[]> {
+/** What a send function is asked to cover: a point in time (tests move it), and optionally one org or share. */
+export type SweepOpts = { now?: number; orgId?: string; shareId?: string };
+
+async function unnotified(types: string[], now: number, o: { orgId?: string; shareId?: string } = {}): Promise<EventRow[]> {
   return db
     .select()
     .from(schema.studioEvents)
-    .where(and(inArray(schema.studioEvents.type, types), isNull(schema.studioEvents.notifiedAt), gte(schema.studioEvents.createdAt, new Date(since - LOOKBACK_MS)), shareId ? eq(schema.studioEvents.shareId, shareId) : undefined))
+    .where(
+      and(
+        inArray(schema.studioEvents.type, types),
+        isNull(schema.studioEvents.notifiedAt),
+        gte(schema.studioEvents.createdAt, new Date(now - LOOKBACK_MS)),
+        o.shareId ? eq(schema.studioEvents.shareId, o.shareId) : undefined,
+        o.orgId ? eq(schema.studioEvents.orgId, o.orgId) : undefined,
+      ),
+    )
     .orderBy(schema.studioEvents.createdAt)
     .limit(2000);
 }
 
 /** Approvals and change requests, to the studio, right now. */
-export async function sendDecisionMails(opts: { shareId?: string; olderThanMs?: number; now?: number } = {}): Promise<number> {
+export async function sendDecisionMails(opts: SweepOpts & { olderThanMs?: number } = {}): Promise<number> {
   const now = opts.now ?? Date.now();
-  const events = (await unnotified(["decision.approved", "decision.changes_requested"], now, opts.shareId)).filter((e) => now - e.createdAt.getTime() >= (opts.olderThanMs ?? 0));
+  const events = (await unnotified(["decision.approved", "decision.changes_requested"], now, opts)).filter((e) => now - e.createdAt.getTime() >= (opts.olderThanMs ?? 0));
   let sent = 0;
   for (const e of await claim(events)) {
     try {
@@ -140,8 +151,9 @@ async function openRoots(versionId: string): Promise<number> {
 }
 
 /** A client's comments and replies, to the studio: one email per share. */
-export async function sendOwnerDigests(now = Date.now()): Promise<number> {
-  const events = (await unnotified(["comment.added", "comment.replied"], now)).filter((e) => e.payload.byStudio !== true && e.shareId);
+export async function sendOwnerDigests(opts: SweepOpts = {}): Promise<number> {
+  const now = opts.now ?? Date.now();
+  const events = (await unnotified(["comment.added", "comment.replied"], now, opts)).filter((e) => e.payload.byStudio !== true && e.shareId);
   let sent = 0;
   for (const [shareId, group] of groupBy(events, (e) => e.shareId!)) {
     if (!digestDue(group, QUIET.ownerDigest, now)) continue;
@@ -170,46 +182,50 @@ export async function sendOwnerDigests(now = Date.now()): Promise<number> {
 
 const liveShare = (s: typeof schema.studioShares.$inferSelect) => shareState(s) === "live";
 
-/** The studio replied in a thread: tell the reviewers who are in it, once each. */
-export async function sendReviewerReplyMails(now = Date.now()): Promise<number> {
-  const events = (await unnotified(["comment.replied"], now)).filter((e) => e.payload.byStudio === true && e.shareId);
+/**
+ * The studio replied in a thread: tell the reviewers who are in it, once each. A studio reply is
+ * written from the asset page, so the event knows its project but not a share; the reviewers (and
+ * through them their share and link) come from who wrote in the thread.
+ */
+export async function sendReviewerReplyMails(opts: SweepOpts = {}): Promise<number> {
+  const now = opts.now ?? Date.now();
+  const events = (await unnotified(["comment.replied"], now, opts)).filter((e) => e.payload.byStudio === true);
   let sent = 0;
-  for (const [shareId, group] of groupBy(events, (e) => e.shareId!)) {
+  for (const [, group] of groupBy(events, (e) => e.projectId ?? "")) {
     if (!digestDue(group, QUIET.studioReply, now, 15 * 60_000)) continue;
     const won = await claim(group);
     if (won.length === 0) continue;
     try {
-      const [share] = await db.select().from(schema.studioShares).where(eq(schema.studioShares.id, shareId)).limit(1);
-      if (!share || !liveShare(share)) continue;
-      const token = decrypt(share.tokenEnc);
-      // Who wrote in each thread the studio answered.
       const parentIds = [...new Set(won.map((e) => str(e.payload.parentId)).filter(Boolean))];
-      const thread = parentIds.length
-        ? await db
-            .select({ id: schema.studioComments.id, parentId: schema.studioComments.parentId, reviewerId: schema.studioComments.authorReviewerId })
-            .from(schema.studioComments)
-            .where(sql`${schema.studioComments.id} in (${sql.join(parentIds.map((p) => sql`${p}::uuid`), sql`, `)}) or ${schema.studioComments.parentId} in (${sql.join(parentIds.map((p) => sql`${p}::uuid`), sql`, `)})`)
-        : [];
-      const reviewers = await db.select().from(schema.studioReviewers).where(eq(schema.studioReviewers.shareId, shareId));
-      const byReviewer = new Map<string, EventRow[]>();
-      for (const e of won) {
-        const root = str(e.payload.parentId);
-        const people = new Set(thread.filter((t) => (t.id === root || t.parentId === root) && t.reviewerId).map((t) => t.reviewerId!));
-        for (const id of people) byReviewer.set(id, [...(byReviewer.get(id) ?? []), e]);
-      }
-      const brand = await mailBrand(share.orgId, token);
-      for (const [reviewerId, evs] of byReviewer) {
-        const r = reviewers.find((x) => x.id === reviewerId);
-        if (!r || !r.notify) continue;
-        const last = evs[evs.length - 1]!;
-        const mail = replyToReviewer(brand, {
+      if (parentIds.length === 0) continue;
+      const uuids = sql.join(parentIds.map((p) => sql`${p}::uuid`), sql`, `);
+      const thread = await db
+        .select({ id: schema.studioComments.id, parentId: schema.studioComments.parentId, reviewerId: schema.studioComments.authorReviewerId })
+        .from(schema.studioComments)
+        .where(sql`${schema.studioComments.id} in (${uuids}) or ${schema.studioComments.parentId} in (${uuids})`);
+      const reviewerIds = [...new Set(thread.map((t) => t.reviewerId).filter((id): id is string => !!id))];
+      if (reviewerIds.length === 0) continue;
+      const reviewers = await db.select().from(schema.studioReviewers).where(and(inArray(schema.studioReviewers.id, reviewerIds), eq(schema.studioReviewers.notify, true)));
+      const shares = reviewers.length ? await db.select().from(schema.studioShares).where(inArray(schema.studioShares.id, [...new Set(reviewers.map((r) => r.shareId))])) : [];
+      for (const r of reviewers) {
+        const share = shares.find((x) => x.id === r.shareId);
+        if (!share || !liveShare(share)) continue;
+        const mine = won.filter((e) => {
+          const root = str(e.payload.parentId);
+          return thread.some((t) => (t.id === root || t.parentId === root) && t.reviewerId === r.id);
+        });
+        if (mine.length === 0) continue;
+        const token = decrypt(share.tokenEnc);
+        const last = mine[mine.length - 1]!;
+        const unsub = absoluteUrl(`/review/unsubscribe/${unsubscribeToken(r.id)}`);
+        const mail = replyToReviewer(await mailBrand(share.orgId, token), {
           reviewerName: r.name,
-          replies: evs.map((e) => ({ where: str(e.payload.where), excerpt: str(e.payload.excerpt) })),
+          replies: mine.map((e) => ({ where: str(e.payload.where), excerpt: str(e.payload.excerpt) })),
           shareTitle: share.title,
           link: absoluteUrl(`/review/${token}?v=${str(last.payload.versionId)}&c=${str(last.payload.parentId)}`),
-          unsubscribeUrl: absoluteUrl(`/review/unsubscribe/${unsubscribeToken(r.id)}`),
+          unsubscribeUrl: unsub,
         });
-        await sendStudioMail({ to: r.email, ...mail, headers: { "List-Unsubscribe": `<${absoluteUrl(`/review/unsubscribe/${unsubscribeToken(r.id)}`)}>` } });
+        await sendStudioMail({ to: r.email, ...mail, headers: { "List-Unsubscribe": `<${unsub}>` } });
         sent++;
       }
     } catch (err) {
@@ -221,8 +237,9 @@ export async function sendReviewerReplyMails(now = Date.now()): Promise<number> 
 }
 
 /** A new version, to reviewers on shares that show the latest. Waits for the file to be processed, and for the studio to stop uploading. */
-export async function sendNewVersionMails(now = Date.now()): Promise<number> {
-  const events = await unnotified(["version.uploaded"], now);
+export async function sendNewVersionMails(opts: SweepOpts = {}): Promise<number> {
+  const now = opts.now ?? Date.now();
+  const events = await unnotified(["version.uploaded"], now, opts);
   if (events.length === 0) return 0;
   const infos = await versionInfo(events.map((e) => str(e.payload.versionId)));
   let sent = 0;
@@ -266,8 +283,8 @@ export async function sendNewVersionMails(now = Date.now()): Promise<number> {
 }
 
 /** The scheduled sweep: everything that is due. Returns how many emails went out. */
-export async function sweep(now = Date.now()): Promise<number> {
-  return (await sendDecisionMails({ olderThanMs: 60_000, now })) + (await sendOwnerDigests(now)) + (await sendReviewerReplyMails(now)) + (await sendNewVersionMails(now));
+export async function sweep(opts: SweepOpts = {}): Promise<number> {
+  return (await sendDecisionMails({ ...opts, olderThanMs: 60_000 })) + (await sendOwnerDigests(opts)) + (await sendReviewerReplyMails(opts)) + (await sendNewVersionMails(opts));
 }
 
 export type { MailContent };
