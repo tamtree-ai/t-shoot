@@ -64,6 +64,13 @@
       "when": 1790730000000,
       "tag": "0008_horizon",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791119022695,
+      "tag": "0009_studio_review",
+      "breakpoints": true
     }
   ]
 }

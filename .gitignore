@@ -51,3 +51,7 @@ next-env.d.ts
 
 # standalone mode: local runs and assets (TAMSHOOT_LOCAL_DIR)
 /.local-engine/
+
+# Studio Review: uploaded files (STUDIO_DATA_DIR) and the e2e sign-in state
+/.studio-data/
+/e2e/.auth/

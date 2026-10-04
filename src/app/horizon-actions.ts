@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { studioEnv } from "@/lib/studio/env";
 import { getCurrentMember, canSpend } from "@/lib/auth";
 import { clampMusicVolume } from "@/lib/music";
 import { LANGUAGES, type LanguageId } from "@/lib/languages";
@@ -23,7 +24,10 @@ import { editBeat } from "@/types/stick-skit/draft";
 import type { Skit } from "@/lib/tamtree/stage-flows";
 import { getSkitDraft } from "@/services/skit";
 
+/** APP_URL when set, so a forged Host header can't put its own address in a sign-in email. */
 async function origin(): Promise<string> {
+  const { appUrl } = studioEnv();
+  if (appUrl) return appUrl;
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
@@ -126,6 +130,7 @@ export async function musicAction(projectId: string, bed: string | null, volume:
 }
 
 export async function applyHookAction(projectId: string, beatId: string, line: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await getCurrentMember();
   try {
     const draft = await getSkitDraft(projectId);
     if (!draft) return { ok: false, error: "There's no script yet." };

@@ -34,6 +34,7 @@ function path(projectId: string) {
 }
 
 async function guarded(projectId: string, fn: () => Promise<void>): Promise<ActionResult> {
+  await getCurrentMember();
   try {
     await fn();
     revalidatePath(path(projectId));
@@ -117,6 +118,7 @@ export async function saveSkitBeatsAction(
   scenePlan?: ScenePlan[],
   extras?: { set?: string | null; cast?: { id: string; character: string; label?: string }[] },
 ): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
+  await getCurrentMember();
   try {
     const verdict = await saveSkitBeats(projectId, beats, scenePlan, extras);
     return { ok: true, errors: verdict.check.errors };
@@ -147,6 +149,7 @@ export async function approveSkitAction(projectId: string): Promise<ActionResult
 
 /** Repins a project written against an older catalog. Returns how many problems the re-check found. */
 export async function moveToCurrentCatalogAction(projectId: string): Promise<{ ok: true; errors: number } | { ok: false; error: string }> {
+  await getCurrentMember();
   try {
     const { errors } = await moveToCurrentCatalog(projectId);
     revalidatePath(path(projectId));

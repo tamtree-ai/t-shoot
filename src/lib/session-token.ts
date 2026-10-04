@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 
+/** The member session cookie. Here, not in auth.ts, so `proxy.ts` can read it without server-only imports. */
+export const SESSION_COOKIE = "tshoot_session";
+
 export function newToken(bytes = 32): string {
   return randomBytes(bytes).toString("base64url");
 }

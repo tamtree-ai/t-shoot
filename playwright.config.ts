@@ -21,7 +21,8 @@ export default defineConfig({
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
-  use: { baseURL: "http://localhost:3100", trace: "retain-on-failure" },
+  globalSetup: "./e2e/global-setup.ts",
+  use: { baseURL: "http://localhost:3100", trace: "retain-on-failure", storageState: "e2e/.auth/owner.json" },
   webServer: [
     {
       command: "TAMSHOOT_DIST_DIR=.next-e2e pnpm exec next dev -p 3100",

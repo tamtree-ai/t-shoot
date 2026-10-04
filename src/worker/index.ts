@@ -16,6 +16,7 @@ import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, getBoss } from "@/lib/
 import { draftAheadTick } from "@/services/show-ideas";
 import { pollPostStats } from "@/services/results";
 import { assertAuthMode } from "@/lib/standalone";
+import { assertStudioEnv } from "@/lib/studio/env";
 import { getTamtreeAdapter } from "@/lib/tamtree";
 import { applyRunResult } from "@/services/apply-result";
 import { driveRun } from "./drive-run";
@@ -23,6 +24,7 @@ import { dbRunStore } from "./db-run-store";
 
 async function main() {
   assertAuthMode();
+  assertStudioEnv();
   const boss = await getBoss();
   const adapter = getTamtreeAdapter();
 

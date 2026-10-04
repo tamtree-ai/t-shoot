@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ProjectBar } from "@/components/ProjectBar";
 import { db, schema } from "@/db";
 import { aspectOfBrief, aspectOfSkit } from "@/lib/stick/frame";
+import { getCurrentMember } from "@/lib/auth";
 import { locate } from "@/lib/timeline";
 import { getProject } from "@/services/projects";
 import { projectComments } from "@/services/review";
@@ -14,6 +15,7 @@ import { ReviewOwner } from "./ReviewOwner";
 export const dynamic = "force-dynamic";
 
 export default async function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
+  await getCurrentMember();
   const { id } = await params;
   const project = await getProject(id);
   if (!project) notFound();

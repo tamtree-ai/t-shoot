@@ -25,6 +25,7 @@ export async function savePublicationAction(
   payload: unknown,
   confirm: boolean,
 ): Promise<{ ok: true; status: "draft" | "confirmed" } | { ok: false; error: string }> {
+  await getCurrentMember();
   try {
     if (!PLATFORMS.includes(platform)) return { ok: false, error: "That platform is not set up." };
     const saved = await savePublication(projectId, versionId, platform, payload, confirm);
@@ -41,6 +42,7 @@ export async function sendPublicationAction(
   versionId: string,
   platform: Platform,
 ): Promise<{ ok: true; result: string | null } | { ok: false; error: string }> {
+  await getCurrentMember();
   try {
     const saved = await sendPublication(projectId, versionId, platform);
     revalidatePath(`/p/${projectId}/export`);

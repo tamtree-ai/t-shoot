@@ -5,6 +5,8 @@
 #   docker build -t t-shoot .
 FROM node:22-bookworm-slim
 
+# ffmpeg/ffprobe: Studio Review's worker makes video proxies, posters and watermarks with them.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@11.17.0 && mkdir -p /data && chown node:node /data
 WORKDIR /app
 RUN chown node:node /app
@@ -29,6 +31,7 @@ ENV NODE_ENV=production \
     TAMTREE_ADAPTER=local \
     TAMSHOOT_AUTH=local \
     TAMSHOOT_LOCAL_DIR=/data/local \
+    STUDIO_DATA_DIR=/data/studio \
     STICKSTAGE_URL=http://stickstage:8787 \
     PORT=3000
 VOLUME /data

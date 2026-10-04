@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { notFound, redirect } from "next/navigation";
 
 import { db, schema } from "@/db";
+import { getCurrentMember } from "@/lib/auth";
 import { locate } from "@/lib/timeline";
 import { getEditModel } from "@/services/edit-model";
 import { getProject } from "@/services/projects";
@@ -11,6 +12,7 @@ import { EditWorkspace } from "./EditWorkspace";
 export const dynamic = "force-dynamic";
 
 export default async function EditPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ change?: string }> }) {
+  await getCurrentMember();
   const { id } = await params;
   const { change } = await searchParams;
   const project = await getProject(id);

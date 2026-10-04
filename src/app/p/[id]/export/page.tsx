@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { getCurrentMember } from "@/lib/auth";
 import { getProject } from "@/services/projects";
 import { projectUi } from "@/types/ui";
 
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** The `export` step: each production type draws its own (09 §2). */
 export default async function ExportPage({ params }: { params: Promise<{ id: string }> }) {
+  await getCurrentMember();
   const { id } = await params;
   const project = await getProject(id);
   if (!project) notFound();

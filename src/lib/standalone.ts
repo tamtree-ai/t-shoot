@@ -20,9 +20,12 @@ export const hasLocalWriter = (env: NodeJS.ProcessEnv = process.env): boolean =>
  */
 export const isLocalAuth = (env: NodeJS.ProcessEnv = process.env): boolean => env.TAMSHOOT_AUTH === "local" && isStandalone(env);
 
-/** Refuse to start with local sign-in anywhere but standalone mode. */
+/** Refuse to start with local sign-in anywhere but standalone mode, or anywhere review links are public. */
 export function assertAuthMode(env: NodeJS.ProcessEnv = process.env): void {
   if (env.TAMSHOOT_AUTH && env.TAMSHOOT_AUTH !== "local") throw new Error(`TAMSHOOT_AUTH=${env.TAMSHOOT_AUTH} is not a mode t-shoot knows. Remove it, or set it to local in standalone mode.`);
+  if (env.TAMSHOOT_AUTH === "local" && env.STUDIO_PUBLIC === "1") {
+    throw new Error("STUDIO_PUBLIC=1 puts review links on the internet, and TAMSHOOT_AUTH=local signs every visitor in as the owner. Remove TAMSHOOT_AUTH and sign in by email.");
+  }
   if (env.TAMSHOOT_AUTH === "local" && !isStandalone(env)) {
     throw new Error(
       `TAMSHOOT_AUTH=local signs everyone in as the owner, so t-shoot only allows it in standalone mode (TAMTREE_ADAPTER=local). This server has TAMTREE_ADAPTER=${env.TAMTREE_ADAPTER ?? "mock"}: remove TAMSHOOT_AUTH.`,
