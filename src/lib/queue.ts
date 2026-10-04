@@ -9,6 +9,7 @@ import { PgBoss } from "pg-boss";
 export const DRIVE_RUN_QUEUE = "run.drive";
 export const CANCEL_RUN_QUEUE = "run.cancel";
 export const STUDIO_PROCESS_QUEUE = "studio.process";
+export const STUDIO_NOTIFY_QUEUE = "studio.notify";
 
 const g = globalThis as unknown as { __tamshootBoss?: Promise<PgBoss> };
 
@@ -22,6 +23,7 @@ export function getBoss(): Promise<PgBoss> {
     await boss.createQueue(DRIVE_RUN_QUEUE);
     await boss.createQueue(CANCEL_RUN_QUEUE);
     await boss.createQueue(STUDIO_PROCESS_QUEUE);
+    await boss.createQueue(STUDIO_NOTIFY_QUEUE);
     return boss;
   })();
   return g.__tamshootBoss;
@@ -43,4 +45,10 @@ export async function enqueueCancel(runId: string): Promise<void> {
 export async function enqueueStudioProcess(fileId: string): Promise<void> {
   const boss = await getBoss();
   await boss.send(STUDIO_PROCESS_QUEUE, { fileId }, { singletonKey: fileId, retryLimit: 2, retryDelay: 10 });
+}
+
+/** Mails what has happened on one share right away (a decision), or, with no share, sweeps every share for digests that are due. */
+export async function enqueueStudioNotify(shareId: string | null): Promise<void> {
+  const boss = await getBoss();
+  await boss.send(STUDIO_NOTIFY_QUEUE, { shareId }, { singletonKey: shareId ?? "sweep", singletonSeconds: 5, retryLimit: 2, retryDelay: 30 });
 }

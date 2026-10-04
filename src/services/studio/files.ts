@@ -6,11 +6,13 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db, schema } from "@/db";
 import { BlobTooLarge, getBlobStore } from "@/lib/blob";
 import { enqueueStudioProcess } from "@/lib/queue";
+
+import { logEvent } from "./events";
 
 export const MAX_UPLOAD_BYTES = 2 * 1024 ** 3;
 
@@ -59,7 +61,7 @@ export async function uploadVersion(input: {
   declaredBytes?: number | null;
 }): Promise<{ fileId: string; versionId: string; number: number }> {
   const [target] = await db
-    .select({ kind: schema.studioAssets.kind })
+    .select({ kind: schema.studioAssets.kind, projectId: schema.studioProjects.id, title: schema.studioAssets.title, label: schema.studioVariations.label })
     .from(schema.studioVariations)
     .innerJoin(schema.studioAssets, eq(schema.studioAssets.id, schema.studioVariations.assetId))
     .innerJoin(schema.studioProjects, eq(schema.studioProjects.id, schema.studioAssets.projectId))
@@ -87,6 +89,7 @@ export async function uploadVersion(input: {
 
   try {
     const created = await insertVersion(input, fileId, key, put);
+    await logEvent({ orgId: input.orgId, projectId: target.projectId, actorLabel: "You", type: "version.uploaded", payload: { where: `${target.title} · ${target.label} v${created.number}`, versionId: created.id } });
     await enqueueStudioProcess(fileId);
     return { fileId, versionId: created.id, number: created.number };
   } catch (e) {
@@ -120,5 +123,21 @@ async function insertVersion(
       const code = (e as { code?: string; cause?: { code?: string } }).code ?? (e as { cause?: { code?: string } }).cause?.code;
       if (code !== "23505" || attempt >= 4) throw e;
     }
+  }
+}
+
+/** Deletes file rows (org-scoped) and every blob they point at. A row a version still points at is kept (foreign key), so call this after the versions are gone. */
+export async function removeFiles(orgId: string, fileIds: string[]): Promise<void> {
+  if (fileIds.length === 0) return;
+  const rows = await db.select().from(schema.studioFiles).where(and(eq(schema.studioFiles.orgId, orgId), inArray(schema.studioFiles.id, fileIds)));
+  const store = getBlobStore();
+  for (const f of rows) {
+    try {
+      await db.delete(schema.studioFiles).where(eq(schema.studioFiles.id, f.id));
+    } catch {
+      continue; // still in use
+    }
+    const keys = new Set([f.originalKey, f.previewKey, f.thumbKey, f.posterKey, f.wmPreviewKey].filter((k): k is string => !!k));
+    for (const k of keys) await store.delete(k);
   }
 }

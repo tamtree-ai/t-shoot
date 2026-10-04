@@ -43,6 +43,7 @@ export default async function Home() {
             <TamtreeStatus connection={connection} />
             <nav aria-label="Workspace" className="flex items-center gap-0.5 text-[13px]">
               <HeaderLink href="/guide">Guide</HeaderLink>
+              <HeaderLink href="/studio">Studio</HeaderLink>
               <HeaderLink href="/portal">Reviews{unread > 0 ? ` · ${unread}` : ""}</HeaderLink>
               <HeaderLink href="/settings">Settings</HeaderLink>
               {/* Local sign-in has one owner and no email: there is nothing to sign in or out of. */}
