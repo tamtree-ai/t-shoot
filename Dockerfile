@@ -6,7 +6,8 @@
 FROM node:22-bookworm-slim
 
 # ffmpeg/ffprobe: Studio Review's worker makes video proxies, posters and watermarks with them.
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# The fonts are for the watermark text: sharp draws SVG text with system fonts.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@11.17.0 && mkdir -p /data && chown node:node /data
 WORKDIR /app
 RUN chown node:node /app

@@ -10,6 +10,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { db, schema } from "@/db";
+import { attachment } from "@/lib/http-range";
 import { getTamtreeAdapter } from "@/lib/tamtree";
 import { stickProduceFiles } from "@/lib/tamtree/mock/stick";
 import type { StickVersionPayload } from "@/types/stick-skit";
@@ -40,17 +41,10 @@ async function mockStickAsset(assetId: string): Promise<Bytes | null> {
   return null;
 }
 
-/**
- * `content-disposition` for a download. Headers are Latin-1, and a title can hold anything
- * (curly quotes, emoji), so the name goes as RFC 5987 UTF-8 with an ASCII fallback.
- */
-export function attachment(name: string): string {
-  const ascii = name.normalize("NFKD").replace(/[^\x20-\x7e]/g, "").replace(/["\\]/g, "").trim() || "download";
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
-}
+export { attachment };
 
-/** `bytes=START-[END]` → the range, or null for none or one this doesn't handle. */
-function parseRange(header: string | null): { start: number; end?: number } | null {
+/** `bytes=START-[END]` → the range, or null for none or one this doesn't handle. The adapter doesn't tell us the size up front, so this can't use `parseRange` from http-range. */
+function parseOpenRange(header: string | null): { start: number; end?: number } | null {
   const m = header?.match(/^bytes=(\d+)-(\d*)$/);
   if (!m) return null;
   return { start: Number(m[1]), ...(m[2] ? { end: Number(m[2]) } : {}) };
@@ -61,7 +55,7 @@ function parseRange(header: string | null): { start: number; end?: number } | nu
  * it plays inline. Null when there is no such asset.
  */
 export async function assetResponse(req: Request, assetId: string, download?: string): Promise<Response | null> {
-  const range = parseRange(req.headers.get("range"));
+  const range = parseOpenRange(req.headers.get("range"));
   const disposition: Record<string, string> = download ? { "content-disposition": attachment(download) } : {};
   const adapter = getTamtreeAdapter();
   try {

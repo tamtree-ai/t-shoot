@@ -9,10 +9,10 @@
  * also loses the mock's runs (they come back as "run_lost"); against live Tamtree the
  * run survives. The adapter suite in tests/worker covers the live-shaped case.
  */
-import { notInArray } from "drizzle-orm";
+import { eq, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, getBoss } from "@/lib/queue";
+import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, enqueueStudioProcess, getBoss, STUDIO_PROCESS_QUEUE } from "@/lib/queue";
 import { draftAheadTick } from "@/services/show-ideas";
 import { pollPostStats } from "@/services/results";
 import { assertAuthMode } from "@/lib/standalone";
@@ -21,6 +21,7 @@ import { getTamtreeAdapter } from "@/lib/tamtree";
 import { applyRunResult } from "@/services/apply-result";
 import { driveRun } from "./drive-run";
 import { dbRunStore } from "./db-run-store";
+import { checkFfmpeg, failStudioFile, processStudioFile } from "./studio-process";
 
 async function main() {
   assertAuthMode();
@@ -42,6 +43,19 @@ async function main() {
     await adapter.cancelRun(row.tamtreeRunId).catch(() => undefined);
   });
 
+  // One at a time: ffmpeg already uses every core.
+  await boss.work<{ fileId: string }, void, { localConcurrency: 1; includeMetadata: true }>(STUDIO_PROCESS_QUEUE, { localConcurrency: 1, includeMetadata: true }, async ([job]) => {
+    try {
+      await processStudioFile(job.data.fileId);
+    } catch (e) {
+      // pg-boss counts retries from 0; the last one gives up.
+      if (job.retryCount >= job.retryLimit) await failStudioFile(job.data.fileId);
+      throw e;
+    }
+  });
+  const noFfmpeg = await checkFfmpeg();
+  if (noFfmpeg) console.error(`[worker] WARNING: ${noFfmpeg} Images still work.`);
+
   await boss.createQueue("show.horizon");
   await boss.schedule("show.horizon", "0 * * * *");
   await boss.work("show.horizon", async () => {
@@ -55,7 +69,9 @@ async function main() {
     .from(schema.runs)
     .where(notInArray(schema.runs.status, ["completed", "failed", "cancelled"]));
   for (const { id } of unfinished) await enqueueDrive(id);
-  console.log(`[worker] up (${adapter.kind} adapter); resumed ${unfinished.length} unfinished run(s)`);
+  const pendingFiles = await db.select({ id: schema.studioFiles.id }).from(schema.studioFiles).where(eq(schema.studioFiles.processing, "pending"));
+  for (const { id } of pendingFiles) await enqueueStudioProcess(id);
+  console.log(`[worker] up (${adapter.kind} adapter); resumed ${unfinished.length} unfinished run(s), ${pendingFiles.length} file(s) to process`);
 
   const stop = async () => {
     await boss.stop({ graceful: true });

@@ -8,6 +8,7 @@ import { PgBoss } from "pg-boss";
 
 export const DRIVE_RUN_QUEUE = "run.drive";
 export const CANCEL_RUN_QUEUE = "run.cancel";
+export const STUDIO_PROCESS_QUEUE = "studio.process";
 
 const g = globalThis as unknown as { __tamshootBoss?: Promise<PgBoss> };
 
@@ -20,6 +21,7 @@ export function getBoss(): Promise<PgBoss> {
     await boss.start();
     await boss.createQueue(DRIVE_RUN_QUEUE);
     await boss.createQueue(CANCEL_RUN_QUEUE);
+    await boss.createQueue(STUDIO_PROCESS_QUEUE);
     return boss;
   })();
   return g.__tamshootBoss;
@@ -35,4 +37,10 @@ export async function enqueueDrive(runId: string): Promise<void> {
 export async function enqueueCancel(runId: string): Promise<void> {
   const boss = await getBoss();
   await boss.send(CANCEL_RUN_QUEUE, { runId }, { singletonKey: `cancel:${runId}` });
+}
+
+/** Makes the previews of one uploaded Studio Review file. Retried a few times; a file that still fails is marked failed by the worker. */
+export async function enqueueStudioProcess(fileId: string): Promise<void> {
+  const boss = await getBoss();
+  await boss.send(STUDIO_PROCESS_QUEUE, { fileId }, { singletonKey: fileId, retryLimit: 2, retryDelay: 10 });
 }
