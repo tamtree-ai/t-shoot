@@ -5,7 +5,7 @@ import { assertStudioEnv, studioEnv, studioSecret } from "./env";
 
 const env = (vars: Record<string, string>) => vars as unknown as NodeJS.ProcessEnv;
 const HEX = "a".repeat(64);
-const publicEnv = env({ NODE_ENV: "production", STUDIO_PUBLIC: "1", STUDIO_SECRET: HEX, APP_URL: "https://studio.example.com" });
+const publicEnv = env({ NODE_ENV: "production", STUDIO_PUBLIC: "1", STUDIO_SECRET: HEX, APP_URL: "https://studio.example.com", SMTP_HOST: "smtp.example.com" });
 
 describe("studioEnv", () => {
   it("has defaults when nothing is set", () => {
@@ -41,8 +41,9 @@ describe("assertStudioEnv", () => {
     expect(() => assertStudioEnv(env({}))).not.toThrow();
   });
 
-  it("allows a complete public setup", () => {
+  it("allows a complete public setup, with SMTP or with the mail webhook", () => {
     expect(() => assertStudioEnv(publicEnv)).not.toThrow();
+    expect(() => assertStudioEnv(env({ ...publicEnv, SMTP_HOST: "", MAIL_WEBHOOK_URL: "https://hooks.example.com/mail" }))).not.toThrow();
   });
 
   it.each([
@@ -51,6 +52,7 @@ describe("assertStudioEnv", () => {
     ["plain http", { APP_URL: "http://studio.example.com" }, /https/],
     ["a dev server", { NODE_ENV: "development" }, /production build/],
     ["sign-in links on the page", { TAMSHOOT_SHOW_MAGIC_LINK: "1" }, /anyone could sign in/],
+    ["no way to send mail", { SMTP_HOST: "" }, /needs mail/],
   ])("refuses public review with %s", (_label, patch, message) => {
     expect(() => assertStudioEnv(env({ ...publicEnv, ...patch }))).toThrow(message);
   });

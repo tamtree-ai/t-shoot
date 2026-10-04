@@ -54,4 +54,6 @@ export function assertStudioEnv(env: NodeJS.ProcessEnv = process.env): void {
   if (env.TAMSHOOT_SHOW_MAGIC_LINK === "1") throw new Error("STUDIO_PUBLIC=1 can't run with TAMSHOOT_SHOW_MAGIC_LINK=1: anyone could sign in as you. Remove it and set up mail.");
   if (!parsed.secret) throw new Error("STUDIO_PUBLIC=1 needs STUDIO_SECRET (openssl rand -hex 32).");
   if (!parsed.appUrl?.startsWith("https://")) throw new Error("STUDIO_PUBLIC=1 needs APP_URL set to the public https address of this server.");
+  // Without mail the owner can't sign in (the link is only emailed), and no client hears about anything.
+  if (!env.SMTP_HOST?.trim() && !env.MAIL_WEBHOOK_URL?.trim()) throw new Error("STUDIO_PUBLIC=1 needs mail: set SMTP_HOST (and SMTP_FROM), or MAIL_WEBHOOK_URL. Without it nobody can sign in.");
 }
