@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AssetSettings } from "@/components/studio/AssetForms";
 import { AutoRefresh } from "@/components/studio/AutoRefresh";
-import { bytesLabel, cardCls, Empty, Page, StatusLine, StudioHeader, Title } from "@/components/studio/kit";
+import { bytesLabel, cardCls, Empty, Page, quietBtn, StatusLine, StudioHeader, Title } from "@/components/studio/kit";
 import { Workspace } from "@/components/review/Workspace";
 import { UploadPanel } from "@/components/studio/UploadPanel";
 import { ChangeNoteEditor, DeleteVersionButton } from "@/components/studio/VersionActions";
@@ -96,7 +96,17 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
                       {bytesLabel(version.file.bytes)} · {version.file.originalName}
                     </span>
                   </div>
-                  <DeleteVersionButton versionId={version.id} number={version.number} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={`/api/studio/export?version=${version.id}`} className={quietBtn}>
+                      Export comments (CSV)
+                    </a>
+                    {version.status !== "in_review" && (
+                      <Link href={`/studio/versions/${version.id}/certificate`} className={quietBtn}>
+                        Sign-off record
+                      </Link>
+                    )}
+                    <DeleteVersionButton versionId={version.id} number={version.number} />
+                  </div>
                 </div>
                 <ChangeNoteEditor key={version.id} versionId={version.id} note={version.changeNote} />
               </>

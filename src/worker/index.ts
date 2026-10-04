@@ -12,12 +12,13 @@
 import { eq, notInArray } from "drizzle-orm";
 
 import { db, schema } from "@/db";
-import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, enqueueStudioProcess, getBoss, STUDIO_PROCESS_QUEUE } from "@/lib/queue";
+import { CANCEL_RUN_QUEUE, DRIVE_RUN_QUEUE, enqueueDrive, enqueueStudioProcess, getBoss, STUDIO_NOTIFY_QUEUE, STUDIO_PROCESS_QUEUE } from "@/lib/queue";
 import { draftAheadTick } from "@/services/show-ideas";
 import { pollPostStats } from "@/services/results";
 import { assertAuthMode } from "@/lib/standalone";
 import { assertStudioEnv } from "@/lib/studio/env";
 import { getTamtreeAdapter } from "@/lib/tamtree";
+import { sendDecisionMails, sweep } from "@/services/studio/notify";
 import { applyRunResult } from "@/services/apply-result";
 import { driveRun } from "./drive-run";
 import { dbRunStore } from "./db-run-store";
@@ -53,6 +54,12 @@ async function main() {
       throw e;
     }
   });
+  // Studio Review mail: a decision goes out at once, comments and uploads in digests, swept every minute.
+  await boss.work<{ shareId: string | null }>(STUDIO_NOTIFY_QUEUE, async ([job]) => {
+    const sent = job.data.shareId ? await sendDecisionMails({ shareId: job.data.shareId }) : await sweep();
+    if (sent > 0) console.log(`[worker] studio mail: ${sent} sent`);
+  });
+  await boss.schedule(STUDIO_NOTIFY_QUEUE, "* * * * *", { shareId: null });
   const noFfmpeg = await checkFfmpeg();
   if (noFfmpeg) console.error(`[worker] WARNING: ${noFfmpeg} Images still work.`);
 

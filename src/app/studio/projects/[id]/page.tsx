@@ -42,9 +42,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </div>
 
         <section aria-labelledby="assets" className="flex flex-col gap-4">
-          <h2 id="assets" className="text-[17px] font-semibold">
-            Assets
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="assets" className="text-[17px] font-semibold">
+              Assets
+            </h2>
+            {assets.some((a) => a.latest) && (
+              <a href={`/api/studio/export?project=${id}`} className="text-[13px] text-fg-3 hover:text-fg">
+                Export all comments (CSV)
+              </a>
+            )}
+          </div>
           {assets.length === 0 ? (
             <Empty title="No assets yet">Add a banner, poster or video, upload the first version, then share it with your client.</Empty>
           ) : (
