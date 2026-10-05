@@ -32,6 +32,7 @@ const TEMPLATE_LABELS: Record<TemplateId, string> = {
   family: "Family",
   fable: "Fable",
   trio: "Trio",
+  "myth-flip": "Myth flip",
 };
 
 function templateLabel(id: string): string {

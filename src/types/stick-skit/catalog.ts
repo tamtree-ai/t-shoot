@@ -66,6 +66,8 @@ export const DEFAULT_VOICE_MAP: Record<string, string> = {
   reed: "Leda", // widescreen
   nell: "Orus", // widescreen
   pip: "Zephyr", // widescreen; a different frame from Lila
+  vera: "Aoede", // the myth-flip host: explains
+  gus: "Charon", // the myth-flip skeptic: confident
 };
 
 /**
