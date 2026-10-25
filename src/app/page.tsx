@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { MemberMark } from "@/components/MemberMark";
+import { AccountMenu } from "@/components/AccountMenu";
 import { PageHeader } from "@/components/PageHeader";
 import { ProjectLibrary } from "@/components/ProjectLibrary";
 import { TamtreeStatus } from "@/components/TamtreeStatus";
@@ -42,23 +42,23 @@ export default async function Home() {
           <>
             <TamtreeStatus connection={connection} />
             <nav aria-label="Workspace" className="flex items-center gap-0.5 text-[13px]">
-              <HeaderLink href="/guide">Guide</HeaderLink>
               <HeaderLink href="/studio">Studio</HeaderLink>
               <HeaderLink href="/portal">Reviews{unread > 0 ? ` · ${unread}` : ""}</HeaderLink>
               <HeaderLink href="/settings">Settings</HeaderLink>
-              {/* Local sign-in has one owner and no email: there is nothing to sign in or out of. */}
-              {!isLocalAuth() && (
-                <>
-                  <HeaderLink href="/sign-in">Sign in</HeaderLink>
-                  <form action={signOutAction}>
-                    <button type="submit" className="rounded-md px-2 py-1 text-fg-3 hover:bg-hover hover:text-fg">
-                      Sign out
-                    </button>
-                  </form>
-                </>
-              )}
             </nav>
-            <MemberMark name={member.name} email={member.email} />
+            <AccountMenu
+              name={member.name}
+              email={member.email}
+              // Local sign-in has one owner and no email: there is nothing to sign in or out of.
+              showAuth={!isLocalAuth()}
+              signOut={
+                <form action={signOutAction}>
+                  <button type="submit" className="block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] text-fg-2 hover:bg-hover hover:text-fg">
+                    Sign out
+                  </button>
+                </form>
+              }
+            />
           </>
         }
       />

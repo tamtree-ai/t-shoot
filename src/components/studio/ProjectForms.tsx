@@ -6,6 +6,7 @@ import { useState } from "react";
 import { archiveProjectAction, createProjectAction, deleteProjectAction, updateProjectAction } from "@/app/studio/actions";
 
 import { ActionButton, Field, FormError, useRunner } from "./Actions";
+import { FormDialog } from "./FormDialog";
 import { cardCls, inputCls, primaryBtn, quietBtn } from "./kit";
 
 export function NewProjectForm({ clientId }: { clientId: string }) {
@@ -15,41 +16,42 @@ export function NewProjectForm({ clientId }: { clientId: string }) {
   const [name, setName] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [rounds, setRounds] = useState("2");
-  if (!open)
-    return (
+  return (
+    <>
       <button type="button" className={primaryBtn} onClick={() => setOpen(true)}>
         New project
       </button>
-    );
-  return (
-    <form
-      className={`${cardCls} flex w-full max-w-[520px] flex-col gap-3 p-4`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(() => createProjectAction(clientId, { name, dueDate, roundsIncluded: rounds }), (d) => router.push(`/studio/projects/${d.id}`));
-      }}
-    >
-      <Field label="Project name">
-        <input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring campaign 2026" />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Due date">
-          <input type="date" className={inputCls} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-        </Field>
-        <Field label="Revision rounds included" hint="From your contract">
-          <input type="number" min={0} max={20} className={inputCls} value={rounds} onChange={(e) => setRounds(e.target.value)} />
-        </Field>
-      </div>
-      <FormError message={error} />
-      <div className="flex gap-2">
-        <button type="submit" disabled={pending} className={primaryBtn}>
-          Add project
-        </button>
-        <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
-          Cancel
-        </button>
-      </div>
-    </form>
+      <FormDialog open={open} onClose={() => setOpen(false)} title="New project">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => createProjectAction(clientId, { name, dueDate, roundsIncluded: rounds }), (d) => router.push(`/studio/projects/${d.id}`));
+          }}
+        >
+          <Field label="Project name">
+            <input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring campaign 2026" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Due date">
+              <input type="date" className={inputCls} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </Field>
+            <Field label="Revision rounds included" hint="From your contract">
+              <input type="number" min={0} max={20} className={inputCls} value={rounds} onChange={(e) => setRounds(e.target.value)} />
+            </Field>
+          </div>
+          <FormError message={error} />
+          <div className="flex gap-2">
+            <button type="submit" disabled={pending} className={primaryBtn}>
+              Add project
+            </button>
+            <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </FormDialog>
+    </>
   );
 }
 
@@ -101,6 +103,6 @@ export function ProjectEditor({ project }: { project: { id: string; clientId: st
           Delete
         </ActionButton>
       </div>
-    </form>
+        </form>
   );
 }

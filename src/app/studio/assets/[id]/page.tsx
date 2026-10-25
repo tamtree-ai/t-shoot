@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { AssetSettings } from "@/components/studio/AssetForms";
 import { AutoRefresh } from "@/components/studio/AutoRefresh";
-import { bytesLabel, cardCls, Empty, Page, quietBtn, StatusLine, StudioHeader, Title } from "@/components/studio/kit";
+import { bytesLabel, Empty, Page, quietBtn, StatusLine, StudioHeader, Title } from "@/components/studio/kit";
 import { Workspace } from "@/components/review/Workspace";
 import { UploadPanel } from "@/components/studio/UploadPanel";
 import { ChangeNoteEditor, DeleteVersionButton } from "@/components/studio/VersionActions";
@@ -65,8 +65,28 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
           ))}
         </nav>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="flex min-w-0 flex-col gap-6">
           <div className="flex min-w-0 flex-col gap-6">
+            {variation.versions.length > 0 && (
+              <nav aria-label="Versions" className="flex gap-2 overflow-x-auto pb-1">
+                {variation.versions.map((v) => (
+                  <Link
+                    key={v.id}
+                    href={`/studio/assets/${id}?option=${variation.id}&v=${v.id}`}
+                    aria-current={version?.id === v.id ? "true" : undefined}
+                    className={`flex shrink-0 flex-col gap-1 rounded-[10px] border px-3.5 py-2.5 hover:bg-hover ${version?.id === v.id ? "border-accent bg-hover" : "border-rule bg-panel"}`}
+                  >
+                    <span className="flex items-center justify-between gap-4">
+                      <span className="text-[13.5px] font-medium">v{v.number}</span>
+                      <StatusLine status={v.status} />
+                    </span>
+                    <span className="num text-[11.5px] text-fg-muted">
+                      {v.openComments} open · {v.totalComments} {v.totalComments === 1 ? "comment" : "comments"}
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+            )}
             {version ? (
               <>
                 <div className="room overflow-hidden rounded-xl" style={{ minHeight: 0 }}>
@@ -97,6 +117,9 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/studio/projects/${project.id}/share?asset=${id}`} className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3.5 text-[13px] font-semibold text-accent-ink hover:brightness-110">
+                      Share with client
+                    </Link>
                     <a href={`/api/studio/export?version=${version.id}`} className={quietBtn}>
                       Export comments (CSV)
                     </a>
@@ -117,30 +140,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
             <UploadPanel assetId={id} variationId={variation.id} kind={asset.kind} nextNumber={(variation.versions[0]?.number ?? 0) + 1} />
           </div>
 
-          <aside className="flex flex-col gap-4" aria-label="Versions">
-            <h2 className="text-[15px] font-semibold">Versions</h2>
-            {variation.versions.length === 0 ? (
-              <p className="text-[13px] text-fg-muted">No versions yet.</p>
-            ) : (
-              <ul className={`${cardCls} divide-y divide-rule`}>
-                {variation.versions.map((v) => (
-                  <li key={v.id}>
-                    <Link href={`/studio/assets/${id}?option=${variation.id}&v=${v.id}`} aria-current={version?.id === v.id ? "true" : undefined} className={`flex flex-col gap-1 px-3.5 py-3 hover:bg-hover ${version?.id === v.id ? "bg-hover" : ""}`}>
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="text-[13.5px] font-medium">v{v.number}</span>
-                        <StatusLine status={v.status} />
-                      </span>
-                      <span className="truncate text-[12px] text-fg-muted">{v.changeNote || "No note"}</span>
-                      <span className="num text-[11.5px] text-fg-muted">
-                        {v.openComments} open · {v.totalComments} {v.totalComments === 1 ? "comment" : "comments"}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <AssetSettings asset={{ id, title: asset.title, projectId: project.id }} variations={variations.map((v) => ({ id: v.id, label: v.label }))} activeVariationId={variation.id} canDelete={member.role === "owner"} />
-          </aside>
+          <AssetSettings asset={{ id, title: asset.title, projectId: project.id }} variations={variations.map((v) => ({ id: v.id, label: v.label }))} activeVariationId={variation.id} canDelete={member.role === "owner"} />
         </div>
       </Page>
     </>

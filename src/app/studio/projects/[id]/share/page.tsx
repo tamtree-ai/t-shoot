@@ -7,8 +7,8 @@ import { projectOverview } from "@/services/studio/projects";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewSharePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function NewSharePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ asset?: string }> }) {
+  const [{ id }, sp] = await Promise.all([params, searchParams]);
   const member = await studioMember();
   const overview = await projectOverview(member.orgId, id);
   if (!overview) notFound();
@@ -26,7 +26,7 @@ export default async function NewSharePage({ params }: { params: Promise<{ id: s
           <ShareForm
             projectId={id}
             assets={assets.map((a) => ({ id: a.id, title: a.title, kind: a.kind, hasVersion: !!a.latest }))}
-            initial={{ title: project.name, message: "", notes: [], expiresAt: "", downloadPolicy: "after_approval", watermark: true, commentsOpen: true, versionMode: "latest", assetIds: ready.map((a) => a.id) }}
+            initial={{ title: project.name, message: "", notes: [], expiresAt: "", downloadPolicy: "after_approval", watermark: true, commentsOpen: true, versionMode: "latest", assetIds: ready.some((a) => a.id === sp.asset) ? [sp.asset!] : ready.map((a) => a.id) }}
           />
         )}
       </Page>

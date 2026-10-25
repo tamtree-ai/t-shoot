@@ -6,6 +6,7 @@ import { useState } from "react";
 import { addVariationAction, archiveAssetAction, createAssetAction, deleteAssetAction, deleteVariationAction, renameAssetAction, renameVariationAction } from "@/app/studio/actions";
 
 import { ActionButton, Field, FormError, useRunner } from "./Actions";
+import { FormDialog } from "./FormDialog";
 import { cardCls, inputCls, primaryBtn, quietBtn } from "./kit";
 
 export function NewAssetForm({ projectId }: { projectId: string }) {
@@ -14,42 +15,43 @@ export function NewAssetForm({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<"image" | "video">("image");
-  if (!open)
-    return (
+  return (
+    <>
       <button type="button" className={primaryBtn} onClick={() => setOpen(true)}>
         New asset
       </button>
-    );
-  return (
-    <form
-      className={`${cardCls} flex w-full max-w-[480px] flex-col gap-3 p-4`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(() => createAssetAction(projectId, { title, kind }), (d) => router.push(`/studio/assets/${d.id}`));
-      }}
-    >
-      <Field label="Title">
-        <input autoFocus className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Instagram banner 1080×1350" />
-      </Field>
-      <fieldset className="flex gap-4 text-[13px] text-fg-2">
-        <legend className="mb-1.5 text-[12.5px] text-fg-3">What is it?</legend>
-        {(["image", "video"] as const).map((k) => (
-          <label key={k} className="flex items-center gap-2">
-            <input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} />
-            {k === "image" ? "Image (banner, poster, logo)" : "Video"}
-          </label>
-        ))}
-      </fieldset>
-      <FormError message={error} />
-      <div className="flex gap-2">
-        <button type="submit" disabled={pending} className={primaryBtn}>
-          Add asset
-        </button>
-        <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
-          Cancel
-        </button>
-      </div>
-    </form>
+      <FormDialog open={open} onClose={() => setOpen(false)} title="New asset">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => createAssetAction(projectId, { title, kind }), (d) => router.push(`/studio/assets/${d.id}`));
+          }}
+        >
+          <Field label="Title">
+            <input autoFocus className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Instagram banner 1080×1350" />
+          </Field>
+          <fieldset className="flex gap-4 text-[13px] text-fg-2">
+            <legend className="mb-1.5 text-[12.5px] text-fg-3">What is it?</legend>
+            {(["image", "video"] as const).map((k) => (
+              <label key={k} className="flex items-center gap-2">
+                <input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} />
+                {k === "image" ? "Image (banner, poster, logo)" : "Video"}
+              </label>
+            ))}
+          </fieldset>
+          <FormError message={error} />
+          <div className="flex gap-2">
+            <button type="submit" disabled={pending} className={primaryBtn}>
+              Add asset
+            </button>
+            <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </FormDialog>
+    </>
   );
 }
 

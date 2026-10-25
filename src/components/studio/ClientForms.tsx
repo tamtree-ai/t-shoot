@@ -8,6 +8,7 @@ import { archiveClientAction, createClientAction, deleteClientAction, updateClie
 import { type Contact, contactsToText, parseContacts } from "@/lib/studio/contacts";
 
 import { ActionButton, Field, FormError, useRunner } from "./Actions";
+import { FormDialog } from "./FormDialog";
 import { cardCls, inputCls, primaryBtn, quietBtn, textareaCls } from "./kit";
 
 export function NewClientForm() {
@@ -16,36 +17,37 @@ export function NewClientForm() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
-  if (!open)
-    return (
+  return (
+    <>
       <button type="button" className={primaryBtn} onClick={() => setOpen(true)}>
         New client
       </button>
-    );
-  return (
-    <form
-      className={`${cardCls} flex w-full max-w-[460px] flex-col gap-3 p-4`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(() => createClientAction({ name, company }), (d) => router.push(`/studio/clients/${d.id}`));
-      }}
-    >
-      <Field label="Client name">
-        <input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Coffee" />
-      </Field>
-      <Field label="Company (optional)">
-        <input className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)} />
-      </Field>
-      <FormError message={error} />
-      <div className="flex gap-2">
-        <button type="submit" disabled={pending} className={primaryBtn}>
-          Add client
-        </button>
-        <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
-          Cancel
-        </button>
-      </div>
-    </form>
+      <FormDialog open={open} onClose={() => setOpen(false)} title="New client">
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(() => createClientAction({ name, company }), (d) => router.push(`/studio/clients/${d.id}`));
+          }}
+        >
+          <Field label="Client name">
+            <input autoFocus className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Coffee" />
+          </Field>
+          <Field label="Company (optional)">
+            <input className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)} />
+          </Field>
+          <FormError message={error} />
+          <div className="flex gap-2">
+            <button type="submit" disabled={pending} className={primaryBtn}>
+              Add client
+            </button>
+            <button type="button" className={quietBtn} onClick={() => setOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </FormDialog>
+    </>
   );
 }
 
@@ -91,6 +93,6 @@ export function ClientEditor({ client }: { client: { id: string; name: string; c
           Delete
         </ActionButton>
       </div>
-    </form>
+        </form>
   );
 }

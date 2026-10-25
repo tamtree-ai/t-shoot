@@ -293,7 +293,7 @@ export function Workspace(p: Props) {
   const disabledReason = !p.commentsOpen ? "Comments are paused on this review." : !ready ? "Comments open once this file has finished processing." : null;
 
   return (
-    <div className={`flex flex-col ${p.embedded ? "h-[calc(100dvh-52px)] min-h-[560px] overflow-hidden rounded-xl border border-room-line" : "h-dvh"}`}>
+    <div className={`flex flex-col ${p.embedded ? "h-[clamp(540px,76dvh,800px)] overflow-hidden rounded-xl border border-room-line" : "h-dvh"}`}>
       {!p.embedded && (
         <header className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-room-line bg-room-surface px-4 py-2.5">
           <BrandMark token={token ?? ""} name={p.brand.studioName} hasLogo={p.brand.hasLogo} />
